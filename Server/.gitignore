@@ -6,3 +6,4 @@ data/cms-store.json
 data/cms-store.json.tmp
 data/cms-store.backup*.json
 data/cms-store.json.*
+data/*.sql

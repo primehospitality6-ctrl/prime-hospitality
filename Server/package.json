@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/scripts/seedDatabase.js"
+    "seed": "node src/scripts/seedDatabase.js",
+    "seed:sql": "node src/scripts/exportSeedSql.js"
   },
   "dependencies": {
     "cloudinary": "^2.11.0",
