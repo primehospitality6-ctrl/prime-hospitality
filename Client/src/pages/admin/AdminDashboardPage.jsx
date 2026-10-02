@@ -133,10 +133,10 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      {data && !data.supabaseConfigured ? (
+      {data && !data.databaseConfigured ? (
         <div className="mt-8 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Supabase is not configured — using local JSON. Add <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> to <code>Server/.env</code>, then run{' '}
-          <code>Server/supabase/schema.sql</code> in the SQL editor.
+          No database connected — using local JSON. Set <code>DATABASE_URL</code> in <code>Server/.env</code> and restart the API; the schema is created
+          automatically.
         </div>
       ) : null}
       {data && !data.cloudinaryConfigured ? (

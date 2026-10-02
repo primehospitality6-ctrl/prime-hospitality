@@ -1,5 +1,5 @@
 /**
- * Local JSON CMS (dev fallback when Supabase env vars are missing).
+ * Local JSON CMS (dev fallback when DATABASE_URL is missing).
  * Inventory layering: destinations → compounds (properties) → units (unit types).
  */
 const fs = require('fs');
@@ -665,9 +665,15 @@ async function findBooking(id) {
   return readStore().bookings.find((b) => b.id === id || b.voucherNumber === id) || null;
 }
 
+/** Whole local store, or null when it was never created (used to fill an empty Postgres). */
+function exportStore() {
+  return fs.existsSync(STORE_PATH) ? readStore() : null;
+}
+
 module.exports = {
   STORE_PATH,
   ensureStore,
+  exportStore,
   recountUnits,
   sortBy,
   slugify,

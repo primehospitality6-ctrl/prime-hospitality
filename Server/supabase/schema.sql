@@ -1,4 +1,5 @@
--- Prime Hospitality CMS schema (run in Supabase SQL editor)
+-- Prime Hospitality CMS schema — applied automatically by the API on startup (DATABASE_URL),
+-- or manually with `npm run seed`.
 -- Inventory layering: destinations → compounds (properties) → units (unit types).
 -- Photos: Cloudinary URLs for slideshow/destinations/properties; Google Drive URLs for unit galleries.
 -- Safe to re-run: "add column if not exists" migrates older databases.
@@ -190,7 +191,7 @@ as $$ select nextval('booking_voucher_seq') $$;
 -- Guests book without accounts; the old guest-login table stored plain-text passwords.
 drop table if exists guests;
 
--- Service role bypasses RLS; still enable RLS so anon keys cannot write.
+-- The API connects as the table owner (bypasses RLS); RLS keeps Supabase's public anon key read-only.
 alter table destinations enable row level security;
 alter table compounds enable row level security;
 alter table units enable row level security;

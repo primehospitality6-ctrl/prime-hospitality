@@ -30,7 +30,7 @@ const {
   saveContent,
   getSite,
   saveSite,
-  usingSupabase,
+  usingDatabase,
 } = require('../lib/cmsStore');
 const { getAdminCredentials, signAdminToken, requireAdmin } = require('../middleware/adminAuth');
 const {
@@ -42,7 +42,6 @@ const {
   FOLDER_COMPOUNDS,
   FOLDER_SITE,
 } = require('../config/cloudinary');
-const { isSupabaseConfigured } = require('../config/supabase');
 
 const router = Router();
 
@@ -128,9 +127,9 @@ router.get(
     res.json({
       ...dash,
       cloudinaryConfigured: isCloudinaryConfigured(),
-      supabaseConfigured: isSupabaseConfigured(),
+      databaseConfigured: usingDatabase(),
       storage: {
-        database: usingSupabase() ? 'supabase' : 'json',
+        database: usingDatabase() ? 'postgres' : 'json',
         unitPhotos: 'google-drive',
         otherPhotos: 'cloudinary',
       },

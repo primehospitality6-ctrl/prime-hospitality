@@ -10,9 +10,8 @@ const contentRoutes = require('./routes/content');
 const bookingsRoutes = require('./routes/bookings');
 const inquiriesRoutes = require('./routes/inquiries');
 const adminRoutes = require('./routes/admin');
-const { ensureReady, usingSupabase } = require('./lib/cmsStore');
+const { ensureReady, usingDatabase } = require('./lib/cmsStore');
 const { isCloudinaryConfigured } = require('./config/cloudinary');
-const { isSupabaseConfigured } = require('./config/supabase');
 
 function createApp() {
   const app = express();
@@ -53,8 +52,8 @@ function createApp() {
       ok: true,
       service: 'prime-hospitality-api',
       env: process.env.NODE_ENV || 'development',
-      database: usingSupabase() ? 'supabase' : 'json',
-      supabaseConfigured: isSupabaseConfigured(),
+      database: usingDatabase() ? 'postgres' : 'json',
+      databaseConfigured: usingDatabase(),
       cloudinaryConfigured: isCloudinaryConfigured(),
       unitPhotos: 'google-drive',
       otherPhotos: 'cloudinary',

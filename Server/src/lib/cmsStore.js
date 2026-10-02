@@ -1,13 +1,13 @@
 /**
- * CMS data access — Supabase when configured, otherwise local JSON (dev fallback).
+ * CMS data access — Postgres when DATABASE_URL is set, otherwise local JSON (dev fallback).
  */
-const { isSupabaseConfigured } = require('../config/supabase');
+const { isDatabaseConfigured } = require('../config/database');
 const json = require('./jsonCms');
-const sb = require('./supabaseCms');
+const pg = require('./postgresCms');
 const { withCompleteness, isLive } = require('./unitCompleteness');
 
 function backend() {
-  return isSupabaseConfigured() ? sb : json;
+  return isDatabaseConfigured() ? pg : json;
 }
 
 const decorate = (unit) => withCompleteness(unit);
@@ -31,30 +31,44 @@ async function getDashboard(...args) {
   return dashboard;
 }
 
-function usingSupabase() {
-  return isSupabaseConfigured();
+function usingDatabase() {
+  return isDatabaseConfigured();
+}
+
+function connectionHint(err) {
+  const code = err.code || err.cause?.code;
+  if (code === 'ENOTFOUND' || code === 'ENETUNREACH' || code === 'EHOSTUNREACH') {
+    return 'Host unreachable. Supabase direct hosts (db.<ref>.supabase.co) are IPv6-only — on an IPv4 network use the Session pooler connection string from Supabase › Connect.';
+  }
+  if (code === '28P01') return 'Wrong database password in DATABASE_URL.';
+  if (code === 'ETIMEDOUT') return 'Connection timed out — check the host/port in DATABASE_URL and your firewall.';
+  return '';
 }
 
 async function ensureReady() {
-  if (isSupabaseConfigured()) {
+  if (isDatabaseConfigured()) {
     try {
-      const result = await sb.seedIfEmpty();
-      if (result.seeded) console.log('[prime] Seeded Supabase from mock data');
+      if (process.env.DATABASE_AUTO_MIGRATE !== 'false') await pg.applySchema();
+      const local = json.exportStore();
+      const result = await pg.seedIfEmpty(local);
+      if (result.seeded) {
+        console.log(`[prime] Empty database — copied ${result.source === 'local' ? 'data/cms-store.json' : 'demo inventory'} into Postgres`);
+      }
+      console.log('[prime] Using Postgres (DATABASE_URL)');
     } catch (err) {
-      console.error('[prime] Supabase seed/check failed:', err.message);
-      console.error('[prime] Run Server/supabase/schema.sql in the Supabase SQL editor first.');
+      console.error('[prime] Postgres connection/setup failed:', err.message);
+      const hint = connectionHint(err);
+      if (hint) console.error(`[prime] ${hint}`);
     }
     return;
   }
   json.ensureStore();
   json.recountUnits();
-  console.warn(
-    '[prime] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — using local JSON store. Configure Supabase for production.'
-  );
+  console.warn('[prime] DATABASE_URL not set — using local JSON store (data/cms-store.json).');
 }
 
 module.exports = {
-  usingSupabase,
+  usingDatabase,
   ensureReady,
   sortBy: (...args) => backend().sortBy(...args),
   slugify: (...args) => backend().slugify(...args),
