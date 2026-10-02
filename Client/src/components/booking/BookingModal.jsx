@@ -153,21 +153,56 @@ export default function BookingModal({
     scrollRef.current?.querySelector('[data-step-heading]')?.focus({ preventScroll: true });
   }, [step]);
 
+  // The server prices with the PMS's own rates for this exact party; local maths is the instant fallback.
+  const quoteKey = nights > 0 ? [stay.arrivalDate, stay.departureDate, stay.adults, stay.children].join('|') : '';
+  const [serverQuote, setServerQuote] = useState(null);
+  useEffect(() => {
+    if (!open || !quoteKey || !listing?.slug) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      kwentraApi
+        .quote({
+          slug: listing.slug,
+          arrivalDate: stay.arrivalDate,
+          departureDate: stay.departureDate,
+          adults: stay.adults,
+          children: stay.children,
+        })
+        .then((q) => !cancelled && setServerQuote({ key: quoteKey, plans: q?.ratePlans || [] }))
+        .catch(() => {});
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, quoteKey, listing?.slug]);
+
   const plans = config?.ratePlans || [];
   const quotes = useMemo(
     () =>
-      plans.map((plan) => ({
-        plan,
-        eligible: nights >= plan.minNights,
-        price: priceStay({
-          arrivalDate: stay.arrivalDate,
-          departureDate: stay.departureDate,
-          dailyPrices,
-          fallbackNightly: listing?.pricePerNight,
+      plans.map((plan) => {
+        const server = serverQuote?.key === quoteKey ? serverQuote.plans.find((p) => p.code === plan.code) : null;
+        return {
           plan,
-        }),
-      })),
-    [plans, nights, stay.arrivalDate, stay.departureDate, dailyPrices, listing]
+          eligible: nights >= plan.minNights,
+          price: server
+            ? {
+                nights,
+                baseTotal: server.rateAmount + (server.discount || 0),
+                rateAmount: server.rateAmount,
+                discount: server.discount || 0,
+                averageNightlyRate: server.averageNightlyRate,
+              }
+            : priceStay({
+                arrivalDate: stay.arrivalDate,
+                departureDate: stay.departureDate,
+                dailyPrices,
+                fallbackNightly: listing?.pricePerNight,
+                plan,
+              }),
+        };
+      }),
+    [plans, nights, stay.arrivalDate, stay.departureDate, dailyPrices, listing, serverQuote, quoteKey]
   );
 
   // A shorter stay can make the chosen plan ineligible (e.g. weekly) — fall back to the first eligible one.

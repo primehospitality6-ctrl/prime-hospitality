@@ -97,6 +97,7 @@ export function kwentraMessage(kw = {}) {
   if (kw.pushed) return ['success', 'Saved on the website and sent to Kwentra.'];
   if (kw.reason === 'missing_kwentraRoomTypeId') return ['success', 'Saved on the website. Add the Kwentra room type ID to send changes to the PMS.'];
   if (kw.reason === 'not_configured') return ['success', 'Saved on the website (Kwentra is not connected yet).'];
+  if (kw.reason === 'website_only') return ['success', 'Saved on the website. Kwentra keeps its own room type details.'];
   return ['error', `Saved on the website, but Kwentra did not accept the update${kw.error ? `: ${kw.error}` : ''}.`];
 }
 

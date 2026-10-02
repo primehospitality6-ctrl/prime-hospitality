@@ -65,8 +65,8 @@ async function getAvailability(req, res, next) {
           to,
           blocked: avail.blocked,
           checkout_dates: avail.checkoutDates,
-          prices: avail.prices,
-          currency: avail.currency || 'EGP',
+          prices: {},
+          currency: process.env.KWENTRA_CURRENCY || 'EGP',
         });
       }
       return res.status(404).json({ error: 'Listing not found' });
@@ -87,11 +87,13 @@ async function getAvailability(req, res, next) {
         currency: avail.currency || listing.currency || 'EGP',
       });
     } catch (err) {
-      console.warn('[kwentra] availability fallback to mock:', err.message);
-      const { blocked, checkout_dates } = buildAvailability(listing, from, to);
+      console.warn('[kwentra] availability lookup failed:', err.message);
+      // Linked units never show demo dates; the booking step re-checks Kwentra strictly
+      const linked = sync.isLinked(listing);
+      const { blocked, checkout_dates } = linked ? { blocked: [], checkout_dates: [] } : buildAvailability(listing, from, to);
       const { prices, currency } = buildPricing(listing, from, to);
       res.json({
-        source: 'mock',
+        source: linked ? 'kwentra-unreachable' : 'mock',
         id: listing.id,
         slug: listing.slug,
         from,
@@ -108,14 +110,39 @@ async function getAvailability(req, res, next) {
 }
 
 /**
- * Nightly prices + occupied nights for [arrival, departure) — Kwentra when connected, mock otherwise.
+ * Occupied nights + nightly prices for [arrival, departure) — Kwentra when the unit is linked, mock otherwise.
+ * strict: a linked unit whose Kwentra availability can't be read is not bookable (no guessing).
  */
-async function resolveStay(listing, arrivalDate, departureDate) {
+async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, children = 0, strict = false } = {}) {
   let avail = null;
-  try {
-    avail = await sync.pullAvailability(listing, { from: arrivalDate, to: departureDate });
-  } catch (err) {
-    console.warn('[booking] availability lookup failed, using mock calendar:', err.message);
+  let rates = null;
+  if (sync.isLinked(listing)) {
+    try {
+      const tenantId = await sync.tenantForUnit(listing);
+      const [availability, offered] = await Promise.all([
+        kwentra.getAvailability(listing.kwentraRoomTypeId, { from: arrivalDate, to: departureDate, tenantId }),
+        sync.roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId }).catch((err) => {
+          console.warn('[kwentra] rates lookup failed:', err.message);
+          return [];
+        }),
+      ]);
+      rates = offered;
+      const base = sync.pickRate(offered, 'FLEX');
+      avail = {
+        source: 'kwentra',
+        blocked: availability.blocked,
+        checkoutDates: availability.checkoutDates,
+        prices: base ? sync.nightsToPrices(arrivalDate, base.nights) : {},
+        currency: listing.currency || process.env.KWENTRA_CURRENCY || 'EGP',
+      };
+    } catch (err) {
+      console.warn('[booking] Kwentra availability lookup failed:', err.message);
+      if (strict) {
+        const unavailable = new Error('We could not confirm availability right now — please try again in a minute');
+        unavailable.status = 503;
+        throw unavailable;
+      }
+    }
   }
   if (!avail) {
     const { blocked, checkout_dates } = buildAvailability(listing, arrivalDate, departureDate);
@@ -132,8 +159,26 @@ async function resolveStay(listing, arrivalDate, departureDate) {
     source: avail.source,
     occupied,
     prices,
+    rates,
     currency: avail.currency || listing.currency || 'EGP',
   };
+}
+
+/**
+ * Price one website rate plan. A plan mapped to its own Kwentra rate (KWENTRA_RATE_MAP) uses that
+ * rate's nightly amounts as-is; otherwise the base nightly prices with the plan's adjustment.
+ */
+function priceForPlan(plan, stay, listing, arrivalDate, departureDate) {
+  const mappedId = sync.mappedRateId(plan.code);
+  const mapped = mappedId && stay.rates?.find((r) => r.rateId === mappedId && r.quote > 0);
+  return pms.priceStay({
+    arrivalDate,
+    departureDate,
+    nightlyPrices: mapped ? sync.nightsToPrices(arrivalDate, mapped.nights) : stay.prices,
+    fallbackNightly: listing.pricePerNight,
+    ratePlan: mapped ? { ...plan, adjustmentPct: 0 } : plan,
+    currency: stay.currency,
+  });
 }
 
 /** POST /api/kwentra/quote — price a stay for every rate plan */
@@ -150,16 +195,12 @@ async function getQuote(req, res, next) {
     if (nights < 1) {
       return res.status(400).json({ error: 'arrivalDate and departureDate are required' });
     }
-    const stay = await resolveStay(listing, arrivalDate, departureDate);
+    const stay = await resolveStay(listing, arrivalDate, departureDate, {
+      adults: Number(req.body?.adults) || 2,
+      children: Number(req.body?.children) || 0,
+    });
     const ratePlans = pms.ratePlansForStay(nights).map((plan) => {
-      const q = pms.priceStay({
-        arrivalDate,
-        departureDate,
-        nightlyPrices: stay.prices,
-        fallbackNightly: listing.pricePerNight,
-        ratePlan: plan,
-        currency: stay.currency,
-      });
+      const q = priceForPlan(plan, stay, listing, arrivalDate, departureDate);
       return { ...plan, rateAmount: q.rateAmount, averageNightlyRate: q.averageNightlyRate, discount: q.discount };
     });
     res.json({
@@ -223,7 +264,11 @@ async function bookDirect(req, res, next) {
       return res.status(422).json({ error: 'Please check the highlighted booking details', fields: errors });
     }
 
-    const stay = await resolveStay(listing, value.arrivalDate, value.departureDate);
+    const stay = await resolveStay(listing, value.arrivalDate, value.departureDate, {
+      adults: value.adults,
+      children: value.children,
+      strict: true,
+    });
     if (stay.occupied.length) {
       return res.status(409).json({
         error: 'Some of those nights were just booked — please choose other dates',
@@ -232,14 +277,7 @@ async function bookDirect(req, res, next) {
       });
     }
 
-    const quote = pms.priceStay({
-      arrivalDate: value.arrivalDate,
-      departureDate: value.departureDate,
-      nightlyPrices: stay.prices,
-      fallbackNightly: listing.pricePerNight,
-      ratePlan: value.ratePlan,
-      currency: stay.currency,
-    });
+    const quote = priceForPlan(value.ratePlan, stay, listing, value.arrivalDate, value.departureDate);
 
     const voucherNumber = pms.formatVoucher(await nextVoucherSerial());
     const externalRef = `prime_${randomUUID()}`;
@@ -297,40 +335,47 @@ async function bookDirect(req, res, next) {
     let kwentraReservationPush = null;
 
     if (kwentra.isConfigured()) {
+      const tenantId = await sync.tenantForUnit(listing);
       try {
-        kwentraGuest = await kwentra.sendGuestFromWebsite({
-          profileId: req.body?.profileId || null,
-          name: booking.primaryGuestName,
-          email: booking.email,
-          phone: booking.phone,
-          notes: [`Voucher: ${voucherNumber}`, `Unit: ${listing.title}`, booking.notes || '']
-            .filter(Boolean)
-            .join(' | '),
-          nationality: booking.nationality || booking.reservationCountry,
-          address: '',
-          city: listing.city || '',
-        });
+        kwentraGuest = await kwentra.sendGuestFromWebsite(
+          {
+            profileId: req.body?.profileId || null,
+            name: booking.primaryGuestName,
+            email: booking.email,
+            phone: booking.phone,
+            notes: [`Voucher: ${voucherNumber}`, `Unit: ${listing.title}`, booking.notes || '']
+              .filter(Boolean)
+              .join(' | '),
+            nationality: booking.nationality || booking.reservationCountry,
+            address: '',
+            city: listing.city || '',
+          },
+          { tenantId }
+        );
       } catch (err) {
         console.warn('[kwentra] guest profile push failed:', err.message);
         kwentraGuest = { action: 'failed', error: err.message };
       }
 
-      booking.kwentraProfileId = kwentraGuest?.profile?.id || pmsProfileId(listing, req.body?.profileId) || null;
+      const profileId = kwentraGuest?.profile?.id ?? pmsProfileId(listing, req.body?.profileId);
+      booking.kwentraProfileId = profileId != null ? String(profileId) : null;
 
-      kwentraReservationPush = await sync.pushReservation(
-        sync.buildReservationPayload({
-          booking,
-          listing: { ...listing, kwentraRoomTypeId: pmsRoomTypeId(listing) },
-          guestProfileId: booking.kwentraProfileId,
-        })
-      );
+      kwentraReservationPush = await sync.pushReservation({
+        booking,
+        listing,
+        guestProfileId: booking.kwentraProfileId,
+        ratePlan: value.ratePlan,
+        rates: stay.rates,
+      });
       if (kwentraReservationPush.pushed) {
         booking.kwentraReservationId = kwentraReservationPush.reservationId || null;
-      } else {
-        console.warn(
-          '[kwentra] reservation push failed:',
-          kwentraReservationPush.error || kwentraReservationPush.needFromKwentra
-        );
+      } else if (kwentraReservationPush.conflict) {
+        return res.status(409).json({
+          error: 'Those nights were just booked — please choose other dates',
+          fields: { arrivalDate: 'Dates unavailable' },
+        });
+      } else if (kwentraReservationPush.error) {
+        console.warn('[kwentra] reservation push failed:', kwentraReservationPush.error);
       }
     }
 
@@ -359,7 +404,7 @@ async function bookDirect(req, res, next) {
           ? {
               pushed: Boolean(kwentraReservationPush.pushed),
               reservationId: kwentraReservationPush.reservationId || null,
-              needFromKwentra: kwentraReservationPush.needFromKwentra || null,
+              reason: kwentraReservationPush.reason || null,
               error: kwentraReservationPush.error || null,
             }
           : null,
@@ -395,6 +440,7 @@ async function confirmMockPayment(req, res, next) {
     let paymentPush = null;
     if (booking.kwentraReservationId && kwentra.isConfigured()) {
       paymentPush = await sync.pushPayment({
+        booking,
         reservationId: booking.kwentraReservationId,
         amount: booking.rateAmount ?? booking.amount,
         currency: booking.rateCurrency || booking.currency || 'EGP',
@@ -408,7 +454,7 @@ async function confirmMockPayment(req, res, next) {
       ok: true,
       booking: publicBooking(booking),
       kwentraPayment: paymentPush,
-      message: 'Payment confirmed on-site. Money pushed to Kwentra when payment API is available.',
+      message: 'Payment confirmed on-site and recorded on the Kwentra reservation.',
     });
   } catch (err) {
     next(err);

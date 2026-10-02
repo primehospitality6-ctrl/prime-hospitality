@@ -1,21 +1,19 @@
 /**
- * Bidirectional Kwentra ↔ Prime sync orchestration.
+ * Kwentra ↔ Prime orchestration (paths and shapes from the Kwentra API pack — see kwentraService.js).
  *
- * PULL from Kwentra:
- *  - Destinations
- *  - Projects (properties) inside destinations  → Prime "compounds"
- *  - Units / room types (details) — photos NEVER from Kwentra (CMS Drive folder)
- *  - Availability (blocked nights from reservations)
+ * Tenants: each property can carry its own Kwentra tenant ID; units use their property's tenant,
+ * falling back to KWENTRA_TENANT_ID for single-hotel setups.
  *
- * PUSH to Kwentra:
- *  - Unit edits from CMS admin
- *  - New reservations (guest + stay) shaped like Reservation API docs
- *  - Payment amounts after on-site payment succeeds
+ * PULL (persisted into the CMS store by syncFromKwentra — page views never wait on the PMS):
+ *  - Room types → website unit types (name, description, capacity), rooms → unit numbers
+ *  - Destinations / properties only when Kwentra provides those APIs (KWENTRA_PATH_DESTINATIONS / _PROJECTS)
+ * LIVE:
+ *  - Availability (rooms/availability) and nightly prices (rate/v2/totalstay)
+ * PUSH:
+ *  - Reservations (individualreservation/v2) with a vacant room of the booked type
+ *  - Payment confirmation as a billing note (+ KWENTRA_PATH_PAYMENT when Kwentra provides one)
  *
- * CMS overlays:
- *  - Destination / project cover images (Cloudinary)
- *  - Unit galleries (Google Drive folders)
- *  - Website flags: featured, published, sort, showOnHome
+ * Photos, featured, published and ordering always stay website-only.
  */
 
 const kwentra = require('./kwentraService');
@@ -34,86 +32,53 @@ const {
 } = require('../lib/cmsStore');
 const { brandFromName } = require('../data/inventory');
 const { coordsFromMapsUrl } = require('../lib/fields');
-const { isLive, withCompleteness } = require('../lib/unitCompleteness');
+const { isLive } = require('../lib/unitCompleteness');
 
-function envPath(name, fallback = '') {
-  return String(process.env[name] || fallback).trim();
+const envPath = (name) => String(process.env[name] || '').trim();
+const envFlag = (name, fallback = false) => {
+  const v = String(process.env[name] ?? '').trim().toLowerCase();
+  return v ? v === 'true' || v === '1' || v === 'yes' : fallback;
+};
+
+const PRICE_WINDOW_NIGHTS = 92;
+
+function addDays(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
-function destinationsPath() {
-  return envPath('KWENTRA_PATH_DESTINATIONS', '/api/core/destination/v1');
+/* ——— Tenants ——— */
+
+/** Kwentra tenant for a unit: its property's tenant, else KWENTRA_TENANT_ID */
+async function tenantForUnit(listing, compounds) {
+  const list = compounds || (listing?.compoundId ? await listCmsCompounds() : []);
+  const compound = list.find((c) => c.id === listing?.compoundId);
+  return String(compound?.kwentraTenantId || '').trim() || kwentra.getTenantId();
 }
 
-function projectsPath() {
-  return envPath('KWENTRA_PATH_PROJECTS', '/api/core/property/v1');
+async function tenantForBooking(booking) {
+  if (!booking?.propertyId) return kwentra.getTenantId();
+  return tenantForUnit({ compoundId: booking.propertyId });
 }
 
-function roomTypesPath() {
-  return envPath('KWENTRA_PATH_ROOM_TYPES', '/api/inventory/roomtype/v1');
-}
-
-function roomsPath() {
-  return envPath('KWENTRA_PATH_ROOMS', '/api/inventory/room/v1');
-}
-
-function roomTypeWritePath(id) {
-  const base = envPath('KWENTRA_PATH_ROOM_TYPE', '/api/inventory/roomtype/v1/:id');
-  return base.replace(':id', encodeURIComponent(id));
-}
-
-function createReservationPath() {
-  return envPath(
-    'KWENTRA_PATH_CREATE_RESERVATION',
-    '/api/reservation/individualreservation/v2'
-  );
-}
-
-function paymentPath(reservationId) {
-  const base = envPath(
-    'KWENTRA_PATH_PAYMENT',
-    '/api/reservation/individualreservation/v2/:id/payment'
-  );
-  return base.replace(':id', encodeURIComponent(reservationId));
-}
-
-function extractList(data, ...keys) {
-  for (const key of keys) {
-    if (Array.isArray(data?.[key])) return data[key];
+/** One sync target per tenant: the properties that use it, plus the default tenant for the rest */
+function tenantTargets(compounds) {
+  const targets = new Map();
+  for (const c of compounds) {
+    const tenantId = String(c.kwentraTenantId || '').trim();
+    if (!tenantId) continue;
+    if (!targets.has(tenantId)) targets.set(tenantId, { tenantId, compounds: [], fallback: false });
+    targets.get(tenantId).compounds.push(c);
   }
-  if (Array.isArray(data?.results)) return data.results;
-  if (Array.isArray(data)) return data;
-  return [];
-}
-
-/**
- * GET every page of a Kwentra list (DRF-style `next` links), so newly added
- * records are never missed because they landed past the first page.
- */
-async function fetchAllPages(path, { query, keys = [], maxPages = 50 } = {}) {
-  const origin = new URL(kwentra.baseUrl()).origin;
-  const items = [];
-  let data = await kwentra.kwentraFetch(path, { query: { page_size: 1000, ...query } });
-  const first = data;
-  items.push(...extractList(data, ...keys));
-  for (let page = 1; page < maxPages && typeof data?.next === 'string' && data.next; page += 1) {
-    // Credentials go with every request — only follow links back to the Kwentra host
-    if (new URL(data.next, origin).origin !== origin) break;
-    data = await kwentra.kwentraFetch(data.next);
-    items.push(...extractList(data, ...keys));
+  const fallback = kwentra.getTenantId();
+  if ((fallback && !targets.has(fallback)) || !targets.size) {
+    targets.set(fallback, { tenantId: fallback, compounds: [], fallback: true });
   }
-  return { items, raw: first };
+  return [...targets.values()];
 }
 
-function normalizeDestination(raw = {}) {
-  const id = raw.id ?? raw.destination_id ?? raw.destinationId;
-  return {
-    kwentraDestinationId: id != null ? String(id) : '',
-    name: raw.name || raw.title || raw.destination || `Destination ${id}`,
-    description: raw.description || '',
-    country: raw.country?.name || raw.country || raw.country_iso || '',
-    raw,
-  };
-}
+/* ——— Normalizers ——— */
 
 const firstOf = (...values) => values.find((v) => v != null && v !== '');
 const nameOf = (v) => (v && typeof v === 'object' ? v.name || v.title || v.description || '' : v || '');
@@ -131,14 +96,27 @@ function namesList(value) {
   return undefined;
 }
 
+/** capacity is a number (rooms API) or a {id, code, description} category (roomtype API) */
+function capacityOf(value) {
+  if (value == null) return undefined;
+  if (typeof value !== 'object') return positive(value);
+  return positive(value.code) ?? positive(String(value.description || '').match(/\d+/)?.[0]);
+}
+
+function normalizeDestination(raw = {}) {
+  const id = raw.id ?? raw.destination_id ?? raw.destinationId;
+  return {
+    kwentraDestinationId: id != null ? String(id) : '',
+    name: raw.name || raw.title || raw.destination || `Destination ${id}`,
+    description: raw.description || '',
+    country: raw.country?.name || raw.country || raw.country_iso || '',
+    raw,
+  };
+}
+
 function normalizeProject(raw = {}) {
   const id = raw.id ?? raw.property_id ?? raw.project_id ?? raw.projectId;
-  const destId =
-    raw.destination_id ??
-    raw.destinationId ??
-    raw.destination?.id ??
-    raw.parent_id ??
-    null;
+  const destId = raw.destination_id ?? raw.destinationId ?? raw.destination?.id ?? raw.parent_id ?? null;
   const address = raw.address && typeof raw.address === 'object' ? raw.address : null;
   const lat = Number(firstOf(raw.latitude, raw.lat, raw.location?.latitude, address?.latitude));
   const lng = Number(firstOf(raw.longitude, raw.lng, raw.long, raw.location?.longitude, address?.longitude));
@@ -161,23 +139,22 @@ function normalizeProject(raw = {}) {
   };
 }
 
+/** Room type (GET /api/core/roomtype/): id, code, room_type, description, capacity */
 function normalizeRoomType(raw = {}) {
   const id = raw.id ?? raw.room_type_id ?? raw.roomTypeId;
   const name = raw.room_type || raw.name || raw.title || raw.description || `Room type ${id}`;
-  const projectId =
-    raw.property_id ?? raw.project_id ?? raw.property?.id ?? raw.projectId ?? null;
   const rooms = Array.isArray(raw.rooms) ? raw.rooms : null;
   const unitNumbers = rooms
     ? rooms.map((r) => String(r?.room_number ?? r?.number ?? r?.name ?? r ?? '').trim()).filter(Boolean)
     : namesList(raw.room_numbers);
   return {
     kwentraRoomTypeId: id != null ? String(id) : '',
-    kwentraProjectId: projectId != null ? String(projectId) : '',
+    code: raw.code || '',
     title: name,
     propertyType: nameOf(raw.category) || raw.property_type || undefined,
     bedrooms: positive(raw.bedrooms ?? raw.number_of_bedrooms),
     bathrooms: positive(raw.bathrooms ?? raw.number_of_bathrooms),
-    maxGuests: positive(raw.max_adults ?? raw.max_guests ?? raw.occupancy ?? raw.max_occupancy),
+    maxGuests: positive(raw.max_adults ?? raw.max_guests ?? raw.occupancy ?? raw.max_occupancy) ?? capacityOf(raw.capacity),
     areaSqm: positive(raw.area_sqm ?? raw.size ?? raw.area),
     description: raw.long_description || (raw.room_type || raw.name ? raw.description : '') || '',
     amenities: namesList(firstOf(raw.amenities, raw.features, raw.facilities)),
@@ -191,91 +168,70 @@ function normalizeRoomType(raw = {}) {
   };
 }
 
-/** Physical room → { roomTypeId, number, floor } */
+/** Room (GET /api/reservation/room/v2/): id, number, type {id, room_type} */
 function normalizeRoom(raw = {}) {
-  const typeId = raw.room_type_id ?? raw.room_type?.id ?? raw.roomTypeId ?? raw.actual_room_type?.id;
+  const type = raw.type ?? raw.room_type ?? raw.actual_room_type;
+  const typeId = type && typeof type === 'object' ? type.id : type ?? raw.room_type_id ?? raw.roomTypeId;
   return {
+    id: raw.id != null ? String(raw.id) : '',
     roomTypeId: typeId != null ? String(typeId) : '',
-    number: String(raw.room_number ?? raw.number ?? raw.name ?? '').trim(),
+    number: String(raw.number ?? raw.room_number ?? raw.name ?? '').trim(),
     floor: nameOf(firstOf(raw.floor, raw.floor_name, raw.floor_number)),
   };
 }
 
-/**
- * PULL room types / units from Kwentra (details only — no photos).
- */
-async function pullRoomTypes() {
-  if (!kwentra.isConfigured()) {
-    return { ok: false, reason: 'not_configured', items: [] };
+function groupRooms(rawRooms) {
+  const byType = new Map();
+  for (const room of rawRooms.map(normalizeRoom)) {
+    if (!room.roomTypeId || !room.number) continue;
+    if (!byType.has(room.roomTypeId)) byType.set(room.roomTypeId, { unitNumbers: [], floors: new Set() });
+    const entry = byType.get(room.roomTypeId);
+    entry.unitNumbers.push(room.number);
+    if (room.floor) entry.floors.add(String(room.floor));
   }
-  const path = roomTypesPath();
-  const raw = await pullRoomTypesRaw();
-  const items = (raw.items || []).map(normalizeRoomType).filter((u) => u.kwentraRoomTypeId);
-  return { ok: true, path, items, raw: raw.raw };
+  return byType;
 }
 
-async function pullRoomTypesRaw() {
-  const path = roomTypesPath();
+/* ——— Optional pulls (destinations / properties are not in the API pack) ——— */
+
+async function pullDestinations({ tenantId } = {}) {
+  const path = envPath('KWENTRA_PATH_DESTINATIONS');
+  if (!kwentra.isConfigured() || !path) return { ok: true, skipped: true, items: [] };
   try {
-    return await fetchAllPages(path, { keys: ['room_types', 'items', 'data'] });
+    const raw = await kwentra.listAll(path, { tenantId, keys: ['destinations', 'items', 'data'] });
+    return { ok: true, path, items: raw.map(normalizeDestination).filter((d) => d.kwentraDestinationId) };
   } catch (err) {
-    err.hint =
-      'Ask Kwentra for the Room Type / Inventory list API path and set KWENTRA_PATH_ROOM_TYPES.';
+    err.hint = 'Check KWENTRA_PATH_DESTINATIONS with Kwentra.';
     throw err;
   }
 }
 
-/**
- * PULL destinations from Kwentra.
- */
-async function pullDestinations() {
-  if (!kwentra.isConfigured()) {
-    return { ok: false, reason: 'not_configured', items: [] };
-  }
-  const path = destinationsPath();
+async function pullProjects({ tenantId } = {}) {
+  const path = envPath('KWENTRA_PATH_PROJECTS');
+  if (!kwentra.isConfigured() || !path) return { ok: true, skipped: true, items: [] };
   try {
-    const { items: rawItems, raw } = await fetchAllPages(path, { keys: ['destinations', 'items', 'data'] });
-    const items = rawItems.map(normalizeDestination).filter((d) => d.kwentraDestinationId);
-    return { ok: true, path, items, raw };
+    const raw = await kwentra.listAll(path, { tenantId, keys: ['properties', 'projects', 'items', 'data'] });
+    return { ok: true, path, items: raw.map(normalizeProject).filter((p) => p.kwentraProjectId) };
   } catch (err) {
-    err.hint = 'Ask Kwentra for Destinations list API and set KWENTRA_PATH_DESTINATIONS.';
+    err.hint = 'Check KWENTRA_PATH_PROJECTS with Kwentra.';
     throw err;
   }
 }
 
-/**
- * PULL projects (properties) — optionally filtered by destination.
- */
-async function pullProjects({ destinationId } = {}) {
-  if (!kwentra.isConfigured()) {
-    return { ok: false, reason: 'not_configured', items: [] };
-  }
-  const path = projectsPath();
-  try {
-    const query = {};
-    if (destinationId) {
-      query.destination_id = destinationId;
-      query.filter_destination_id = destinationId;
-    }
-    const { items: rawItems, raw: data } = await fetchAllPages(path, {
-      query,
-      keys: ['properties', 'projects', 'items', 'data'],
-    });
-    let items = rawItems.map(normalizeProject).filter((p) => p.kwentraProjectId);
-    if (destinationId) {
-      items = items.filter(
-        (p) => !p.kwentraDestinationId || String(p.kwentraDestinationId) === String(destinationId)
-      );
-    }
-    return { ok: true, path, items, raw: data };
-  } catch (err) {
-    err.hint =
-      'Ask Kwentra for Projects/Properties list API (nested under destinations) and set KWENTRA_PATH_PROJECTS.';
-    throw err;
-  }
+/** Live room types for one tenant (admin diagnostics) */
+async function pullRoomTypes({ tenantId } = {}) {
+  if (!kwentra.isConfigured()) return { ok: false, reason: 'not_configured', items: [] };
+  const raw = await kwentra.listRoomTypes({ tenantId });
+  return { ok: true, items: raw.map(normalizeRoomType).filter((u) => u.kwentraRoomTypeId) };
 }
 
-/** Public projection of a property — internal fields (phone, Drive links, sync snapshot) stay server-side */
+async function pullRooms({ tenantId } = {}) {
+  return { ok: true, byType: groupRooms(await kwentra.listRooms({ tenantId })) };
+}
+
+/* ——— Public read models (served from the CMS store) ——— */
+
+/** Public projection of a property — internal fields (phone, Drive links, tenant, sync snapshot) stay server-side */
 function publicProperty(c) {
   return {
     id: c.id,
@@ -300,11 +256,7 @@ function publicProperty(c) {
   };
 }
 
-/**
- * Destination → Properties tree, served from the CMS store.
- * Kwentra data reaches the store through syncFromKwentra() (admin "Sync now" + the auto-sync timer),
- * so page views never wait on the PMS.
- */
+/** Destination → Properties tree */
 async function pullDestinationsTree({ homeOnly = false } = {}) {
   const [cmsDestinations, cmsCompounds] = await Promise.all([listCmsDestinations(), listCmsCompounds()]);
   const projects = cmsCompounds.map(publicProperty);
@@ -346,9 +298,6 @@ async function pullDestinationsTree({ homeOnly = false } = {}) {
   };
 }
 
-/**
- * Projects list for /api/compounds — Kwentra projects + CMS overlays.
- */
 async function pullProjectsMerged({ homeOnly = false } = {}) {
   const tree = await pullDestinationsTree({ homeOnly: false });
   let items = tree.projects || [];
@@ -364,394 +313,327 @@ async function pullProjectsMerged({ homeOnly = false } = {}) {
   };
 }
 
-/**
- * Merge Kwentra room-type details with CMS overlays (Drive photos, featured, slug, etc.).
- * Photos ALWAYS come from CMS driveFolderUrl / images — never from Kwentra.
- */
+/** Units as stored — Kwentra details arrive through the persisted sync, photos from the admin */
 async function pullUnitsMerged({ publishedOnly = true } = {}) {
-  const cmsUnits = await listCmsUnits();
-  const byRoomType = new Map(
-    cmsUnits
-      .filter((u) => u.kwentraRoomTypeId)
-      .map((u) => [String(u.kwentraRoomTypeId), u])
-  );
-  const byId = new Map(cmsUnits.map((u) => [u.id, u]));
-
-  let kwentraItems = [];
-  let source = 'cms';
-  let pullError = null;
-
-  if (kwentra.isConfigured()) {
-    try {
-      const pulled = await pullRoomTypes();
-      kwentraItems = pulled.items || [];
-      source = 'kwentra+cms';
-    } catch (err) {
-      pullError = err.message;
-      source = 'cms';
-      console.warn('[kwentra-sync] room types pull failed — using CMS units:', err.message);
-    }
-  }
-
-  if (kwentraItems.length) {
-    const merged = kwentraItems.map((kt) => {
-      const overlay = byRoomType.get(String(kt.kwentraRoomTypeId)) || {};
-      return {
-        ...kt,
-        id: overlay.id || `kw-${kt.kwentraRoomTypeId}`,
-        slug: overlay.slug || `room-type-${kt.kwentraRoomTypeId}`,
-        // CMS / Drive only
-        images: overlay.images || [],
-        driveFolderUrl: overlay.driveFolderUrl || '',
-        featured: overlay.featured ?? false,
-        published: overlay.published !== false,
-        homeOrder: overlay.homeOrder ?? 999,
-        searchOrder: overlay.searchOrder ?? 0,
-        unitType: overlay.unitType || '',
-        brand: overlay.brand || '',
-        compoundId: overlay.compoundId || '',
-        compound: overlay.compound || '',
-        destinationId: overlay.destinationId || '',
-        destination: overlay.destination || overlay.region || '',
-        region: overlay.region || '',
-        city: overlay.city || '',
-        // Prefer Kwentra details when present
-        title: kt.title || overlay.title,
-        description: kt.description || overlay.description || '',
-        bedrooms: kt.bedrooms ?? overlay.bedrooms,
-        bathrooms: kt.bathrooms ?? overlay.bathrooms,
-        maxGuests: kt.maxGuests ?? overlay.maxGuests,
-        areaSqm: kt.areaSqm ?? overlay.areaSqm,
-        pricePerNight: kt.pricePerNight ?? overlay.pricePerNight,
-        currency: kt.currency || overlay.currency || 'EGP',
-        propertyType: kt.propertyType || overlay.propertyType || 'Apartment',
-        amenities: kt.amenities || overlay.amenities || [],
-        kwentraRoomTypeId: String(kt.kwentraRoomTypeId),
-        source: 'kwentra+cms',
-      };
-    });
-
-    let list = merged.map(withCompleteness);
-    if (publishedOnly) list = list.filter(isLive);
-
-    // Include CMS-only units (not yet mapped) so nothing disappears
-    const mappedIds = new Set(merged.map((u) => String(u.kwentraRoomTypeId)));
-    for (const u of cmsUnits) {
-      if (u.kwentraRoomTypeId && mappedIds.has(String(u.kwentraRoomTypeId))) continue;
-      if (publishedOnly && !isLive(u)) continue;
-      list.push({ ...u, source: u.kwentraRoomTypeId ? 'cms-unmapped-pull' : 'cms-only' });
-    }
-
-    return { source, items: list, pullError, total: list.length };
-  }
-
-  // No Kwentra catalog — CMS units (still attach Drive photos locally)
-  let list = cmsUnits;
+  let list = await listCmsUnits();
   if (publishedOnly) list = list.filter(isLive);
   return {
-    source,
-    items: list.map((u) => ({ ...u, source: 'cms' })),
-    pullError,
+    source: kwentra.isConfigured() ? 'kwentra+cms' : 'cms',
+    items: list.map((u) => ({ ...u, source: u.kwentraRoomTypeId ? 'kwentra+cms' : 'cms' })),
+    pullError: null,
     total: list.length,
-    needFromKwentra: !pullError
-      ? null
-      : 'Room Type list API (KWENTRA_PATH_ROOM_TYPES)',
   };
 }
 
+/* ——— Rates ——— */
+
+/** KWENTRA_RATE_MAP={"FLEX":12,"NRF":14} — website rate plan → Kwentra rate id */
+function rateMap() {
+  try {
+    const parsed = JSON.parse(process.env.KWENTRA_RATE_MAP || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    console.warn('[kwentra] KWENTRA_RATE_MAP is not valid JSON — ignoring it');
+    return {};
+  }
+}
+
+function mappedRateId(planCode) {
+  const id = rateMap()[String(planCode || '').toUpperCase()];
+  return id != null && id !== '' ? String(id) : '';
+}
+
 /**
- * PULL availability for a listing / room type.
+ * Kwentra rate a website plan is booked on: the plan's mapped rate, else the base rate —
+ * KWENTRA_DEFAULT_RATE_ID → the rate mapped to FLEX → the first rate on the website channel → cheapest.
  */
-async function pullAvailability(listingOrSlug, { from, to } = {}) {
-  const listing =
-    typeof listingOrSlug === 'object' && listingOrSlug
-      ? listingOrSlug
-      : await findUnit(listingOrSlug);
+function pickRate(rates = [], planCode) {
+  const usable = rates.filter((r) => r.quote > 0);
+  const byId = (id) => (id ? usable.find((r) => r.rateId === String(id)) : null);
+  const own = byId(mappedRateId(planCode));
+  if (own) return { ...own, mapped: true };
+  const base =
+    byId(process.env.KWENTRA_DEFAULT_RATE_ID) ||
+    byId(mappedRateId('FLEX')) ||
+    usable.find((r) => r.onChannel) ||
+    [...usable].sort((a, b) => a.quote - b.quote)[0];
+  return base ? { ...base, mapped: false } : null;
+}
+
+const nightsToPrices = (arrivalDate, nights = []) =>
+  Object.fromEntries(
+    nights
+      .map((amount, i) => [addDays(arrivalDate, i), amount])
+      .filter(([, amount]) => amount > 0)
+  );
+
+function defaultChildAges(children) {
+  const age = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE ?? 8);
+  return Array.from({ length: Math.max(0, Number(children) || 0) }, () => age);
+}
+
+/**
+ * Kwentra rates offered for this unit's room type over [arrival, departure).
+ * Returns [] when Kwentra has no rates for the period.
+ */
+async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, children = 0, tenantId } = {}) {
+  const roomTypeId = String(listing?.kwentraRoomTypeId || '');
+  if (!roomTypeId) return [];
+  const tenant = tenantId ?? (await tenantForUnit(listing));
+  const channel = await kwentra.websiteChannel(tenant);
+  const rates = await kwentra.quoteTotalStay({
+    tenantId: tenant,
+    arrivalDate,
+    departureDate,
+    adults: Math.max(1, Number(adults) || 1),
+    childrenAges: defaultChildAges(children),
+    channel: channel.id || undefined,
+  });
+  const order = (r) => {
+    const i = channel.rateIds.indexOf(r.rateId);
+    return i < 0 ? Infinity : i;
+  };
+  return rates
+    .filter((r) => r.roomTypeId === roomTypeId)
+    .map((r) => ({ ...r, onChannel: channel.rateIds.includes(r.rateId) }))
+    .sort((a, b) => order(a) - order(b));
+}
+
+/* ——— Availability ——— */
+
+const isLinked = (listing) => Boolean(kwentra.isConfigured() && listing?.kwentraRoomTypeId);
+
+/**
+ * Calendar for a unit: Kwentra availability + nightly prices when the unit is linked to a room type,
+ * the mock calendar otherwise.
+ */
+async function pullAvailability(listingOrSlug, { from, to, adults = 2, children = 0 } = {}) {
+  const listing = typeof listingOrSlug === 'object' && listingOrSlug ? listingOrSlug : await findUnit(listingOrSlug);
   if (!listing) {
     const err = new Error('Listing not found');
     err.status = 404;
     throw err;
   }
-  const roomTypeId = listing.kwentraRoomTypeId || listing.pmsRoomTypeId || null;
-  if (kwentra.isConfigured()) {
-    const avail = await kwentra.getAvailability(roomTypeId, { from, to });
+  const roomTypeId = listing.kwentraRoomTypeId || null;
+  const { resolveWindow, buildAvailability, buildPricing } = require('../lib/mockCalendar');
+  const window = resolveWindow({ from, to });
+
+  if (isLinked(listing)) {
+    const tenantId = await tenantForUnit(listing);
+    const avail = await kwentra.getAvailability(roomTypeId, { from: window.from, to: window.to, tenantId });
+    let prices = {};
+    let rate = null;
+    const priceTo = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
+    try {
+      const rates = await roomTypeRates(listing, { arrivalDate: window.from, departureDate: priceTo, adults, children, tenantId });
+      rate = pickRate(rates, 'FLEX');
+      if (rate) prices = nightsToPrices(window.from, rate.nights);
+    } catch (err) {
+      console.warn('[kwentra] rates lookup failed:', err.message);
+    }
     return {
       source: 'kwentra',
       slug: listing.slug,
       roomTypeId,
-      ...avail,
+      tenantId,
+      blocked: avail.blocked,
+      checkoutDates: avail.checkoutDates,
+      prices,
+      rate: rate ? { id: rate.rateId, code: rate.rateCode } : null,
+      currency: listing.currency || process.env.KWENTRA_CURRENCY || 'EGP',
     };
   }
-  const { resolveWindow, buildAvailability, buildPricing } = require('../lib/mockCalendar');
-  const window = resolveWindow({ from, to });
+
   const { blocked, checkout_dates } = buildAvailability(listing, window.from, window.to);
   const { prices, currency } = buildPricing(listing, window.from, window.to);
-  return {
-    source: 'mock',
-    slug: listing.slug,
-    roomTypeId,
-    blocked,
-    checkoutDates: checkout_dates,
-    prices,
-    currency,
-  };
+  return { source: 'mock', slug: listing.slug, roomTypeId, blocked, checkoutDates: checkout_dates, prices, currency };
 }
 
+/* ——— Push: unit edits (opt-in) ——— */
+
 /**
- * PUSH unit edits from CMS admin → Kwentra room type.
- * Locally we always save Drive photos / marketing fields.
+ * The website does not rename PMS room types unless KWENTRA_PUSH_UNIT_EDITS=true
+ * (then PATCH room_type + description on /api/core/roomtype/{id}/).
  */
 async function pushUnitEdit(unit) {
-  if (!kwentra.isConfigured() || !unit?.kwentraRoomTypeId) {
-    return {
-      pushed: false,
-      reason: !kwentra.isConfigured() ? 'not_configured' : 'missing_kwentraRoomTypeId',
-    };
-  }
-  const { kwentraFetch } = getFetch();
-  const path = roomTypeWritePath(unit.kwentraRoomTypeId);
-  const body = {
-    id: unit.kwentraRoomTypeId,
-    room_type: unit.title,
-    name: unit.title,
-    description: unit.description || '',
-    bedrooms: unit.bedrooms,
-    bathrooms: unit.bathrooms,
-    max_guests: unit.maxGuests,
-    area_sqm: unit.areaSqm,
-    rack_rate: unit.pricePerNight,
-    // Never send photos — Kwentra does not carry them
-  };
+  if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
+  if (!unit?.kwentraRoomTypeId) return { pushed: false, reason: 'missing_kwentraRoomTypeId' };
+  if (!envFlag('KWENTRA_PUSH_UNIT_EDITS')) return { pushed: false, reason: 'website_only' };
+  const path = kwentra.pathFor('roomType', unit.kwentraRoomTypeId);
   try {
-    const data = await kwentraFetch(path, { method: 'PUT', body });
+    const data = await kwentra.kwentraFetch(path, {
+      method: 'PATCH',
+      body: { room_type: unit.title, description: unit.description || '' },
+      tenantId: await tenantForUnit(unit),
+    });
     return { pushed: true, path, data };
   } catch (err) {
-    return {
-      pushed: false,
-      path,
-      error: err.message,
-      needFromKwentra: 'Room Type update (PUT/PATCH) API documentation',
-    };
+    return { pushed: false, path, error: err.message };
   }
 }
 
-const toKwentraTime = (hhmm, fallback) => (hhmm ? `${hhmm}:00` : fallback);
+async function saveUnitWithSync(idOrSlug, body) {
+  const saved = await updateUnit(idOrSlug, body);
+  if (!saved) return { unit: null, kwentra: { pushed: false } };
+  return { unit: saved, kwentra: await pushUnitEdit(saved) };
+}
+
+/* ——— Push: reservations ——— */
+
+const intOrUndefined = (v) => {
+  const n = Number(v);
+  return v !== '' && v != null && Number.isInteger(n) ? n : undefined;
+};
+const toKwentraTime = (hhmm, fallback) => (hhmm ? String(hhmm).slice(0, 5) : fallback);
 
 /**
- * Build reservation body shaped like Kwentra Reservation API docs from a website booking.
- * Carries every PMS data field (see lib/pms.js) — typed fields where Kwentra has them,
- * the full PMS record under `website_booking` so nothing is lost.
+ * CreateReservation body (individualreservation-v2): integer ids, one room night block for the stay.
+ * to_date is the last night (departure − 1), as in Kwentra's examples.
  */
-function buildReservationPayload({
-  booking,
-  listing,
-  guestProfileId,
-  rateId,
-  boardTypeId,
-  sourceId,
-  channelId,
-  guaranteeType,
-}) {
-  const roomTypeId = Number(listing?.kwentraRoomTypeId) || listing?.kwentraRoomTypeId;
-  const nameParts = String(booking.primaryGuestName || '').trim().split(/\s+/);
-  const first_name = nameParts[0] || 'Guest';
-  const last_name = nameParts.slice(1).join(' ') || first_name;
+function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelId, guestProfileId, discountPct = 0, hold = false }) {
   const remarks = [
-    booking.notes || '',
+    `Website booking ${booking.voucherNumber}`,
+    `${booking.ratePlanName} — ${booking.rateAmount} ${booking.rateCurrency}`,
+    `Guest: ${booking.primaryGuestName} · ${booking.email} · ${booking.phone}`,
     booking.otherGuestNames?.length ? `Other guests: ${booking.otherGuestNames.join(', ')}` : '',
-    `Rate plan: ${booking.ratePlanName}`,
+    booking.notes ? `Notes: ${booking.notes}` : '',
   ]
     .filter(Boolean)
     .join(' | ');
 
+  const childAge = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE ?? 8);
   return {
     arrival_date: booking.arrivalDate,
     departure_date: booking.departureDate,
-    nights: booking.nights,
-    check_in_time: toKwentraTime(booking.checkInTime, process.env.KWENTRA_DEFAULT_CHECKIN || '15:00:00'),
-    check_out_time: toKwentraTime(booking.checkOutTime, process.env.KWENTRA_DEFAULT_CHECKOUT || '12:00:00'),
-    voucher_no: booking.voucherNumber,
+    check_in_time: toKwentraTime(booking.checkInTime, process.env.KWENTRA_DEFAULT_CHECKIN || '15:00'),
+    check_out_time: toKwentraTime(booking.checkOutTime, process.env.KWENTRA_DEFAULT_CHECKOUT || '12:00'),
+    market: intOrUndefined(process.env.KWENTRA_MARKET_ID),
+    source: intOrUndefined(process.env.KWENTRA_SOURCE_ID),
+    channel: intOrUndefined(channelId),
+    account: intOrUndefined(process.env.KWENTRA_ACCOUNT_ID),
+    country: booking.reservationCountry || booking.nationality || undefined,
+    name: intOrUndefined(guestProfileId),
+    guarantee_type: process.env.KWENTRA_GUARANTEE_TYPE || undefined,
+    purpose_of_stay: process.env.KWENTRA_PURPOSE_OF_STAY || '1',
     remarks,
-    purpose_of_stay: '1',
     reservation_mode: 'daily',
-    hold_status: 'CONFIRMED',
-    reservation_confirmation: 'Confirmed',
-    guarantee_type: guaranteeType != null ? Number(guaranteeType) : Number(process.env.KWENTRA_GUARANTEE_TYPE || 3),
-    source: sourceId != null ? { id: Number(sourceId) } : process.env.KWENTRA_SOURCE_ID
-      ? { id: Number(process.env.KWENTRA_SOURCE_ID) }
-      : undefined,
-    channel: channelId != null ? { id: Number(channelId), name: booking.channel } : process.env.KWENTRA_CHANNEL_ID
-      ? { id: Number(process.env.KWENTRA_CHANNEL_ID), name: booking.channel }
-      : { name: booking.channel },
-    reservation_country: booking.reservationCountry,
-    nationality: booking.nationality || undefined,
-    name: guestProfileId
-      ? { id: Number(guestProfileId) || guestProfileId, first_name, last_name, name: `${first_name} ${last_name}` }
-      : {
-          first_name,
-          last_name,
-          name: `${first_name} ${last_name}`,
-          email: booking.email,
-          mobile: booking.phone,
-          nationality: booking.nationality || undefined,
-        },
+    hold_status: hold ? 'ON_HOLD' : 'CONFIRMED',
+    hold_date: hold ? addDays(new Date().toISOString().slice(0, 10), Number(process.env.KWENTRA_HOLD_DAYS || 1)) : undefined,
+    voucher_no: booking.voucherNumber,
     room_nights: [
       {
-        room_type: { id: roomTypeId, name: booking.roomType },
-        actual_room_type: { id: roomTypeId },
-        rate: rateId != null ? { id: Number(rateId), name: booking.ratePlanName } : process.env.KWENTRA_DEFAULT_RATE_ID
-          ? { id: Number(process.env.KWENTRA_DEFAULT_RATE_ID), name: booking.ratePlanName }
-          : { name: booking.ratePlanName },
-        board_type: boardTypeId != null ? { id: Number(boardTypeId) } : process.env.KWENTRA_DEFAULT_BOARD_TYPE_ID
-          ? { id: Number(process.env.KWENTRA_DEFAULT_BOARD_TYPE_ID) }
-          : undefined,
-        currency: process.env.KWENTRA_CURRENCY_ID
-          ? { id: Number(process.env.KWENTRA_CURRENCY_ID), code: booking.rateCurrency }
-          : { code: booking.rateCurrency },
-        rate_amount: booking.averageNightlyRate,
+        room_number: intOrUndefined(roomId),
+        room_type: intOrUndefined(roomTypeId),
+        actual_room_type: intOrUndefined(roomTypeId),
+        rate: intOrUndefined(rateId),
         from_date: booking.arrivalDate,
-        // Kwentra room_nights.to_date is last night (departure - 1 day) in their examples
-        to_date: checkoutMinusOne(booking.departureDate) || booking.arrivalDate,
+        to_date: addDays(booking.departureDate, -1),
         number_of_adults: booking.adults,
         number_of_children: booking.children,
+        children: Array.from({ length: booking.children || 0 }, () => ({ age: childAge, child_rate: 'child' })),
+        discount_percentage: discountPct > 0 ? discountPct : undefined,
       },
     ],
-    balance: booking.rateAmount,
-    website_booking: {
-      primary_guest_name: booking.primaryGuestName,
-      other_guests_names: booking.otherGuestNames,
-      primary_guest_nationality: booking.nationality,
-      arrival_date: booking.arrivalDate,
-      departure_date: booking.departureDate,
-      nights: booking.nights,
-      check_in_time: booking.checkInTime || null,
-      check_out_time: booking.checkOutTime || null,
-      reservation_country: booking.reservationCountry,
-      channel: booking.channel,
-      voucher_number: booking.voucherNumber,
-      adults: booking.adults,
-      children: booking.children,
-      destination: booking.destination,
-      property: booking.property,
-      room_type_booked: booking.roomType,
-      rate_plan_name: booking.ratePlanName,
-      rate_amount: booking.rateAmount,
-      rate_currency: booking.rateCurrency,
-      email: booking.email,
-      phone: booking.phone,
-      listing_slug: listing?.slug,
-    },
   };
 }
 
-function checkoutMinusOne(iso) {
-  if (!iso) return null;
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** First room of the type that is vacant for the whole stay */
+async function findVacantRoom({ tenantId, roomTypeId, arrivalDate, departureDate }) {
+  const rooms = (
+    await kwentra.listRooms({ tenantId, roomTypeId, from: arrivalDate, to: departureDate, vacantOnly: true })
+  ).map(normalizeRoom);
+  const room = rooms.find((r) => r.id && (!r.roomTypeId || r.roomTypeId === String(roomTypeId)));
+  if (!room) return null;
+  return { ...room, ref: process.env.KWENTRA_ROOM_REF === 'number' ? room.number : room.id };
 }
 
+const isConflict = (err) => err?.status === 409 || /overbook|not available|no (vacant )?room/i.test(err?.message || '');
+
 /**
- * PUSH reservation to Kwentra (blocks dates via Expected/Checked In state).
+ * Create the reservation in the unit's Kwentra tenant.
+ * conflict: true when Kwentra has no room left for those dates (the booking must not go ahead).
  */
-async function pushReservation(payload) {
-  if (!kwentra.isConfigured()) {
-    return { pushed: false, reason: 'not_configured' };
-  }
-  if (!envPath('KWENTRA_PATH_CREATE_RESERVATION') && process.env.KWENTRA_ALLOW_DEFAULT_CREATE !== 'true') {
-    // Still attempt default path if explicitly allowed; otherwise report need
-    // We try the conventional v2 collection POST — many tenants enable it even if not in the Word doc.
-  }
-  const { kwentraFetch } = getFetch();
-  const path = createReservationPath();
+async function pushReservation({ booking, listing, guestProfileId, ratePlan, rates }) {
+  if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
+  const roomTypeId = String(listing?.kwentraRoomTypeId || '');
+  if (!roomTypeId) return { pushed: false, reason: 'missing_kwentraRoomTypeId' };
+  const tenantId = await tenantForUnit(listing);
+  const path = kwentra.pathFor('reservations');
   try {
-    const data = await kwentraFetch(path, { method: 'POST', body: payload });
-    const id =
-      data?.id ||
-      data?.reservation?.id ||
-      data?.results?.reservations?.[0]?.id ||
-      null;
-    return { pushed: true, path, reservationId: id, data };
+    const room = await findVacantRoom({ tenantId, roomTypeId, arrivalDate: booking.arrivalDate, departureDate: booking.departureDate });
+    if (!room) {
+      return { pushed: false, conflict: true, path, error: 'No vacant room of this type in Kwentra for those dates' };
+    }
+    const offered =
+      rates ||
+      (await roomTypeRates(listing, {
+        arrivalDate: booking.arrivalDate,
+        departureDate: booking.departureDate,
+        adults: booking.adults,
+        children: booking.children,
+        tenantId,
+      }).catch(() => []));
+    const rate = pickRate(offered, ratePlan?.code);
+    const discountPct = rate && !rate.mapped ? -(Number(ratePlan?.adjustmentPct) || 0) : 0;
+    const payload = buildReservationPayload({
+      booking,
+      roomTypeId,
+      roomId: room.ref,
+      rateId: rate?.rateId || process.env.KWENTRA_DEFAULT_RATE_ID,
+      channelId: await kwentra.websiteChannelId(tenantId),
+      guestProfileId,
+      discountPct,
+      hold: envFlag('KWENTRA_HOLD_UNTIL_PAID'),
+    });
+    const { id } = await kwentra.createReservation(payload, { tenantId });
+    return { pushed: true, path, tenantId, reservationId: id != null ? String(id) : null, room: room.number, rateId: rate?.rateId || null };
   } catch (err) {
-    return {
-      pushed: false,
-      path,
-      error: err.message,
-      status: err.status,
-      needFromKwentra:
-        'POST create Individual Reservation API (body: arrival_date, departure_date, room_nights, name/profile, state Expected)',
-    };
+    return { pushed: false, conflict: isConflict(err), path, status: err.status, error: err.message };
   }
 }
 
 /**
- * PUSH payment / money paid to Kwentra for a reservation.
+ * After the guest pays on the website: confirm a held reservation, leave a billing note with the
+ * payment reference, and post the payment when Kwentra provides an endpoint (KWENTRA_PATH_PAYMENT).
  */
-async function pushPayment({ reservationId, amount, currency = 'EGP', merchantOrderId, provider, transactionId }) {
+async function pushPayment({ booking, reservationId, amount, currency = 'EGP', merchantOrderId, provider, transactionId }) {
   if (!kwentra.isConfigured() || !reservationId) {
     return { pushed: false, reason: !reservationId ? 'missing_reservation_id' : 'not_configured' };
   }
-  const { kwentraFetch } = getFetch();
-  const path = paymentPath(reservationId);
-  const body = {
-    amount: Number(amount),
-    currency,
-    status: 'paid',
-    payment_status: 'paid',
-    merchant_order_id: merchantOrderId,
-    provider,
-    transaction_id: transactionId,
-    method: provider || 'online',
-  };
-  try {
-    const data = await kwentraFetch(path, { method: 'POST', body });
-    return { pushed: true, path, data };
-  } catch (err) {
-    // Fallback: try posting a note on the reservation / profile if payment endpoint missing
-    return {
-      pushed: false,
-      path,
-      error: err.message,
-      needFromKwentra:
-        'Payment / folio posting API for a reservation (amount paid, currency, transaction ref)',
-    };
-  }
-}
-
-/**
- * Admin saves a unit: persist CMS overlay (Drive photos) + push details to Kwentra.
- */
-async function saveUnitWithSync(idOrSlug, body) {
-  const saved = await updateUnit(idOrSlug, body);
-  if (!saved) return { unit: null, kwentra: { pushed: false } };
-  const kw = await pushUnitEdit(saved);
-  return { unit: saved, kwentra: kw };
-}
-
-function getFetch() {
-  return { kwentraFetch: kwentra.kwentraFetch };
-}
-
-/**
- * PULL physical rooms (unit numbers + floors), grouped by room type id.
- */
-async function pullRooms() {
-  const path = roomsPath();
-  try {
-    const { items } = await fetchAllPages(path, { keys: ['rooms', 'items', 'data'] });
-    const byType = new Map();
-    for (const room of items.map(normalizeRoom)) {
-      if (!room.roomTypeId || !room.number) continue;
-      if (!byType.has(room.roomTypeId)) byType.set(room.roomTypeId, { unitNumbers: [], floors: new Set() });
-      const entry = byType.get(room.roomTypeId);
-      entry.unitNumbers.push(room.number);
-      if (room.floor) entry.floors.add(String(room.floor));
+  const tenantId = await tenantForBooking(booking);
+  const result = { pushed: false, confirmed: false, noted: false, posted: false, errors: [] };
+  const attempt = async (key, fn) => {
+    try {
+      await fn();
+      result[key] = true;
+    } catch (err) {
+      result.errors.push(`${key}: ${err.message}`);
     }
-    return { ok: true, path, byType };
-  } catch (err) {
-    err.hint = 'Ask Kwentra for the Rooms list API (room number, floor, room type) and set KWENTRA_PATH_ROOMS.';
-    throw err;
+  };
+
+  if (envFlag('KWENTRA_HOLD_UNTIL_PAID')) {
+    await attempt('confirmed', () => kwentra.updateReservation(reservationId, { hold_status: 'CONFIRMED' }, { tenantId }));
   }
+  const ref = transactionId || merchantOrderId || '';
+  await attempt('noted', () =>
+    kwentra.addReservationNote(
+      reservationId,
+      `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`,
+      { type: 'billing', tenantId }
+    )
+  );
+  const paymentPath = kwentra.pathFor('payment', reservationId);
+  if (paymentPath) {
+    await attempt('posted', () =>
+      kwentra.kwentraFetch(paymentPath, {
+        method: 'POST',
+        body: { amount: Number(amount), currency, provider, transaction_id: transactionId, merchant_order_id: merchantOrderId },
+        tenantId,
+      })
+    );
+  }
+  result.pushed = result.noted || result.posted || result.confirmed;
+  return result;
 }
 
 /* ——— Persisted sync: Kwentra → CMS store ——— */
@@ -764,18 +646,7 @@ const norm = (s) =>
 const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && !v.length);
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
-const PROPERTY_PMS_FIELDS = [
-  'name',
-  'description',
-  'city',
-  'address',
-  'buildingNumber',
-  'phone',
-  'mapsUrl',
-  'latitude',
-  'longitude',
-  'facilities',
-];
+const PROPERTY_PMS_FIELDS = ['name', 'description', 'city', 'address', 'buildingNumber', 'phone', 'mapsUrl', 'latitude', 'longitude', 'facilities'];
 
 const UNIT_PMS_FIELDS = [
   'title',
@@ -796,7 +667,7 @@ const UNIT_PMS_FIELDS = [
 
 /**
  * Take a PMS value only when it changed in Kwentra since the last sync (tracked in kwentraSnapshot),
- * so edits made in the admin survive even if pushing them to Kwentra failed.
+ * so edits made in the admin survive.
  */
 function mergeFromPms(current, incoming, keys) {
   const snapshot = current?.kwentraSnapshot || {};
@@ -817,14 +688,142 @@ function pick(obj, keys) {
   return Object.fromEntries(keys.filter((k) => !isEmpty(obj[k])).map((k) => [k, obj[k]]));
 }
 
-const syncState = {
-  running: false,
-  last: null,
-  timer: null,
-  debounce: null,
-  pending: false,
-  lastTrigger: null,
-};
+const syncState = { running: false, last: null, timer: null, debounce: null, pending: false, lastTrigger: null };
+
+async function syncDestinationsAndProperties(report, fail) {
+  const [destRes, projRes] = await Promise.allSettled([pullDestinations(), pullProjects()]);
+  const kwDestinations = destRes.status === 'fulfilled' ? destRes.value.items : (fail('destinations', destRes.reason), []);
+  const kwProjects = projRes.status === 'fulfilled' ? projRes.value.items : (fail('properties', projRes.reason), []);
+
+  let destinations = await listCmsDestinations();
+  for (const d of kwDestinations) {
+    const found =
+      destinations.find((x) => x.kwentraDestinationId && x.kwentraDestinationId === d.kwentraDestinationId) ||
+      destinations.find((x) => norm(x.name) === norm(d.name));
+    if (!found) {
+      await createDestination({
+        id: slugify(d.name) || `dest-${d.kwentraDestinationId}`,
+        name: d.name,
+        description: d.description,
+        kwentraDestinationId: d.kwentraDestinationId,
+      });
+      report.destinations.created += 1;
+    } else {
+      const patch = {};
+      if (!found.kwentraDestinationId) patch.kwentraDestinationId = d.kwentraDestinationId;
+      if (!found.description && d.description) patch.description = d.description;
+      if (Object.keys(patch).length) {
+        await updateDestination(found.id, patch);
+        report.destinations.updated += 1;
+      }
+    }
+  }
+  destinations = await listCmsDestinations();
+
+  const compounds = await listCmsCompounds();
+  for (const p of kwProjects) {
+    const incoming = { ...p };
+    if (isEmpty(incoming.latitude) && incoming.mapsUrl) Object.assign(incoming, coordsFromMapsUrl(incoming.mapsUrl) || {});
+    const found =
+      compounds.find((c) => c.kwentraProjectId && c.kwentraProjectId === p.kwentraProjectId) ||
+      compounds.find((c) => norm(c.name) === norm(p.name));
+    const dest = destinations.find((d) => d.kwentraDestinationId && d.kwentraDestinationId === p.kwentraDestinationId);
+    if (!found) {
+      const fields = pick(incoming, PROPERTY_PMS_FIELDS);
+      await createCompound({
+        ...fields,
+        id: slugify(p.name) || `proj-${p.kwentraProjectId}`,
+        destinationId: dest?.id || '',
+        kwentraProjectId: p.kwentraProjectId,
+        kwentraDestinationId: p.kwentraDestinationId,
+        kwentraSnapshot: fields,
+      });
+      report.properties.created += 1;
+    } else {
+      const patch = mergeFromPms(found, incoming, PROPERTY_PMS_FIELDS);
+      if (!found.kwentraProjectId) patch.kwentraProjectId = p.kwentraProjectId;
+      if (!found.kwentraDestinationId && p.kwentraDestinationId) patch.kwentraDestinationId = p.kwentraDestinationId;
+      if (!found.destinationId && dest) patch.destinationId = dest.id;
+      if (Object.keys(patch).length) {
+        await updateCompound(found.id, patch);
+        report.properties.updated += 1;
+      }
+    }
+  }
+}
+
+/** Room types + rooms of one tenant → unit types of the properties that use that tenant */
+async function syncTenant(target, compounds, report, fail) {
+  const label = target.compounds.length ? target.compounds.map((c) => c.name).join(', ') : `tenant ${target.tenantId || '(default)'}`;
+  let types;
+  try {
+    types = (await kwentra.listRoomTypes({ tenantId: target.tenantId })).map(normalizeRoomType).filter((t) => t.kwentraRoomTypeId);
+  } catch (err) {
+    fail(`unit types — ${label}`, err);
+    return;
+  }
+  let roomsByType = new Map();
+  try {
+    roomsByType = groupRooms(await kwentra.listRooms({ tenantId: target.tenantId }));
+  } catch (err) {
+    fail(`rooms — ${label}`, err);
+  }
+
+  const tenantOf = new Map(compounds.map((c) => [c.id, String(c.kwentraTenantId || '').trim()]));
+  const ownIds = new Set(target.compounds.map((c) => c.id));
+  // Room type ids are only unique inside a tenant, so matching stays within this tenant's properties
+  const inScope = (u) => (target.fallback ? !tenantOf.get(u.compoundId) : ownIds.has(u.compoundId));
+  const home = target.compounds.length === 1 ? target.compounds[0] : null;
+
+  const allUnits = await listCmsUnits();
+  const units = allUnits.filter(inScope);
+  const slugs = new Set(allUnits.map((u) => u.slug));
+  report.tenants.push({ tenantId: target.tenantId, properties: target.compounds.map((c) => c.name), roomTypes: types.length });
+
+  for (const t of types) {
+    const rooms = roomsByType.get(t.kwentraRoomTypeId);
+    const incoming = { ...t };
+    if (rooms) {
+      incoming.unitNumbers = rooms.unitNumbers;
+      incoming.roomCount = rooms.unitNumbers.length;
+      if (!incoming.floor && rooms.floors.size) incoming.floor = [...rooms.floors].join(', ');
+    }
+    const found =
+      units.find((u) => u.kwentraRoomTypeId && String(u.kwentraRoomTypeId) === t.kwentraRoomTypeId) ||
+      (home && units.find((u) => !u.kwentraRoomTypeId && u.compoundId === home.id && norm(u.title) === norm(t.title)));
+
+    if (!found) {
+      const fields = pick(incoming, UNIT_PMS_FIELDS);
+      const base = slugify(`${home?.name || ''} ${t.title}`) || `room-type-${t.kwentraRoomTypeId}`;
+      let slug = base;
+      for (let n = 2; slugs.has(slug); n += 1) slug = `${base}-${n}`;
+      slugs.add(slug);
+      await createUnit({
+        ...fields,
+        slug,
+        compoundId: home?.id || '',
+        // Each unit needs its own Drive gallery; the completeness check keeps it hidden until then
+        images: [],
+        driveFolderUrl: '',
+        kwentraRoomTypeId: t.kwentraRoomTypeId,
+        kwentraSnapshot: fields,
+        published: true,
+      });
+      report.units.created += 1;
+      continue;
+    }
+
+    const patch = mergeFromPms(found, incoming, UNIT_PMS_FIELDS);
+    if (!found.kwentraRoomTypeId) patch.kwentraRoomTypeId = t.kwentraRoomTypeId;
+    if (!found.compoundId && home) patch.compoundId = home.id;
+    if (Object.keys(patch).length) {
+      await updateUnit(found.id, patch);
+      report.units.updated += 1;
+    } else {
+      report.units.unchanged += 1;
+    }
+  }
+}
 
 async function syncFromKwentra() {
   if (!kwentra.isConfigured()) {
@@ -832,11 +831,11 @@ async function syncFromKwentra() {
   }
   if (syncState.running) return { ok: false, reason: 'already_running', message: 'A sync is already running' };
   syncState.running = true;
-  const startedAt = new Date().toISOString();
   const report = {
     ok: true,
-    startedAt,
+    startedAt: new Date().toISOString(),
     finishedAt: null,
+    tenants: [],
     destinations: { created: 0, updated: 0 },
     properties: { created: 0, updated: 0 },
     units: { created: 0, updated: 0, unchanged: 0 },
@@ -847,137 +846,20 @@ async function syncFromKwentra() {
   const fail = (kind, err) => {
     report.errors.push({ kind, message: err.message });
     if (err.hint) report.needFromKwentra.push(err.hint);
+    if (err.status === 401 || err.status === 403) report.needFromKwentra.push('Check the Kwentra API credentials and tenant IDs.');
   };
 
   try {
-    const [destRes, projRes, typeRes, roomRes] = await Promise.allSettled([
-      pullDestinations(),
-      pullProjects(),
-      pullRoomTypesRaw(),
-      pullRooms(),
-    ]);
-    const kwDestinations = destRes.status === 'fulfilled' ? destRes.value.items || [] : (fail('destinations', destRes.reason), []);
-    const kwProjects = projRes.status === 'fulfilled' ? projRes.value.items || [] : (fail('properties', projRes.reason), []);
-    const kwTypes =
-      typeRes.status === 'fulfilled'
-        ? (typeRes.value.items || []).map(normalizeRoomType).filter((u) => u.kwentraRoomTypeId)
-        : (fail('unit types', typeRes.reason), []);
-    const roomsByType = roomRes.status === 'fulfilled' ? roomRes.value.byType : (fail('rooms', roomRes.reason), new Map());
-
-    // Destinations — create missing, link by Kwentra id, never overwrite website names/images
-    let destinations = await listCmsDestinations();
-    for (const d of kwDestinations) {
-      const found =
-        destinations.find((x) => x.kwentraDestinationId && x.kwentraDestinationId === d.kwentraDestinationId) ||
-        destinations.find((x) => norm(x.name) === norm(d.name));
-      if (!found) {
-        await createDestination({
-          id: slugify(d.name) || `dest-${d.kwentraDestinationId}`,
-          name: d.name,
-          description: d.description,
-          kwentraDestinationId: d.kwentraDestinationId,
-        });
-        report.destinations.created += 1;
-      } else {
-        const patch = {};
-        if (!found.kwentraDestinationId) patch.kwentraDestinationId = d.kwentraDestinationId;
-        if (!found.description && d.description) patch.description = d.description;
-        if (Object.keys(patch).length) {
-          await updateDestination(found.id, patch);
-          report.destinations.updated += 1;
-        }
-      }
-    }
-    destinations = await listCmsDestinations();
-
-    // Properties
-    let compounds = await listCmsCompounds();
-    for (const p of kwProjects) {
-      const incoming = { ...p };
-      if (isEmpty(incoming.latitude) && incoming.mapsUrl) Object.assign(incoming, coordsFromMapsUrl(incoming.mapsUrl) || {});
-      const found =
-        compounds.find((c) => c.kwentraProjectId && c.kwentraProjectId === p.kwentraProjectId) ||
-        compounds.find((c) => norm(c.name) === norm(p.name));
-      const dest = destinations.find((d) => d.kwentraDestinationId && d.kwentraDestinationId === p.kwentraDestinationId);
-      if (!found) {
-        const fields = pick(incoming, PROPERTY_PMS_FIELDS);
-        await createCompound({
-          ...fields,
-          id: slugify(p.name) || `proj-${p.kwentraProjectId}`,
-          destinationId: dest?.id || '',
-          kwentraProjectId: p.kwentraProjectId,
-          kwentraDestinationId: p.kwentraDestinationId,
-          kwentraSnapshot: fields,
-        });
-        report.properties.created += 1;
-      } else {
-        const patch = mergeFromPms(found, incoming, PROPERTY_PMS_FIELDS);
-        if (!found.kwentraProjectId) patch.kwentraProjectId = p.kwentraProjectId;
-        if (!found.kwentraDestinationId && p.kwentraDestinationId) patch.kwentraDestinationId = p.kwentraDestinationId;
-        if (!found.destinationId && dest) patch.destinationId = dest.id;
-        if (Object.keys(patch).length) {
-          await updateCompound(found.id, patch);
-          report.properties.updated += 1;
-        }
-      }
-    }
-    compounds = await listCmsCompounds();
-
-    // Unit types
-    const units = await listCmsUnits();
-    const slugs = new Set(units.map((u) => u.slug));
-    for (const t of kwTypes) {
-      const rooms = roomsByType.get(t.kwentraRoomTypeId);
-      const incoming = { ...t };
-      if (rooms) {
-        incoming.unitNumbers = rooms.unitNumbers;
-        incoming.roomCount = rooms.unitNumbers.length;
-        if (!incoming.floor && rooms.floors.size) incoming.floor = [...rooms.floors].join(', ');
-      }
-      const compound = compounds.find((c) => c.kwentraProjectId && c.kwentraProjectId === t.kwentraProjectId);
-      const found =
-        units.find((u) => u.kwentraRoomTypeId && String(u.kwentraRoomTypeId) === t.kwentraRoomTypeId) ||
-        (compound && units.find((u) => u.compoundId === compound.id && !u.kwentraRoomTypeId && norm(u.title) === norm(t.title)));
-
-      if (!found) {
-        const fields = pick(incoming, UNIT_PMS_FIELDS);
-        let slug = slugify(`${compound?.name || ''} ${t.title}`) || `room-type-${t.kwentraRoomTypeId}`;
-        for (let n = 2; slugs.has(slug); n += 1) slug = `${slugify(`${compound?.name || ''} ${t.title}`)}-${n}`;
-        slugs.add(slug);
-        await createUnit({
-          ...fields,
-          slug,
-          compoundId: compound?.id || '',
-          // Each unit needs its own Drive gallery; the completeness check keeps it hidden until then
-          images: [],
-          driveFolderUrl: '',
-          kwentraRoomTypeId: t.kwentraRoomTypeId,
-          kwentraSnapshot: fields,
-          published: true,
-        });
-        report.units.created += 1;
-        continue;
-      }
-
-      const patch = mergeFromPms(found, incoming, UNIT_PMS_FIELDS);
-      if (!found.kwentraRoomTypeId) patch.kwentraRoomTypeId = t.kwentraRoomTypeId;
-      if (!found.compoundId && compound) patch.compoundId = compound.id;
-      if (Object.keys(patch).length) {
-        await updateUnit(found.id, patch);
-        report.units.updated += 1;
-      } else {
-        report.units.unchanged += 1;
-      }
+    await syncDestinationsAndProperties(report, fail);
+    const compounds = await listCmsCompounds();
+    for (const target of tenantTargets(compounds)) {
+      await syncTenant(target, compounds, report, fail);
     }
 
     const incomplete = (await listCmsUnits()).filter((u) => u.kwentraRoomTypeId && !u.completeness.complete);
     report.incomplete = {
       count: incomplete.length,
-      items: incomplete.slice(0, 50).map((u) => ({
-        id: u.id,
-        title: u.title,
-        missing: u.completeness.missing.map((m) => m.label),
-      })),
+      items: incomplete.slice(0, 50).map((u) => ({ id: u.id, title: u.title, missing: u.completeness.missing.map((m) => m.label) })),
     };
   } catch (err) {
     report.ok = false;
@@ -988,7 +870,7 @@ async function syncFromKwentra() {
     syncState.last = report;
     syncState.running = false;
     console.log(
-      `[kwentra-sync] ${report.ok ? 'done' : 'failed'} — units +${report.units.created} ~${report.units.updated}, properties +${report.properties.created} ~${report.properties.updated}, ${report.incomplete.count} incomplete (hidden)${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
+      `[kwentra-sync] ${report.ok ? 'done' : 'failed'} — ${report.tenants.length} tenant(s), units +${report.units.created} ~${report.units.updated}, ${report.incomplete.count} incomplete (hidden)${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
     );
     if (syncState.pending) {
       syncState.pending = false;
@@ -1023,25 +905,35 @@ function syncMinutes() {
   return Number.isFinite(n) && n >= 0 ? n : 5;
 }
 
-function syncStatus() {
+async function syncStatus() {
+  const configured = kwentra.isConfigured();
+  const compounds = await listCmsCompounds();
+  const linked = compounds.filter((c) => String(c.kwentraTenantId || '').trim());
   return {
-    configured: kwentra.isConfigured(),
+    configured,
     running: syncState.running,
-    autoSyncMinutes: kwentra.isConfigured() ? syncMinutes() : 0,
+    autoSyncMinutes: configured ? syncMinutes() : 0,
     last: syncState.last,
     lastTrigger: syncState.lastTrigger,
+    tenants: {
+      defaultTenant: Boolean(kwentra.getTenantId()),
+      properties: linked.map((c) => ({ id: c.id, name: c.name, tenantId: c.kwentraTenantId })),
+      propertiesWithoutTenant: compounds.length - linked.length,
+    },
     webhook: {
       path: '/api/webhooks/kwentra',
-      url: process.env.PUBLIC_API_URL
-        ? `${String(process.env.PUBLIC_API_URL).replace(/\/$/, '')}/api/webhooks/kwentra`
-        : '',
+      url: process.env.PUBLIC_API_URL ? `${String(process.env.PUBLIC_API_URL).replace(/\/$/, '')}/api/webhooks/kwentra` : '',
       secretConfigured: Boolean(process.env.KWENTRA_WEBHOOK_SECRET),
     },
     paths: {
-      destinations: destinationsPath(),
-      properties: projectsPath(),
-      unitTypes: roomTypesPath(),
-      rooms: roomsPath(),
+      unitTypes: kwentra.pathFor('roomTypes'),
+      rooms: kwentra.pathFor('rooms'),
+      availability: kwentra.pathFor('availability'),
+      rates: kwentra.pathFor('totalStay'),
+      reservations: kwentra.pathFor('reservations'),
+      destinations: envPath('KWENTRA_PATH_DESTINATIONS') || null,
+      properties: envPath('KWENTRA_PATH_PROJECTS') || null,
+      payment: kwentra.pathFor('payment') || null,
     },
   };
 }
@@ -1059,13 +951,22 @@ function startAutoSync() {
 }
 
 module.exports = {
+  tenantForUnit,
+  tenantForBooking,
+  tenantTargets,
   pullRoomTypes,
+  pullRooms,
   pullUnitsMerged,
   pullAvailability,
   pullDestinations,
   pullProjects,
   pullDestinationsTree,
   pullProjectsMerged,
+  roomTypeRates,
+  pickRate,
+  mappedRateId,
+  nightsToPrices,
+  isLinked,
   pushUnitEdit,
   pushReservation,
   pushPayment,
@@ -1075,7 +976,6 @@ module.exports = {
   normalizeDestination,
   normalizeProject,
   normalizeRoom,
-  pullRooms,
   publicProperty,
   syncFromKwentra,
   requestSync,

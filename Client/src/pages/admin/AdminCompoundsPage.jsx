@@ -16,7 +16,7 @@ const DETAIL_FIELDS = [
   ['factSheetUrl', 'Fact sheet link (staff only)', 'https://…'],
 ];
 
-const BASIC_KEYS = ['name', 'destinationId', 'brand', 'city', 'image', 'showOnHome', 'published', 'kwentraProjectId'];
+const BASIC_KEYS = ['name', 'destinationId', 'brand', 'city', 'image', 'showOnHome', 'published', 'kwentraProjectId', 'kwentraTenantId'];
 
 const EMPTY = {
   name: '',
@@ -27,6 +27,7 @@ const EMPTY = {
   showOnHome: true,
   published: true,
   kwentraProjectId: '',
+  kwentraTenantId: '',
   description: '',
   facilities: '',
   ...Object.fromEntries(DETAIL_FIELDS.map(([key]) => [key, ''])),
@@ -155,7 +156,10 @@ function PropertyEditor({ open, property, destinations, unitCount, defaults, onC
           <Field label="City / area">
             <input className="prime-input" value={form.city || ''} onChange={(e) => set({ city: e.target.value })} />
           </Field>
-          <Field label="Kwentra project ID" hint="Filled automatically by Kwentra sync.">
+          <Field label="Kwentra tenant ID" hint="The Kwentra hotel this property lives in. Its unit types, availability and bookings use this tenant.">
+            <input className="prime-input font-mono" value={form.kwentraTenantId || ''} placeholder="from Kwentra" onChange={(e) => set({ kwentraTenantId: e.target.value.trim() })} />
+          </Field>
+          <Field label="Kwentra project ID" hint="Only needed if Kwentra exposes properties as records.">
             <input className="prime-input" value={form.kwentraProjectId || ''} placeholder="optional" onChange={(e) => set({ kwentraProjectId: e.target.value })} />
           </Field>
           <ImageUploadField
@@ -384,7 +388,7 @@ export default function AdminCompoundsPage() {
                           <Badge tone={c.published === false ? 'gray' : 'green'}>{c.published === false ? 'Hidden' : 'Published'}</Badge>
                         </button>
                         {c.showOnHome !== false ? <Badge tone="gold">Homepage</Badge> : null}
-                        {c.kwentraProjectId ? <Badge tone="blue">Kwentra #{c.kwentraProjectId}</Badge> : null}
+                        {c.kwentraTenantId ? <Badge tone="blue">Kwentra tenant {c.kwentraTenantId}</Badge> : null}
                         {!c.image ? <Badge tone="red">No photo</Badge> : null}
                       </div>
                     </td>

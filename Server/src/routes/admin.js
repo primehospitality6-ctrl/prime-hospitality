@@ -423,9 +423,9 @@ router.delete(
 router.get(
   '/kwentra/status',
   requireAdmin,
-  (_req, res) => {
-    res.json(require('../services/kwentraSync').syncStatus());
-  }
+  wrap(async (_req, res) => {
+    res.json(await require('../services/kwentraSync').syncStatus());
+  })
 );
 
 router.post(

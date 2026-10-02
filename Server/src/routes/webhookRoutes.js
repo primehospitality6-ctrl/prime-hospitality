@@ -12,6 +12,7 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
   await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
   if (booking.kwentraReservationId && kwentra.isConfigured()) {
     return sync.pushPayment({
+      booking,
       reservationId: booking.kwentraReservationId,
       amount: booking.rateAmount ?? booking.amount,
       currency: booking.rateCurrency || booking.currency || 'EGP',

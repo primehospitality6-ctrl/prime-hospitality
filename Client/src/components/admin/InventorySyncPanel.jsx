@@ -63,9 +63,9 @@ function KwentraCard({ onChanged }) {
         <div>
           <h2 className="font-display text-lg font-bold">Kwentra PMS</h2>
           <p className="mt-1 max-w-xl text-sm text-prime-muted">
-            Units you add or edit in Kwentra appear on the website automatically — destinations, properties, unit types
-            (size, beds, baths, max guests, amenities, price) and room numbers. Photos, featured and published stay
-            controlled here.
+            Room types you add or edit in Kwentra appear on the website automatically as unit types (name, description,
+            capacity, room numbers). Availability and prices are read live from Kwentra, and website bookings are created
+            there. Photos, featured and published stay controlled here.
           </p>
         </div>
         <span
@@ -80,9 +80,34 @@ function KwentraCard({ onChanged }) {
 
       {status && !status.configured ? (
         <p className="mt-4 border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Add the Kwentra API user to <span className="font-mono text-xs">Server/.env</span> (KWENTRA_USERNAME, KWENTRA_PASSWORD,
-          KWENTRA_TENANT_ID) and restart the API. Until then, units can only be added by hand in the admin.
+          Add the Kwentra API credentials to <span className="font-mono text-xs">Server/.env</span> and restart the API, then
+          set each property&apos;s Kwentra tenant ID on the{' '}
+          <Link to="/admin/compounds" className="font-semibold underline underline-offset-4">
+            Properties
+          </Link>{' '}
+          page. Until then, units can only be added by hand in the admin.
         </p>
+      ) : null}
+
+      {status?.configured && status.tenants ? (
+        <div className="mt-4 border border-prime-line px-4 py-3 text-sm">
+          <p className={labelCls}>Kwentra tenants</p>
+          {status.tenants.properties.length ? (
+            <ul className="space-y-0.5">
+              {status.tenants.properties.map((p) => (
+                <li key={p.id}>
+                  {p.name} — <span className="font-mono text-xs">{p.tenantId}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {status.tenants.propertiesWithoutTenant ? (
+            <p className="mt-1 text-xs text-prime-muted">
+              {status.tenants.propertiesWithoutTenant} propert{status.tenants.propertiesWithoutTenant === 1 ? 'y has' : 'ies have'} no
+              tenant ID{status.tenants.defaultTenant ? ' and use the default tenant from Server/.env' : ' — set it on the Properties page'}.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {status?.configured ? (
@@ -120,7 +145,9 @@ function KwentraCard({ onChanged }) {
             ['Unit types', last.units],
             ['Properties', last.properties],
             ['Destinations', last.destinations],
-          ].map(([label, counts]) => (
+          ]
+            .filter(([label, counts]) => label === 'Unit types' || counts?.created || counts?.updated)
+            .map(([label, counts]) => (
             <div key={label} className="border border-prime-line px-4 py-3">
               <p className={labelCls}>{label}</p>
               <p className="text-sm">

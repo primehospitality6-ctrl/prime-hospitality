@@ -98,6 +98,9 @@ alter table units add column if not exists bed_type text not null default '';
 alter table compounds add column if not exists kwentra_snapshot jsonb;
 alter table units add column if not exists kwentra_snapshot jsonb;
 
+-- Kwentra tenant (hotel) each property lives in — every PMS call for its units uses this tenant_id
+alter table compounds add column if not exists kwentra_tenant_id text not null default '';
+
 create index if not exists compounds_destination_idx on compounds (destination_id);
 create index if not exists units_destination_idx on units (destination_id);
 create index if not exists units_unit_type_idx on units (unit_type);

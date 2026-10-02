@@ -92,7 +92,7 @@ function createApp() {
       zeroRedirect: true,
       message: kwentra.isConfigured()
         ? 'Kwentra headless API configured'
-        : 'Set KWENTRA_API_BASE_URL and KWENTRA_API_KEY when ready',
+        : 'Add the Kwentra API credentials and tenant ID to Server/.env when ready',
     });
   });
 
