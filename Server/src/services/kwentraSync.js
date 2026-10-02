@@ -368,7 +368,7 @@ const nightsToPrices = (arrivalDate, nights = []) =>
   );
 
 function defaultChildAges(children) {
-  const age = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE ?? 8);
+  const age = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE || 8);
   return Array.from({ length: Math.max(0, Number(children) || 0) }, () => age);
 }
 
@@ -501,7 +501,7 @@ function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelI
     .filter(Boolean)
     .join(' | ');
 
-  const childAge = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE ?? 8);
+  const childAge = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE || 8);
   return {
     arrival_date: booking.arrivalDate,
     departure_date: booking.departureDate,
@@ -901,7 +901,8 @@ function requestSync(reason = 'manual', { delayMs = 3_000 } = {}) {
 }
 
 function syncMinutes() {
-  const n = Number(process.env.KWENTRA_SYNC_MINUTES ?? 5);
+  const raw = String(process.env.KWENTRA_SYNC_MINUTES ?? '').trim();
+  const n = raw === '' ? 5 : Number(raw);
   return Number.isFinite(n) && n >= 0 ? n : 5;
 }
 
