@@ -2,9 +2,9 @@
  * Guest SPA → our Node.js gateway only.
  * Never call Kwentra or payment provider hosts from the browser for booking/auth.
  */
-import api from '../api/client';
+import api, { apiBase } from '../api/client';
 
-const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const BASE = apiBase(import.meta.env.VITE_API_URL);
 const GEO_KEY = 'prime.geo';
 let bookingConfigPromise = null;
 

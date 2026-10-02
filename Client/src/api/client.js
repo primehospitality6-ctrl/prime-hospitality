@@ -2,7 +2,14 @@
  * Public site + staff (admin) API client — talks to Prime Server (/api).
  */
 
-const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+/** API origin from VITE_API_URL; tolerates a missing scheme and a trailing slash or /api. Empty = same origin. */
+export function apiBase(raw) {
+  let base = String(raw || '').trim().replace(/\/+$/, '').replace(/\/api$/i, '');
+  if (base && !/^https?:\/\//i.test(base)) base = `${/^(localhost|127\.0\.0\.1)(:|$)/.test(base) ? 'http' : 'https'}://${base}`;
+  return base;
+}
+
+const BASE = apiBase(import.meta.env.VITE_API_URL);
 const ADMIN_TOKEN_KEY = 'prime_admin_token';
 
 function buildUrl(path, params) {
