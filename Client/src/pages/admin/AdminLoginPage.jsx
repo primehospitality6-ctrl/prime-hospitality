@@ -4,7 +4,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 
 export default function AdminLoginPage() {
   const { login, isAdmin, loading } = useAdminAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError('');
     try {
-      await login({ email, password });
+      await login({ username, password });
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
@@ -43,14 +43,17 @@ export default function AdminLoginPage() {
 
         <label className="mt-8 block">
           <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
-            Email
+            Username
           </span>
           <input
             className="w-full border border-white/20 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:border-prime-gold"
-            type="email"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
         </label>
         <label className="mt-4 block">

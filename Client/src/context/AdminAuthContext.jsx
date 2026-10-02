@@ -31,8 +31,8 @@ export function AdminAuthProvider({ children }) {
     };
   }, []);
 
-  const login = useCallback(async ({ email, password }) => {
-    const data = await api.adminLogin({ email, password });
+  const login = useCallback(async ({ username, password }) => {
+    const data = await api.adminLogin({ username, password });
     api.setAdminToken(data.token);
     setUser(data.user);
     return data.user;

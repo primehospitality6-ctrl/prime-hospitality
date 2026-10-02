@@ -2,8 +2,8 @@ const jwt = require('jsonwebtoken');
 
 function getAdminCredentials() {
   return {
-    email: String(process.env.ADMIN_EMAIL || 'admin@primehospitality.com').toLowerCase(),
-    password: String(process.env.ADMIN_PASSWORD || 'prime-admin-dev'),
+    username: String(process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL || 'admin').toLowerCase().trim(),
+    password: String(process.env.ADMIN_PASSWORD || 'admin123'),
   };
 }
 

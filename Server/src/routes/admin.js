@@ -55,26 +55,26 @@ const FOLDER_MAP = {
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 router.post('/auth/login', (req, res) => {
-  const { email, password } = req.body || {};
+  const { username, email, password } = req.body || {};
   const creds = getAdminCredentials();
   if (
-    String(email || '')
+    String(username ?? email ?? '')
       .toLowerCase()
-      .trim() !== creds.email ||
+      .trim() !== creds.username ||
     String(password || '') !== creds.password
   ) {
-    return res.status(401).json({ error: 'Invalid admin credentials' });
+    return res.status(401).json({ error: 'Invalid username or password' });
   }
-  const token = signAdminToken({ email: creds.email });
+  const token = signAdminToken({ username: creds.username });
   res.json({
     token,
-    user: { email: creds.email, role: 'admin', name: 'Prime Admin' },
+    user: { username: creds.username, role: 'admin', name: 'Prime Admin' },
   });
 });
 
 router.get('/auth/me', requireAdmin, (req, res) => {
   res.json({
-    user: { email: req.admin.email, role: 'admin', name: 'Prime Admin' },
+    user: { username: req.admin.username || req.admin.email, role: 'admin', name: 'Prime Admin' },
   });
 });
 

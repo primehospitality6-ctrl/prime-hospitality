@@ -134,7 +134,7 @@ export default function AdminLayout() {
 
   const footerBlock = (
     <div className="border-t border-prime-line pt-4">
-      {collapsed ? null : <p className="truncate px-3 text-xs text-prime-muted">{user?.email}</p>}
+      {collapsed ? null : <p className="truncate px-3 text-xs text-prime-muted">{user?.username || user?.email}</p>}
       <button
         type="button"
         onClick={signOut}
