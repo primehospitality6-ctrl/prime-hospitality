@@ -12,6 +12,7 @@ const inquiriesRoutes = require('./routes/inquiries');
 const adminRoutes = require('./routes/admin');
 const { ensureReady, usingDatabase } = require('./lib/cmsStore');
 const { isCloudinaryConfigured } = require('./config/cloudinary');
+const { normalizeImageUrls } = require('./lib/googleDrive');
 
 function createApp() {
   const app = express();
@@ -36,6 +37,12 @@ function createApp() {
 
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
+
+  app.use('/api/', (_req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = (body) => json(normalizeImageUrls(body));
+    next();
+  });
 
   app.use(
     '/api/',

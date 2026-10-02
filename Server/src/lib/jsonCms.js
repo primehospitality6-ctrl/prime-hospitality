@@ -34,7 +34,7 @@ const DEFAULT_SLIDESHOW = [
   {
     id: 'slide-2',
     image:
-      'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdbc?auto=format&fit=crop&w=2200&q=85',
+      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=2200&q=85',
     alt: 'Coastal villa',
     enabled: true,
     sortOrder: 1,

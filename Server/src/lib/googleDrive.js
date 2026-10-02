@@ -3,7 +3,15 @@
  * Prefer GOOGLE_DRIVE_API_KEY for reliable listing of public folders.
  */
 
-const IMAGE_MIME = /^(image\/|application\/octet-stream)/i;
+const IMAGE_NAME = /\.(jpe?g|png|webp|gif|avif|heic|heif|bmp|tiff?)$/i;
+const NON_IMAGE_NAME = /\.(pdf|docx?|xlsx?|pptx?|csv|txt|zip|rar|mp4|mov|avi|mkv|webm)$/i;
+
+function isImageFile({ mimeType, name }) {
+  const n = String(name || '').trim();
+  if (NON_IMAGE_NAME.test(n)) return false;
+  if (mimeType) return /^image\//i.test(mimeType) || (/^application\/octet-stream/i.test(mimeType) && IMAGE_NAME.test(n));
+  return true;
+}
 
 function extractFolderId(input) {
   const raw = String(input || '').trim();
@@ -30,13 +38,37 @@ function extractFileId(input) {
   return null;
 }
 
-/** Stable URL that works in <img> for publicly shared Drive files */
-function toImageUrl(fileId) {
-  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+/**
+ * URL that works in <img> for publicly shared Drive files. drive.google.com/uc links return the original
+ * file as application/octet-stream, which browsers refuse to render as an image.
+ */
+function toImageUrl(fileId, size = 2000) {
+  return `https://lh3.googleusercontent.com/d/${fileId}=w${size}`;
 }
 
-function toThumbnailUrl(fileId, size = 1600) {
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
+function toThumbnailUrl(fileId, size = 800) {
+  return toImageUrl(fileId, size);
+}
+
+const DRIVE_FILE_LINK = /^https?:\/\/(?:drive|docs)\.google\.com\/(?:uc|open|thumbnail|file\/d\/)/i;
+
+/** Rewrite a Drive file link (uc / open / thumbnail / file/d) to its image URL; anything else is returned unchanged. */
+function normalizeImageUrl(url) {
+  if (typeof url !== 'string' || !DRIVE_FILE_LINK.test(url)) return url;
+  const fileId = extractFileId(url);
+  return fileId ? toImageUrl(fileId) : url;
+}
+
+/** Deep copy of `value` with every Drive file link rewritten. */
+function normalizeImageUrls(value) {
+  if (typeof value === 'string') return normalizeImageUrl(value);
+  if (Array.isArray(value)) return value.map(normalizeImageUrls);
+  if (value && typeof value === 'object' && value.constructor === Object) {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = normalizeImageUrls(v);
+    return out;
+  }
+  return value;
 }
 
 function getApiKey() {
@@ -67,15 +99,11 @@ async function listViaApi(folderId) {
     throw err;
   }
 
-  const files = Array.isArray(data.files) ? data.files : [];
-  return files
-    .filter((f) => f.mimeType && (IMAGE_MIME.test(f.mimeType) || f.mimeType.startsWith('image/')))
-    .map((f) => ({
-      id: f.id,
-      name: f.name || f.id,
-      url: toImageUrl(f.id),
-      thumbnail: toThumbnailUrl(f.id),
-    }));
+  return (Array.isArray(data.files) ? data.files : []).map((f) => ({
+    id: f.id,
+    name: f.name || '',
+    mimeType: f.mimeType || 'application/octet-stream',
+  }));
 }
 
 /** Best-effort parse of Drive's embedded folder view (public folders, no API key). */
@@ -94,6 +122,12 @@ async function listViaEmbeddedView(folderId) {
     throw err;
   }
   const html = await res.text();
+
+  const entries = [...html.matchAll(/id="entry-([a-zA-Z0-9_-]{20,})"[\s\S]*?class="flip-entry-title">([^<]*)</g)].map(
+    (m) => ({ id: m[1], name: m[2].trim() })
+  );
+  if (entries.length) return entries.filter((e) => e.id !== folderId);
+
   const ids = [];
   const seen = new Set();
 
@@ -113,12 +147,7 @@ async function listViaEmbeddedView(folderId) {
     }
   }
 
-  return ids.map((id, i) => ({
-    id,
-    name: `Photo ${i + 1}`,
-    url: toImageUrl(id),
-    thumbnail: toThumbnailUrl(id),
-  }));
+  return ids.map((id) => ({ id, name: '' }));
 }
 
 /**
@@ -133,11 +162,11 @@ async function listFolderImages(folderUrlOrId) {
     throw err;
   }
 
-  let images = null;
+  let files = null;
   let method = 'api';
 
   try {
-    images = await listViaApi(folderId);
+    files = await listViaApi(folderId);
   } catch (err) {
     if (getApiKey()) {
       err.message = `Drive API: ${err.message}. Make sure the folder is shared as “Anyone with the link”.`;
@@ -145,16 +174,25 @@ async function listFolderImages(folderUrlOrId) {
     }
   }
 
-  if (!images) {
+  if (!files) {
     method = 'embedded';
-    images = await listViaEmbeddedView(folderId);
+    files = await listViaEmbeddedView(folderId);
   }
+
+  const images = files.filter(isImageFile).map((f, i) => ({
+    id: f.id,
+    name: f.name || `Photo ${i + 1}`,
+    url: toImageUrl(f.id),
+    thumbnail: toThumbnailUrl(f.id),
+  }));
 
   if (!images.length) {
     const err = new Error(
-      getApiKey()
-        ? 'No images found in that folder. Share it as “Anyone with the link” and ensure it contains image files.'
-        : 'No images found. Share the folder as “Anyone with the link”, or set GOOGLE_DRIVE_API_KEY in Server/.env for reliable listing.'
+      files.length
+        ? `That folder has ${files.length} file${files.length === 1 ? '' : 's'} but no photos (for example PDFs or documents). Use the folder that holds the unit's photos.`
+        : getApiKey()
+          ? 'No images found in that folder. Share it as “Anyone with the link” and ensure it contains image files.'
+          : 'No images found. Share the folder as “Anyone with the link”, or set GOOGLE_DRIVE_API_KEY in Server/.env for reliable listing.'
     );
     err.status = 404;
     throw err;
@@ -172,5 +210,7 @@ module.exports = {
   extractFolderId,
   extractFileId,
   toImageUrl,
+  normalizeImageUrl,
+  normalizeImageUrls,
   listFolderImages,
 };

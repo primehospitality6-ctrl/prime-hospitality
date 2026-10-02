@@ -8,7 +8,7 @@ const partners = [
   {
     id: 'homeaway',
     name: 'HomeAway',
-    logo: 'https://logo.clearbit.com/homeaway.com',
+    logo: '',
   },
   {
     id: 'tripadvisor',
@@ -23,22 +23,22 @@ const partners = [
   {
     id: 'hotels',
     name: 'Hotels.com',
-    logo: 'https://logo.clearbit.com/hotels.com',
+    logo: 'https://cdn.simpleicons.org/hotelsdotcom/D32F2F',
   },
   {
     id: 'agoda',
     name: 'Agoda',
-    logo: 'https://logo.clearbit.com/agoda.com',
+    logo: '',
   },
   {
     id: 'flipkey',
     name: 'FlipKey',
-    logo: 'https://logo.clearbit.com/flipkey.com',
+    logo: '',
   },
   {
     id: 'vrbo',
     name: 'VRBO',
-    logo: 'https://logo.clearbit.com/vrbo.com',
+    logo: '',
   },
   {
     id: 'superhost',
