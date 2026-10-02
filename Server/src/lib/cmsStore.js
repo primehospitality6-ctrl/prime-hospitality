@@ -6,8 +6,11 @@ const json = require('./jsonCms');
 const pg = require('./postgresCms');
 const { withCompleteness, isLive } = require('./unitCompleteness');
 
+// Development only: an unreachable database falls back to the local JSON store instead of failing every request
+let databaseUnavailable = false;
+
 function backend() {
-  return isDatabaseConfigured() ? pg : json;
+  return isDatabaseConfigured() && !databaseUnavailable ? pg : json;
 }
 
 const decorate = (unit) => withCompleteness(unit);
@@ -32,12 +35,12 @@ async function getDashboard(...args) {
 }
 
 function usingDatabase() {
-  return isDatabaseConfigured();
+  return isDatabaseConfigured() && !databaseUnavailable;
 }
 
 function connectionHint(err) {
   const code = err.code || err.cause?.code;
-  if (code === 'ENOTFOUND' || code === 'ENETUNREACH' || code === 'EHOSTUNREACH') {
+  if (['ENOTFOUND', 'ENOENT', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH'].includes(code)) {
     return 'Host unreachable. Supabase direct hosts (db.<ref>.supabase.co) are IPv6-only — on an IPv4 network use the Session pooler connection string from Supabase › Connect.';
   }
   if (code === '28P01') return 'Wrong database password in DATABASE_URL.';
@@ -55,16 +58,22 @@ async function ensureReady() {
         console.log(`[prime] Empty database — copied ${result.source === 'local' ? 'data/cms-store.json' : 'demo inventory'} into Postgres`);
       }
       console.log('[prime] Using Postgres (DATABASE_URL)');
+      return;
     } catch (err) {
       console.error('[prime] Postgres connection/setup failed:', err.message);
       const hint = connectionHint(err);
       if (hint) console.error(`[prime] ${hint}`);
+      if (process.env.NODE_ENV === 'production') return;
+      databaseUnavailable = true;
     }
-    return;
   }
   json.ensureStore();
   json.recountUnits();
-  console.warn('[prime] DATABASE_URL not set — using local JSON store (data/cms-store.json).');
+  console.warn(
+    databaseUnavailable
+      ? '[prime] Development: using the local JSON store (data/cms-store.json) until DATABASE_URL works.'
+      : '[prime] DATABASE_URL not set — using local JSON store (data/cms-store.json).'
+  );
 }
 
 module.exports = {

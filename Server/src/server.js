@@ -3,7 +3,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const http = require('http');
 const { bootApp } = require('./app');
 
-const port = Number(process.env.PORT || 5000);
+const port = Number(process.env.PORT || 5080);
 
 bootApp()
   .then((app) => {

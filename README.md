@@ -5,7 +5,7 @@ Client–server guest hospitality site.
 ```
 Prime Hospitality/
   Client/   # Vite React guest UI (:5173)
-  Server/   # Express guest API (:5000)
+  Server/   # Express guest API (:5080)
 ```
 
 ## Run both
@@ -16,7 +16,7 @@ npm run dev
 ```
 
 - Site: http://localhost:5173  
-- API: http://localhost:5000/api/health  
+- API: http://localhost:5080/api/health  
 
 Vite proxies `/api` → Server in development.
 

@@ -9,11 +9,11 @@ npm run install:all
 npm run dev
 ```
 
-Or client only (API must already be on :5000):
+Or client only (API must already be on :5080):
 
 ```bash
 npm run dev
 ```
 
-Vite proxies `/api` → `http://localhost:5000`.
+Vite proxies `/api` → `http://localhost:5080`.
 
