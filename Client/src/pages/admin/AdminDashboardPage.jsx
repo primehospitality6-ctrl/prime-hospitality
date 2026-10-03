@@ -9,7 +9,7 @@ import { activeAnnouncement } from '../../context/SiteContext';
 const QUICK_LINKS = [
   { to: '/admin/homepage', label: 'Edit homepage', icon: Home },
   { to: '/admin/pages', label: 'Pages & text', icon: FileText },
-  { to: '/admin/marketing', label: 'Announcement & SEO', icon: Megaphone },
+  { to: '/admin/marketing', label: 'Marketing', icon: Megaphone },
   { to: '/admin/settings', label: 'Business info', icon: Store },
   { to: '/admin/sync', label: 'Kwentra sync', icon: RefreshCw },
 ];
@@ -44,9 +44,9 @@ function buildChecks({ units, compounds, site, pixels, kwentra }) {
     },
     { ok: !noDetails, text: noDetails ? `${noDetails} propert(ies) are missing a photo, address or map link.` : 'All properties have photo, address and map.', to: '/admin/compounds' },
     { ok: featured >= 3, text: featured >= 3 ? `${featured} unit types featured on the homepage.` : `Only ${featured} unit type(s) featured — the homepage carousel looks best with 3+.`, to: '/admin/units' },
-    { ok: !seoMissing, text: seoMissing ? 'Add SEO descriptions for the main pages.' : 'Main pages have SEO descriptions.', to: '/admin/marketing' },
-    { ok: hasTracking, text: hasTracking ? 'Analytics / ad tracking is set up.' : 'No analytics or ad pixels configured.', to: '/admin/marketing' },
-    { ok: true, text: bar ? `Announcement bar is live: “${bar.text}”` : 'No announcement bar running.', to: '/admin/marketing', info: true },
+    { ok: !seoMissing, text: seoMissing ? 'Add SEO descriptions for the main pages.' : 'Main pages have SEO descriptions.', to: '/admin/marketing/seo' },
+    { ok: hasTracking, text: hasTracking ? 'Analytics / ad tracking is set up.' : 'No analytics or ad pixels configured.', to: '/admin/marketing/tracking' },
+    { ok: true, text: bar ? `Announcement bar is live: “${bar.text}”` : 'No announcement bar running.', to: '/admin/marketing/announcement', info: true },
   ].filter(Boolean);
 }
 

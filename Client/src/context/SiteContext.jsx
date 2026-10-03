@@ -7,6 +7,21 @@ export const HOME_SECTIONS = ['intro', 'properties', 'brands', 'featured', 'trus
 export const DEFAULT_SITE = {
   business: {},
   announcement: { enabled: false, text: {}, linkLabel: {}, href: '', startsAt: '', endsAt: '', tone: 'night' },
+  popup: {
+    enabled: false,
+    title: {},
+    text: {},
+    ctaLabel: {},
+    href: '',
+    image: '',
+    trigger: 'delay',
+    delaySeconds: 8,
+    scrollPercent: 40,
+    pages: 'all',
+    frequencyDays: 1,
+    startsAt: '',
+    endsAt: '',
+  },
   home: { sections: HOME_SECTIONS.map((id) => ({ id, enabled: true })) },
   pages: {
     about: {},
@@ -94,5 +109,34 @@ export function activeAnnouncement(announcement, locale, today = new Date().toIS
     linkLabel: announcement.linkLabel?.[locale] || announcement.linkLabel?.en || '',
     href: announcement.href || '',
     tone: announcement.tone || 'night',
+  };
+}
+
+const POPUP_PAGE_MATCH = {
+  all: () => true,
+  home: (path) => path === '/',
+  listings: (path) => path.startsWith('/listings/'),
+  search: (path) => path === '/search' || path === '/compounds',
+};
+
+/** The pop-up to show on this page right now, or null (disabled, empty, wrong page, or outside its dates). */
+export function activePopup(popup, locale, pathname = '/', today = new Date().toISOString().slice(0, 10)) {
+  if (!popup?.enabled) return null;
+  const title = popup.title?.[locale] || popup.title?.en;
+  const text = popup.text?.[locale] || popup.text?.en;
+  if (!title && !text) return null;
+  if (popup.startsAt && today < popup.startsAt) return null;
+  if (popup.endsAt && today > popup.endsAt) return null;
+  if (!(POPUP_PAGE_MATCH[popup.pages] || POPUP_PAGE_MATCH.all)(pathname)) return null;
+  return {
+    title: title || '',
+    text: text || '',
+    ctaLabel: popup.ctaLabel?.[locale] || popup.ctaLabel?.en || '',
+    href: popup.href || '',
+    image: popup.image || '',
+    trigger: popup.trigger === 'scroll' ? 'scroll' : 'delay',
+    delaySeconds: Number(popup.delaySeconds ?? 8),
+    scrollPercent: Number(popup.scrollPercent ?? 40),
+    frequencyDays: Number(popup.frequencyDays ?? 1),
   };
 }

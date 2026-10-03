@@ -9,6 +9,7 @@ import RouteFallback from './components/RouteFallback';
 import WhatsAppFAB from './components/layout/WhatsAppFAB';
 import MarketingPixels from './components/MarketingPixels';
 import SeoManager from './components/SeoManager';
+import PromoPopup from './components/PromoPopup';
 import AdminGuard from './components/admin/AdminGuard';
 import AdminLayout from './components/admin/AdminLayout';
 
@@ -49,7 +50,12 @@ const AdminDestinationsPage = lazy(() => import('./pages/admin/AdminDestinations
 const AdminCompoundsPage = lazy(() => import('./pages/admin/AdminCompoundsPage'));
 const AdminUnitsPage = lazy(() => import('./pages/admin/AdminUnitsPage'));
 const AdminBookingsPage = lazy(() => import('./pages/admin/AdminBookingsPage'));
-const AdminMarketingPage = lazy(() => import('./pages/admin/AdminMarketingPage'));
+const MarketingOverviewPage = lazy(() => import('./pages/admin/marketing/MarketingOverviewPage'));
+const MarketingAnnouncementPage = lazy(() => import('./pages/admin/marketing/MarketingAnnouncementPage'));
+const MarketingPopupPage = lazy(() => import('./pages/admin/marketing/MarketingPopupPage'));
+const MarketingSeoPage = lazy(() => import('./pages/admin/marketing/MarketingSeoPage'));
+const MarketingTrackingPage = lazy(() => import('./pages/admin/marketing/MarketingTrackingPage'));
+const MarketingCampaignsPage = lazy(() => import('./pages/admin/marketing/MarketingCampaignsPage'));
 const AdminSyncPage = lazy(() => import('./pages/admin/AdminSyncPage'));
 const AdminHomepagePage = lazy(() => import('./pages/admin/AdminHomepagePage'));
 const AdminPagesPage = lazy(() => import('./pages/admin/AdminPagesPage'));
@@ -98,7 +104,12 @@ export default function App() {
                       <Route path="homepage" element={<AdminHomepagePage />} />
                       <Route path="pages" element={<AdminPagesPage />} />
                       <Route path="content" element={<AdminContentListsPage />} />
-                      <Route path="marketing" element={<AdminMarketingPage />} />
+                      <Route path="marketing" element={<MarketingOverviewPage />} />
+                      <Route path="marketing/announcement" element={<MarketingAnnouncementPage />} />
+                      <Route path="marketing/popup" element={<MarketingPopupPage />} />
+                      <Route path="marketing/seo" element={<MarketingSeoPage />} />
+                      <Route path="marketing/tracking" element={<MarketingTrackingPage />} />
+                      <Route path="marketing/campaigns" element={<MarketingCampaignsPage />} />
                       <Route path="settings" element={<AdminBusinessPage />} />
                     </Route>
                   </Route>
@@ -108,6 +119,7 @@ export default function App() {
               </Suspense>
               <MarketingPixels />
               <SeoManager />
+              <PromoPopup />
               <WhatsAppFAB />
             </WishlistProvider>
           </ThemeProvider>

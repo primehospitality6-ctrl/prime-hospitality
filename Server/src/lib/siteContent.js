@@ -9,7 +9,12 @@ const SEO_PAGES = ['home', 'search', 'compounds', 'about', 'faq', 'contact', 'ow
 const LEGAL_PAGES = ['terms', 'privacy', 'refund'];
 const LOCALES = ['en', 'ar'];
 const TONES = ['night', 'gold', 'sand'];
-const SECTIONS = ['business', 'announcement', 'home', 'pages', 'copy', 'seo', 'tracking'];
+const POPUP_TRIGGERS = ['delay', 'scroll'];
+const POPUP_PAGES = ['all', 'home', 'listings', 'search'];
+const POPUP_FREQUENCIES = [0, 1, 7, 30];
+const SECTIONS = ['business', 'announcement', 'popup', 'home', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+/** Admin-only sections, left out of the public site document */
+const PRIVATE_SECTIONS = ['campaigns'];
 
 const MAX_COPY_KEYS = 3000;
 
@@ -73,6 +78,21 @@ function defaultSite() {
       endsAt: '',
       tone: 'night',
     },
+    popup: {
+      enabled: false,
+      title: { en: '', ar: '' },
+      text: { en: '', ar: '' },
+      ctaLabel: { en: '', ar: '' },
+      href: '',
+      image: '',
+      trigger: 'delay',
+      delaySeconds: 8,
+      scrollPercent: 40,
+      pages: 'all',
+      frequencyDays: 1,
+      startsAt: '',
+      endsAt: '',
+    },
     home: { sections: HOME_SECTIONS.map((id) => ({ id, enabled: true })) },
     pages: {
       about: { heroImage: '', wideImage: '', portraitImage: '' },
@@ -95,6 +115,7 @@ function defaultSite() {
       pages: Object.fromEntries(SEO_PAGES.map((k) => [k, { title: '', description: '' }])),
     },
     tracking: { ga4Id: '' },
+    campaigns: { links: [] },
     updatedAt: '',
   };
 }
@@ -126,6 +147,45 @@ const sanitizers = {
       endsAt: date(v.endsAt),
       tone: TONES.includes(v.tone) ? v.tone : 'night',
     };
+  },
+
+  popup(v = {}) {
+    const clamp = (n, min, max, fallback) => (Number.isFinite(Number(n)) ? Math.min(max, Math.max(min, Math.round(Number(n)))) : fallback);
+    const frequency = Number(v.frequencyDays);
+    return {
+      enabled: Boolean(v.enabled),
+      title: localized(v.title, 90),
+      text: localized(v.text, 300),
+      ctaLabel: localized(v.ctaLabel, 40),
+      href: link(v.href),
+      image: link(v.image),
+      trigger: POPUP_TRIGGERS.includes(v.trigger) ? v.trigger : 'delay',
+      delaySeconds: clamp(v.delaySeconds, 0, 60, 8),
+      scrollPercent: clamp(v.scrollPercent, 10, 90, 40),
+      pages: POPUP_PAGES.includes(v.pages) ? v.pages : 'all',
+      frequencyDays: POPUP_FREQUENCIES.includes(frequency) ? frequency : 1,
+      startsAt: date(v.startsAt),
+      endsAt: date(v.endsAt),
+    };
+  },
+
+  campaigns(v = {}) {
+    const slug = (s, max) => str(s, max).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9._~-]/g, '');
+    const links = (Array.isArray(v.links) ? v.links : [])
+      .map((l) => ({
+        id: str(l?.id, 40) || Math.random().toString(36).slice(2, 10),
+        name: str(l?.name, 120),
+        path: link(l?.path).startsWith('/') ? link(l.path) : '/',
+        channel: str(l?.channel, 40),
+        source: slug(l?.source, 60),
+        medium: slug(l?.medium, 60),
+        campaign: slug(l?.campaign, 80),
+        content: slug(l?.content, 80),
+        createdAt: str(l?.createdAt, 40),
+      }))
+      .filter((l) => l.source && l.campaign)
+      .slice(0, 300);
+    return { links };
   },
 
   home(v = {}) {
@@ -221,6 +281,12 @@ function mergeSite(current, patch = {}) {
   return next;
 }
 
+function publicSite(site) {
+  const out = { ...site };
+  for (const key of PRIVATE_SECTIONS) delete out[key];
+  return out;
+}
+
 /* ——— Editable lists shown on guest pages (FAQs, trust points, partners) ——— */
 
 function sanitizeContentLists(body = {}, current = {}) {
@@ -254,5 +320,6 @@ module.exports = {
   defaultSite,
   normalizeSite,
   mergeSite,
+  publicSite,
   sanitizeContentLists,
 };

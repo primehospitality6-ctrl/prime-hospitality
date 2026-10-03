@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { getContent, getSlideshow, getSettings, getSite } = require('../lib/cmsStore');
 const { BRANDS, UNIT_TYPES } = require('../data/inventory');
+const { publicSite } = require('../lib/siteContent');
 
 const router = Router();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -44,12 +45,12 @@ router.get(
   })
 );
 
-/** Website content document — all fields are guest-facing by design */
+/** Website content document — guest-facing sections only */
 router.get(
   '/site',
   wrap(async (_req, res) => {
     res.set('Cache-Control', 'public, max-age=60');
-    res.json({ site: await getSite() });
+    res.json({ site: publicSite(await getSite()) });
   })
 );
 
