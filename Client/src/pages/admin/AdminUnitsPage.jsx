@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Home, Pencil, Plus, RefreshCw, Star } from 'lucide-react';
+import { Bath, BedDouble, Eye, EyeOff, Globe, Home, LayoutGrid, Layers, List, Pencil, Plus, RefreshCw, Ruler, Star, Users } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, MoveButtons, reorderList } from '../../components/admin/AdminUi';
 import { Badge, ConfirmDialog, EmptyState, SearchInput, StatusChips, Tabs, useToast } from '../../components/admin/kit';
@@ -30,6 +30,150 @@ const STATUS_LABELS = [
   ['unlinked', 'Website only'],
 ];
 
+const LAYOUT_KEY = 'prime.admin.units.layout';
+
+function statusBadge(u) {
+  if (u.published === false) return <Badge tone="gray">Hidden</Badge>;
+  return isComplete(u) ? <Badge tone="green">Live</Badge> : <Badge tone="gray">Published</Badge>;
+}
+
+function UnitCard({ unit: u, selected, onSelect, onEdit, onToggle }) {
+  const units = u.roomCount ?? u.unitNumbers?.length ?? 0;
+  const live = u.published !== false && isComplete(u);
+  const stats = [
+    [BedDouble, u.bedrooms === 0 ? 'Studio' : u.bedrooms != null ? `${u.bedrooms} bed` : null],
+    [Bath, u.bathrooms ? `${u.bathrooms} bath` : null],
+    [Users, u.maxGuests ? `${u.maxGuests} guests` : null],
+    [Ruler, u.areaSqm ? `${u.areaSqm} m²` : null],
+  ].filter(([, label]) => label);
+
+  return (
+    <div className={cn('group flex flex-col border bg-prime-surface transition hover:shadow-md', selected ? 'border-prime-gold ring-1 ring-prime-gold' : 'border-prime-line')}>
+      <div className="relative aspect-[4/3] overflow-hidden bg-prime-mist">
+        <button type="button" className="absolute inset-0" onClick={onEdit} aria-label={`Edit ${u.title}`}>
+          {u.images?.[0] ? (
+            <img src={u.images[0]} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" referrerPolicy="no-referrer" loading="lazy" />
+          ) : (
+            <span className="grid h-full place-items-center text-prime-muted">
+              <Home size={28} />
+            </span>
+          )}
+        </button>
+        <label className="absolute start-3 top-3 grid h-7 w-7 cursor-pointer place-items-center bg-white/90 shadow-sm">
+          <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${u.title}`} />
+        </label>
+        <div className="pointer-events-none absolute end-3 top-3 flex flex-col items-end gap-1">
+          {statusBadge(u)}
+          {u.featured ? <Badge tone="gold">Featured</Badge> : null}
+        </div>
+        {u.images?.length > 1 ? (
+          <span className="pointer-events-none absolute bottom-3 end-3 bg-black/60 px-2 py-0.5 text-[11px] text-white">{u.images.length} photos</span>
+        ) : null}
+        {!isComplete(u) ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            title={`Missing: ${missingLabels(u).join(', ')}`}
+            className="absolute inset-x-0 bottom-0 bg-red-600/90 px-3 py-1.5 text-start text-[11px] font-semibold text-white"
+          >
+            Incomplete · missing {missingLabels(u).join(', ')}
+          </button>
+        ) : null}
+      </div>
+
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <button type="button" onClick={onEdit} className="block max-w-full truncate text-start font-display text-lg font-bold text-prime-ink hover:underline">
+              {u.title}
+            </button>
+            <p className="truncate text-sm text-prime-muted">{[u.compound, u.destination || u.region].filter(Boolean).join(' · ') || '—'}</p>
+          </div>
+          {u.unitType ? <span className="shrink-0 border border-prime-line px-2 py-0.5 text-[11px] font-semibold text-prime-ink">{u.unitType}</span> : null}
+        </div>
+
+        {stats.length ? (
+          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm text-prime-muted">
+            {stats.map(([Icon, label]) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <Icon size={15} className="shrink-0 opacity-70" />
+                {label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-prime-muted">
+          {units ? (
+            <span className="flex items-center gap-1" title={(u.unitNumbers || []).join(', ')}>
+              <Layers size={13} /> {units} unit{units === 1 ? '' : 's'}
+            </span>
+          ) : null}
+          {u.floor ? <span>Floor {u.floor}</span> : null}
+          {u.kwentraRoomTypeId ? <Badge tone="blue">Kwentra #{u.kwentraRoomTypeId}</Badge> : <Badge>Website only</Badge>}
+        </div>
+
+        <p className="mt-3 text-sm">
+          {u.pricePerNight ? (
+            <>
+              <span className="text-prime-muted">From </span>
+              <span className="font-semibold tabular-nums text-prime-ink">
+                {Number(u.pricePerNight).toLocaleString()} {u.currency}
+              </span>
+              <span className="text-prime-muted"> / night</span>
+            </>
+          ) : (
+            <span className="text-prime-muted">No price yet</span>
+          )}
+        </p>
+
+        <div className="min-h-4 flex-1" />
+        <div className="flex items-center justify-between gap-2 border-t border-prime-line pt-3">
+          {live && u.slug ? (
+            <a
+              href={`/listings/${encodeURIComponent(u.slug)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 border border-prime-line px-2 py-1 text-[11px] font-semibold text-prime-ink hover:border-prime-ink"
+              title="Open the guest page"
+            >
+              <Globe size={13} /> Guest page
+            </a>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onToggle({ published: u.published === false })}
+              className={cn(
+                'inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold',
+                u.published === false ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100',
+              )}
+              title={u.published === false ? 'Show on the website' : 'Hide from the website'}
+            >
+              {u.published === false ? <Eye size={13} /> : <EyeOff size={13} />}
+              {u.published === false ? 'Publish' : 'Hide'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggle({ featured: !u.featured })}
+              className={cn('grid h-7 w-7 place-items-center border', u.featured ? 'border-prime-gold bg-prime-gold/10 text-prime-gold-deep' : 'border-prime-line text-prime-muted hover:border-prime-ink')}
+              title={u.featured ? 'Remove from homepage' : 'Feature on homepage'}
+              aria-label={u.featured ? 'Unfeature' : 'Feature'}
+            >
+              <Star size={13} fill={u.featured ? 'currentColor' : 'none'} />
+            </button>
+            <button type="button" onClick={onEdit} className="grid h-7 w-7 place-items-center border border-prime-line hover:border-prime-ink" aria-label={`Edit ${u.title}`}>
+              <Pencil size={13} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUnitsPage() {
   const toast = useToast();
   const [items, setItems] = useState([]);
@@ -37,6 +181,7 @@ export default function AdminUnitsPage() {
   const [compounds, setCompounds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
+  const [layout, setLayout] = useState(() => localStorage.getItem(LAYOUT_KEY) || 'grid');
   const [status, setStatus] = useState('all');
   const [params] = useSearchParams();
   const [propertyFilter, setPropertyFilter] = useState(() => params.get('property') || '');
@@ -239,7 +384,37 @@ export default function AdminUnitsPage() {
               </select>
               <SearchInput value={query} onChange={setQuery} placeholder="Search title, type, slug or unit number…" className="min-w-[220px] flex-1" />
               {view === 'order' && !canReorder ? <span className="text-xs text-prime-muted">Clear filters to reorder.</span> : null}
+              {view === 'list' ? (
+                <div className="flex border border-prime-line bg-prime-surface p-0.5" role="group" aria-label="Layout">
+                  {[
+                    ['grid', 'Grid', LayoutGrid],
+                    ['table', 'Table', List],
+                  ].map(([id, label, Icon]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setLayout(id);
+                        localStorage.setItem(LAYOUT_KEY, id);
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition',
+                        layout === id ? 'bg-prime-night text-prime-sand' : 'text-prime-muted hover:text-prime-ink',
+                      )}
+                      aria-pressed={layout === id}
+                    >
+                      <Icon size={14} /> {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
+            {view === 'list' && layout === 'grid' && filtered.length ? (
+              <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-prime-muted">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                Select all {filtered.length}
+              </label>
+            ) : null}
           </div>
 
           {selected.size ? (
@@ -269,6 +444,19 @@ export default function AdminUnitsPage() {
 
           {loading ? (
             <p className="text-sm text-prime-muted">Loading…</p>
+          ) : filtered.length && view === 'list' && layout === 'grid' ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {filtered.map((u) => (
+                <UnitCard
+                  key={u.id}
+                  unit={u}
+                  selected={selected.has(u.id)}
+                  onSelect={() => toggleOne(u.id)}
+                  onEdit={() => setEditor({ open: true, unit: u })}
+                  onToggle={(patch) => quickToggle(u, patch)}
+                />
+              ))}
+            </div>
           ) : filtered.length ? (
             <div className="overflow-x-auto border border-prime-line bg-prime-surface">
               <table className="w-full min-w-[900px] text-left text-sm">
