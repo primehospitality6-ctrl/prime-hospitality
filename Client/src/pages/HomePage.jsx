@@ -320,11 +320,17 @@ export default function HomePage() {
     <div>
       <Header overHero />
       <main>
-        <Hero />
+        <div id="home-hero">
+          <Hero />
+        </div>
         {(site.home?.sections || []).map(({ id, enabled }) => {
           if (!enabled) return null;
           const Section = SECTIONS[id];
-          return Section ? <Section key={id} destinations={destinations} /> : null;
+          return Section ? (
+            <div key={id} id={`home-${id}`}>
+              <Section destinations={destinations} />
+            </div>
+          ) : null;
         })}
       </main>
       <Footer />

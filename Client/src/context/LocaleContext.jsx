@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { useSite } from './SiteContext';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { isPreviewFrame, useSite } from './SiteContext';
 
 /** Built-in guest copy; the admin can override any key per language (Website › Pages & text) */
 export const defaultCopy = {
@@ -831,7 +831,13 @@ const copy = defaultCopy;
 const LocaleContext = createContext(null);
 
 export function LocaleProvider({ children }) {
-  const [locale, setLocale] = useState('en');
+  const [locale, setLocale] = useState(() => (isPreviewFrame() && new URLSearchParams(window.location.search).get('lang') === 'ar' ? 'ar' : 'en'));
+
+  useEffect(() => {
+    if (!isPreviewFrame()) return;
+    document.documentElement.lang = locale;
+    document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
+  }, [locale]);
 
   const overrides = useSite().site.copy;
 

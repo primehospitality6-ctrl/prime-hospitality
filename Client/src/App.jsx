@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 import { LocaleProvider } from './context/LocaleContext';
-import { SiteProvider } from './context/SiteContext';
+import { SiteProvider, isPreviewFrame } from './context/SiteContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { WishlistProvider } from './context/WishlistContext';
 import RouteFallback from './components/RouteFallback';
@@ -62,6 +62,8 @@ const AdminPagesPage = lazy(() => import('./pages/admin/AdminPagesPage'));
 const AdminContentListsPage = lazy(() => import('./pages/admin/AdminContentListsPage'));
 const AdminBusinessPage = lazy(() => import('./pages/admin/AdminBusinessPage'));
 
+const previewFrame = isPreviewFrame();
+
 export default function App() {
   return (
     <AdminAuthProvider>
@@ -117,9 +119,9 @@ export default function App() {
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>
-              <MarketingPixels />
+              {previewFrame ? null : <MarketingPixels />}
               <SeoManager />
-              <PromoPopup />
+              {previewFrame ? null : <PromoPopup />}
               <WhatsAppFAB />
             </WishlistProvider>
           </ThemeProvider>

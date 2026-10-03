@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { ExternalLink, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, MoveButtons, reorderList } from '../../components/admin/AdminUi';
-import { BilingualField, Card, Field, SaveBar, SearchInput, Tabs, Toggle, labelCls, useSiteSection, useToast } from '../../components/admin/kit';
-import CopyFields, { isOverridden } from '../../components/admin/CopyFields';
+import { Card, Field, SaveBar, SearchInput, Tabs, Toggle, labelCls, useSiteSection, useToast } from '../../components/admin/kit';
+import CopyFields, { isOverridden, keyLabel } from '../../components/admin/CopyFields';
+import LivePreview from '../../components/admin/LivePreview';
 import { defaultCopy } from '../../context/LocaleContext';
 import { useSite } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
@@ -27,7 +28,18 @@ const GROUPS = [
 
 const ALL_KEYS = Object.keys(defaultCopy.en);
 
-function TextEditor({ copy, onChange }) {
+function WithPreview({ path, site, children }) {
+  return (
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="min-w-0">{children}</div>
+      <div className="hidden min-w-0 xl:sticky xl:top-20 xl:block">
+        <LivePreview path={path} site={site} />
+      </div>
+    </div>
+  );
+}
+
+function TextEditor({ copy, onChange, previewSite }) {
   const [group, setGroup] = useState('home');
   const [query, setQuery] = useState('');
   const [editedOnly, setEditedOnly] = useState(false);
@@ -52,10 +64,16 @@ function TextEditor({ copy, onChange }) {
   }, [q, group, groups, editedOnly, copy]);
 
   const current = groups.find((g) => g.id === group);
+  const groupLabel = useMemo(() => Object.fromEntries(groups.map((g) => [g.id, g.label])), [groups]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-      <nav className="h-fit border border-prime-line bg-prime-surface lg:sticky lg:top-20">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <SearchInput value={query} onChange={setQuery} placeholder="Find any text on the website, e.g. “check-in”…" className="min-w-[240px] flex-1" />
+        <Toggle checked={editedOnly} onChange={setEditedOnly} label="Only what I changed" />
+      </div>
+      <p className={cn(labelCls, 'mb-2')}>Where on the website?</p>
+      <div className="mb-5 flex flex-wrap gap-1.5">
         {groups.map((g) => (
           <button
             key={g.id}
@@ -65,40 +83,35 @@ function TextEditor({ copy, onChange }) {
               setQuery('');
             }}
             className={cn(
-              'flex w-full items-center justify-between gap-2 border-b border-prime-line px-3 py-2.5 text-start text-sm last:border-b-0',
-              group === g.id && !q ? 'bg-prime-night text-prime-sand' : 'hover:bg-prime-mist'
+              'inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-semibold transition',
+              group === g.id && !q ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line bg-prime-surface text-prime-ink hover:border-prime-ink'
             )}
           >
-            <span className="truncate">{g.label}</span>
-            <span className="shrink-0 text-[11px] tabular-nums opacity-70">
-              {g.edited ? `${g.edited}/` : ''}
-              {g.keys.length}
-            </span>
+            {g.label}
+            {g.edited ? <span className="rounded-full bg-prime-gold px-1.5 text-[10px] text-prime-night">{g.edited}</span> : null}
           </button>
         ))}
-      </nav>
-      <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <SearchInput value={query} onChange={setQuery} placeholder="Search any text on the site…" className="min-w-[240px] flex-1" />
-          <Toggle checked={editedOnly} onChange={setEditedOnly} label="Edited only" />
-          {!q && current ? (
-            <a href={current.path} target="_blank" rel="noreferrer" className="prime-link inline-flex items-center gap-1 text-xs">
-              Open page <ExternalLink size={12} />
-            </a>
-          ) : null}
-        </div>
+      </div>
+      <WithPreview path={q ? '/' : current?.path || '/'} site={previewSite}>
         <Card
           title={q ? `Results for “${query.trim()}”` : current?.label}
-          description="Type in English and/or Arabic. Empty fields use the built-in wording shown in grey. Words in {braces} are filled in automatically — keep them."
+          description="Type in English and/or Arabic — the preview updates as you type. Empty boxes keep the built-in wording shown in grey. Keep words in {braces}: they are filled in automatically."
+          actions={
+            !q && current ? (
+              <a href={current.path} target="_blank" rel="noreferrer" className="prime-link inline-flex items-center gap-1 text-xs">
+                Open page <ExternalLink size={12} />
+              </a>
+            ) : null
+          }
         >
           {keys.length ? (
-            <CopyFields keys={keys.slice(0, 200)} copy={copy} onChange={onChange} labels={q ? Object.fromEntries(keys.map((k) => [k, k])) : {}} />
+            <CopyFields keys={keys.slice(0, 200)} copy={copy} onChange={onChange} labels={q ? Object.fromEntries(keys.map((k) => [k, `${groupLabel[k.split('.')[0]] || k.split('.')[0]} · ${keyLabel(k)}`])) : {}} />
           ) : (
-            <p className="text-sm text-prime-muted">Nothing matches.</p>
+            <p className="text-sm text-prime-muted">{editedOnly ? 'Nothing changed here yet.' : 'Nothing matches.'}</p>
           )}
           {keys.length > 200 ? <p className="mt-4 text-xs text-prime-muted">Showing the first 200 — refine the search.</p> : null}
         </Card>
-      </div>
+      </WithPreview>
     </div>
   );
 }
@@ -127,7 +140,7 @@ function PageImages({ title, description, fields, value, onChange, link }) {
             onChange={(url) => onChange({ ...value, [key]: url })}
           />
         ))}
-        <p className="text-xs text-prime-muted">Empty = the built-in photo. Page text is edited under the “All text” tab.</p>
+        <p className="text-xs text-prime-muted">Empty = the built-in photo. Page text is edited under “Words on the site”.</p>
       </div>
     </Card>
   );
@@ -154,37 +167,50 @@ function CareersEditor({ value, onChange }) {
           </button>
         }
       >
+        <datalist id="role-types">
+          {['Full-time', 'Part-time', 'Contract', 'Seasonal', 'Internship'].map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
         {roles.length ? (
           <ol className="space-y-3">
             {roles.map((r, i) => (
-              <li key={i} className="grid items-end gap-3 border border-prime-line p-3 sm:grid-cols-[auto_2fr_1.3fr_1fr_auto]">
-                <MoveButtons
-                  disableUp={i === 0}
-                  disableDown={i === roles.length - 1}
-                  onUp={() => setRoles(reorderList(roles, i, i - 1))}
-                  onDown={() => setRoles(reorderList(roles, i, i + 1))}
-                />
-                {[
-                  ['title', 'Role'],
-                  ['location', 'Location'],
-                  ['type', 'Type'],
-                ].map(([k, label]) => (
-                  <Field key={k} label={label}>
-                    <input
-                      className="prime-input"
-                      value={r[k] || ''}
-                      onChange={(e) => setRoles(roles.map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)))}
+              <li key={i} className="border border-prime-line p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-prime-muted">Role {i + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <MoveButtons
+                      disableUp={i === 0}
+                      disableDown={i === roles.length - 1}
+                      onUp={() => setRoles(reorderList(roles, i, i - 1))}
+                      onDown={() => setRoles(reorderList(roles, i, i + 1))}
                     />
-                  </Field>
-                ))}
-                <button
-                  type="button"
-                  className="grid h-10 w-10 place-items-center text-red-600"
-                  aria-label="Remove role"
-                  onClick={() => setRoles(roles.filter((_, j) => j !== i))}
-                >
-                  <Trash2 size={15} />
-                </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center text-red-600"
+                      aria-label="Remove role"
+                      onClick={() => setRoles(roles.filter((_, j) => j !== i))}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['title', 'Job title', 'sm:col-span-2'],
+                    ['location', 'Location', ''],
+                    ['type', 'Type', ''],
+                  ].map(([k, label, span]) => (
+                    <Field key={k} label={label} className={span}>
+                      <input
+                        className="prime-input"
+                        value={r[k] || ''}
+                        list={k === 'type' ? 'role-types' : undefined}
+                        onChange={(e) => setRoles(roles.map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)))}
+                      />
+                    </Field>
+                  ))}
+                </div>
               </li>
             ))}
           </ol>
@@ -202,60 +228,62 @@ const LEGAL = [
   ['refund', 'Refund Policy', '/refund-policy'],
 ];
 
-function LegalEditor({ value, onChange }) {
+function LegalEditor({ value, onChange, previewSite }) {
   const [which, setWhich] = useState('terms');
   const page = value?.[which] || {};
   const set = (patch) => onChange({ ...value, [which]: { ...page, ...patch } });
   const current = LEGAL.find(([id]) => id === which);
   return (
-    <Card
-      title={current[1]}
-      description="Plain text. Leave a blank line between paragraphs, start a line with “## ” for a heading and “- ” for a bullet."
-      actions={
-        <div className="flex flex-wrap gap-1.5">
-          {LEGAL.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setWhich(id)}
-              className={cn(
-                'border px-3 py-1.5 text-[11px] font-semibold',
-                which === id ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line'
-              )}
-            >
-              {label}
-            </button>
+    <WithPreview path={current[2]} site={previewSite}>
+      <Card
+        title={current[1]}
+        description="Plain text. Leave a blank line between paragraphs, start a line with “## ” for a heading and “- ” for a bullet."
+        actions={
+          <div className="flex flex-wrap gap-1.5">
+            {LEGAL.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setWhich(id)}
+                className={cn(
+                  'border px-3 py-1.5 text-[11px] font-semibold',
+                  which === id ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <Field label="Last updated" className="w-48">
+              <input type="date" className="prime-input" value={page.updatedAt || ''} onChange={(e) => set({ updatedAt: e.target.value })} />
+            </Field>
+            <a href={current[2]} target="_blank" rel="noreferrer" className="prime-link inline-flex items-center gap-1 pb-3 text-xs">
+              Open page <ExternalLink size={12} />
+            </a>
+          </div>
+          {[
+            ['en', 'English', 'ltr', '## Bookings\n\nAll reservations…'],
+            ['ar', 'Arabic', 'rtl', '## الحجوزات\n\nجميع الحجوزات…'],
+          ].map(([locale, label, dir, placeholder]) => (
+            <Field key={locale} label={`Policy text — ${label}`}>
+              <textarea dir={dir} rows={14} className="prime-input min-h-[200px]" value={page[locale] || ''} placeholder={placeholder} onChange={(e) => set({ [locale]: e.target.value })} />
+            </Field>
           ))}
         </div>
-      }
-    >
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <Field label="Last updated" className="w-48">
-            <input type="date" className="prime-input" value={page.updatedAt || ''} onChange={(e) => set({ updatedAt: e.target.value })} />
-          </Field>
-          <a href={current[2]} target="_blank" rel="noreferrer" className="prime-link inline-flex items-center gap-1 pb-3 text-xs">
-            Open page <ExternalLink size={12} />
-          </a>
-        </div>
-        <BilingualField
-          label="Policy text"
-          multiline
-          rows={18}
-          value={{ en: page.en || '', ar: page.ar || '' }}
-          onChange={(v) => set(v)}
-          placeholder={{ en: '## Bookings\n\nAll reservations…', ar: '## الحجوزات\n\nجميع الحجوزات…' }}
-        />
-      </div>
-    </Card>
+      </Card>
+    </WithPreview>
   );
 }
 
 const TABS = [
-  ['text', 'All text'],
-  ['about', 'About'],
-  ['owners', 'List your property'],
-  ['careers', 'Careers'],
+  ['text', 'Words on the site'],
+  ['about', 'About photos'],
+  ['owners', 'Owners page photos'],
+  ['careers', 'Careers & jobs'],
   ['legal', 'Legal pages'],
 ];
 
@@ -275,7 +303,7 @@ export default function AdminPagesPage() {
     <div>
       <AdminPageHeader
         title="Pages & text"
-        lede="Edit every guest-facing word in English and Arabic, page photos, open roles and legal policies."
+        lede="Change any word or photo guests see, in English and Arabic. The preview on the right updates as you type; press Save to publish."
       />
       {error ? <p className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
@@ -283,34 +311,42 @@ export default function AdminPagesPage() {
         <p className="text-sm text-prime-muted">Loading…</p>
       ) : (
         <>
-          {tab === 'text' && <TextEditor copy={draft.copy} onChange={(copy) => setDraft((d) => ({ ...d, copy }))} />}
+          {tab === 'text' && <TextEditor copy={draft.copy} onChange={(copy) => setDraft((d) => ({ ...d, copy }))} previewSite={draft} />}
           {tab === 'about' && (
-            <PageImages
-              title="About page photos"
-              link="/about"
-              fields={[
-                ['heroImage', 'Hero photo', '16:9 or wider'],
-                ['wideImage', 'Wide photo', '21:9'],
-                ['portraitImage', 'Portrait photo', '4:5'],
-              ]}
-              value={draft.pages.about}
-              onChange={(v) => setPages('about', v)}
-            />
+            <WithPreview path="/about" site={draft}>
+              <PageImages
+                title="About page photos"
+                link="/about"
+                fields={[
+                  ['heroImage', 'Hero photo', '16:9 or wider'],
+                  ['wideImage', 'Wide photo', '21:9'],
+                  ['portraitImage', 'Portrait photo', '4:5'],
+                ]}
+                value={draft.pages.about}
+                onChange={(v) => setPages('about', v)}
+              />
+            </WithPreview>
           )}
           {tab === 'owners' && (
-            <PageImages
-              title="List-your-property page photos"
-              link="/owners"
-              fields={[
-                ['heroImage', 'Hero photo', '16:9 or wider'],
-                ['sideImage', 'Inquiry form photo', '4:5'],
-              ]}
-              value={draft.pages.owners}
-              onChange={(v) => setPages('owners', v)}
-            />
+            <WithPreview path="/owners" site={draft}>
+              <PageImages
+                title="List-your-property page photos"
+                link="/owners"
+                fields={[
+                  ['heroImage', 'Hero photo', '16:9 or wider'],
+                  ['sideImage', 'Inquiry form photo', '4:5'],
+                ]}
+                value={draft.pages.owners}
+                onChange={(v) => setPages('owners', v)}
+              />
+            </WithPreview>
           )}
-          {tab === 'careers' && <CareersEditor value={draft.pages.careers} onChange={(v) => setPages('careers', v)} />}
-          {tab === 'legal' && <LegalEditor value={draft.pages.legal} onChange={(v) => setPages('legal', v)} />}
+          {tab === 'careers' && (
+            <WithPreview path="/careers" site={draft}>
+              <CareersEditor value={draft.pages.careers} onChange={(v) => setPages('careers', v)} />
+            </WithPreview>
+          )}
+          {tab === 'legal' && <LegalEditor value={draft.pages.legal} onChange={(v) => setPages('legal', v)} previewSite={draft} />}
         </>
       )}
       <p className={cn(labelCls, 'mt-6 normal-case tracking-normal')}>

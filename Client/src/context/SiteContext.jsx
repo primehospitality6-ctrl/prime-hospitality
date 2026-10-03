@@ -65,9 +65,50 @@ function applyBusiness(business = {}) {
 
 const SiteContext = createContext({ site: DEFAULT_SITE, loaded: false, refresh: () => {}, replace: () => {} });
 
+/** True inside the admin's live-preview iframe (same origin, ?__preview in the URL) */
+export function isPreviewFrame() {
+  if (typeof window === 'undefined' || window.parent === window) return false;
+  return new URLSearchParams(window.location.search).has('__preview');
+}
+
+function flashElement(el) {
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.animate?.(
+    [
+      { boxShadow: 'inset 0 0 0 3px rgba(200,169,106,0.95)' },
+      { boxShadow: 'inset 0 0 0 3px rgba(200,169,106,0)' },
+    ],
+    { duration: 1800, easing: 'ease-out' }
+  );
+}
+
+/** Lets the admin push an unsaved draft into the preview iframe and scroll it to a section */
+function usePreviewBridge(setPatch) {
+  useEffect(() => {
+    if (!isPreviewFrame()) return undefined;
+    function onMessage(event) {
+      if (event.origin !== window.location.origin || event.source !== window.parent) return;
+      const { type, site, target } = event.data || {};
+      if (type === 'prime:preview' && site && typeof site === 'object') {
+        if (site.business) applyBusiness(site.business);
+        setPatch(site);
+      } else if (type === 'prime:scroll' && typeof target === 'string') {
+        const el = document.getElementById(target);
+        if (el) flashElement(el);
+      }
+    }
+    window.addEventListener('message', onMessage);
+    window.parent.postMessage({ type: 'prime:preview-ready' }, window.location.origin);
+    return () => window.removeEventListener('message', onMessage);
+  }, [setPatch]);
+}
+
 export function SiteProvider({ children }) {
-  const [site, setSite] = useState(DEFAULT_SITE);
+  const [baseSite, setSite] = useState(DEFAULT_SITE);
+  const [patch, setPatch] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  usePreviewBridge(setPatch);
+  const site = useMemo(() => (patch ? { ...baseSite, ...patch } : baseSite), [baseSite, patch]);
 
   const replace = useCallback((next) => {
     if (!next) return;

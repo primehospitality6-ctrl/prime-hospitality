@@ -1,64 +1,118 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { Award, ChevronDown, ExternalLink, Eye, EyeOff, Handshake, ImageIcon, MapPin, Megaphone, ShieldCheck, Sparkles, Star } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, MoveButtons, reorderList } from '../../components/admin/AdminUi';
-import { Badge, Card, SaveBar, useSiteSection, useToast } from '../../components/admin/kit';
+import { Badge, SaveBar, useSiteSection, useToast } from '../../components/admin/kit';
 import CopyFields, { isOverridden } from '../../components/admin/CopyFields';
+import LivePreview from '../../components/admin/LivePreview';
 import { useSite } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
 
-const HERO_KEYS = ['home.heroLine1', 'home.heroLine2', 'home.heroSubtitle', 'home.introEyebrow'];
+const HERO = {
+  name: 'Hero',
+  about: 'Full-screen photos with the headline and search bar.',
+  icon: ImageIcon,
+  keys: ['home.heroLine1', 'home.heroLine2', 'home.heroSubtitle', 'home.introEyebrow'],
+  link: ['/admin/slideshow', 'Change the slideshow photos'],
+};
 
 const SECTION_INFO = {
   intro: {
     name: 'Introduction',
-    about: 'Brand statement with live destination/property counts.',
+    about: 'Brand statement with live destination and property counts.',
+    icon: Sparkles,
     keys: ['home.introTitle', 'home.introBody', 'home.ourStory'],
   },
   properties: {
     name: 'Destinations',
-    about: 'Destination tiles — choose which appear under Inventory › Destinations (“Show on home”).',
+    about: 'Destination tiles. Pick which ones show with “Show on home” on each destination.',
+    icon: MapPin,
     keys: ['home.destinations', 'home.destinationsBody', 'home.exploreCompounds'],
-    link: ['/admin/destinations', 'Manage destinations'],
+    link: ['/admin/destinations', 'Choose destinations'],
   },
   brands: {
     name: 'Brands',
     about: 'Prime Inn, Residence and Select.',
+    icon: Award,
     keys: ['home.brandsEyebrow', 'home.brandsTitle'],
   },
   featured: {
     name: 'Featured stays',
-    about: 'Carousel of unit types marked “Featured”.',
+    about: 'Carousel of the unit types marked “Featured”.',
+    icon: Star,
     keys: ['home.featured', 'home.featuredTitle', 'home.viewAll'],
-    link: ['/admin/units', 'Choose featured units'],
+    link: ['/admin/units', 'Choose featured unit types'],
   },
   trust: {
     name: 'Why Prime',
-    about: 'Numbered trust points.',
+    about: 'Numbered reasons to book with Prime.',
+    icon: ShieldCheck,
     keys: ['home.why', 'home.trustTitle', 'home.trustBody'],
-    link: ['/admin/content', 'Edit trust points'],
+    link: ['/admin/content', 'Edit the reasons'],
   },
   partners: {
     name: 'Partner logos',
-    about: 'Channel / partner logo strip.',
+    about: 'Strip of booking channel / partner logos.',
+    icon: Handshake,
     keys: ['home.partners'],
-    link: ['/admin/content', 'Edit partners'],
+    link: ['/admin/content', 'Edit the logos'],
   },
   partnerCta: {
     name: 'Owner call-to-action',
     about: 'Invites property owners to list with Prime.',
+    icon: Megaphone,
     keys: ['home.partnersLabel', 'home.partnerCtaTitle', 'home.partnerCtaBody', 'home.partnerCtaBtn'],
   },
 };
+
+function SectionRow({ info, enabled = true, expanded, edited, onToggleOpen, onToggleVisible, move, children }) {
+  const Icon = info.icon;
+  return (
+    <li className={cn('bg-prime-surface', !enabled && 'bg-prime-mist/60', expanded && 'ring-1 ring-inset ring-prime-gold')}>
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        {move || <span className="w-[52px]" />}
+        <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-start" onClick={onToggleOpen}>
+          <span className={cn('grid h-9 w-9 shrink-0 place-items-center border', expanded ? 'border-prime-gold bg-prime-gold/10 text-prime-gold-deep' : 'border-prime-line text-prime-muted')}>
+            <Icon size={16} />
+          </span>
+          <span className="min-w-0">
+            <span className={cn('flex items-center gap-2 text-sm font-semibold', !enabled && 'text-prime-muted line-through')}>
+              {info.name}
+              {edited ? <Badge tone="gold">Edited</Badge> : null}
+            </span>
+            <span className="block truncate text-xs text-prime-muted">{info.about}</span>
+          </span>
+        </button>
+        {onToggleVisible ? (
+          <button
+            type="button"
+            onClick={onToggleVisible}
+            className={cn('grid h-8 w-8 place-items-center border', enabled ? 'border-prime-line text-prime-ink hover:border-prime-ink' : 'border-dashed border-prime-line text-prime-muted')}
+            title={enabled ? 'Visible — click to hide' : 'Hidden — click to show'}
+            aria-label={enabled ? 'Hide section' : 'Show section'}
+          >
+            {enabled ? <Eye size={14} /> : <EyeOff size={14} />}
+          </button>
+        ) : null}
+        <button type="button" onClick={onToggleOpen} className="grid h-8 w-8 place-items-center text-prime-muted" aria-label={expanded ? 'Collapse' : 'Edit text'}>
+          <ChevronDown size={16} className={cn('transition', expanded && 'rotate-180')} />
+        </button>
+      </div>
+      {expanded ? <div className="border-t border-prime-line px-4 py-5">{children}</div> : null}
+    </li>
+  );
+}
 
 export default function AdminHomepagePage() {
   const toast = useToast();
   const { replace } = useSite();
   const { draft, setDraft, dirty, saving, error, save, discard, loaded } = useSiteSection(api, ['home', 'copy'], replace);
   const [open, setOpen] = useState('');
+  const [focus, setFocus] = useState(null);
 
   const sections = draft?.home?.sections || [];
+  const hiddenCount = sections.filter((s) => !s.enabled).length;
 
   function setSections(next) {
     setDraft((d) => ({ ...d, home: { ...d.home, sections: next } }));
@@ -68,18 +122,38 @@ export default function AdminHomepagePage() {
     setDraft((d) => ({ ...d, copy }));
   }
 
+  function toggleOpen(id, enabled = true) {
+    const next = open === id ? '' : id;
+    setOpen(next);
+    if (next && enabled) setFocus({ id: `home-${id}`, at: Date.now() });
+  }
+
   async function onSave() {
-    if (await save()) toast.success('Homepage saved — refresh the site to see it.');
+    if (await save()) toast.success('Homepage published.');
+  }
+
+  function editor(info) {
+    return (
+      <>
+        {info.keys.length ? <CopyFields keys={info.keys} copy={draft.copy} onChange={setCopy} /> : null}
+        {info.link ? (
+          <Link to={info.link[0]} className="prime-link mt-5 inline-flex items-center gap-1 text-xs">
+            {info.link[1]} →
+          </Link>
+        ) : null}
+        <p className="mt-4 text-[11px] text-prime-muted">Leave a box empty to keep the built-in wording shown in grey.</p>
+      </>
+    );
   }
 
   return (
     <div>
       <AdminPageHeader
         title="Homepage"
-        lede="Arrange the homepage like a theme editor: reorder sections, hide what you don’t need, and rewrite the text in English and Arabic."
+        lede="Click a section to edit its text — the preview jumps to it. Reorder with the arrows, hide with the eye. Nothing goes live until you press Save."
         actions={
           <a href="/" target="_blank" rel="noreferrer" className="prime-btn-outline">
-            Preview homepage
+            <ExternalLink size={14} /> Open homepage
           </a>
         }
       />
@@ -87,72 +161,51 @@ export default function AdminHomepagePage() {
       {!loaded ? (
         <p className="text-sm text-prime-muted">Loading…</p>
       ) : (
-        <div className="space-y-6">
-          <Card
-            title="Hero"
-            description="Full-screen photo slideshow with the search bar. Leave a field empty to keep the built-in wording shown in grey."
-            actions={
-              <Link to="/admin/slideshow" className="prime-link text-xs">
-                Manage slideshow photos
-              </Link>
-            }
-          >
-            <CopyFields keys={HERO_KEYS} copy={draft.copy} onChange={setCopy} />
-          </Card>
-
-          <Card title="Sections" description="Top to bottom, below the hero.">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-muted">
+              <span>Sections, top to bottom</span>
+              <span className="normal-case tracking-normal">{hiddenCount ? `${hiddenCount} hidden` : 'All visible'}</span>
+            </div>
             <ol className="divide-y divide-prime-line border border-prime-line">
+              <SectionRow
+                info={HERO}
+                expanded={open === 'hero'}
+                edited={HERO.keys.some((k) => isOverridden(draft.copy, k))}
+                onToggleOpen={() => toggleOpen('hero')}
+              >
+                {editor(HERO)}
+              </SectionRow>
               {sections.map((s, index) => {
-                const info = SECTION_INFO[s.id] || { name: s.id, keys: [] };
-                const edited = info.keys.some((k) => isOverridden(draft.copy, k));
-                const expanded = open === s.id;
+                const info = SECTION_INFO[s.id] || { name: s.id, about: '', icon: Sparkles, keys: [] };
                 return (
-                  <li key={s.id} className={cn('bg-prime-surface', !s.enabled && 'bg-prime-mist/60')}>
-                    <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <SectionRow
+                    key={s.id}
+                    info={info}
+                    enabled={s.enabled}
+                    expanded={open === s.id}
+                    edited={info.keys.some((k) => isOverridden(draft.copy, k))}
+                    onToggleOpen={() => toggleOpen(s.id, s.enabled)}
+                    onToggleVisible={() => setSections(sections.map((x) => (x.id === s.id ? { ...x, enabled: !x.enabled } : x)))}
+                    move={
                       <MoveButtons
                         disableUp={index === 0}
                         disableDown={index === sections.length - 1}
                         onUp={() => setSections(reorderList(sections, index, index - 1))}
                         onDown={() => setSections(reorderList(sections, index, index + 1))}
                       />
-                      <button type="button" className="min-w-0 flex-1 text-start" onClick={() => setOpen(expanded ? '' : s.id)}>
-                        <p className={cn('font-semibold', !s.enabled && 'text-prime-muted line-through')}>{info.name}</p>
-                        <p className="text-xs text-prime-muted">{info.about}</p>
-                      </button>
-                      {edited ? <Badge tone="gold">Text edited</Badge> : null}
-                      <button
-                        type="button"
-                        onClick={() => setSections(sections.map((x) => (x.id === s.id ? { ...x, enabled: !x.enabled } : x)))}
-                        className="inline-flex items-center gap-1.5 border border-prime-line px-2.5 py-1.5 text-[11px] font-semibold"
-                        title={s.enabled ? 'Hide section' : 'Show section'}
-                      >
-                        {s.enabled ? <Eye size={14} /> : <EyeOff size={14} />}
-                        {s.enabled ? 'Visible' : 'Hidden'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setOpen(expanded ? '' : s.id)}
-                        className="grid h-8 w-8 place-items-center"
-                        aria-label={expanded ? 'Collapse' : 'Edit text'}
-                      >
-                        <ChevronDown size={16} className={cn('transition', expanded && 'rotate-180')} />
-                      </button>
-                    </div>
-                    {expanded ? (
-                      <div className="border-t border-prime-line px-4 py-5">
-                        {info.keys.length ? <CopyFields keys={info.keys} copy={draft.copy} onChange={setCopy} /> : null}
-                        {info.link ? (
-                          <Link to={info.link[0]} className="prime-link mt-5 text-xs">
-                            {info.link[1]}
-                          </Link>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </li>
+                    }
+                  >
+                    {editor(info)}
+                  </SectionRow>
                 );
               })}
             </ol>
-          </Card>
+            <p className="mt-3 text-xs text-prime-muted">The header, footer and announcement bar are shared by every page — edit them under Pages &amp; text and Marketing.</p>
+          </div>
+          <div className="hidden min-w-0 xl:sticky xl:top-20 xl:block">
+            <LivePreview path="/" site={{ home: draft.home, copy: draft.copy }} focus={focus} />
+          </div>
         </div>
       )}
       <SaveBar dirty={dirty} saving={saving} onSave={onSave} onDiscard={discard} />
