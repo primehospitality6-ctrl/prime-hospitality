@@ -7,7 +7,7 @@ const { listBookings, updateBooking } = require('../lib/cmsStore');
 
 const router = Router();
 
-async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId }) {
+async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId, cardLast4, cardType }) {
   if (!booking) return null;
   await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
   if (booking.kwentraReservationId && kwentra.isConfigured()) {
@@ -19,6 +19,8 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
       merchantOrderId: merchantOrderId || booking.externalRef,
       provider,
       transactionId,
+      cardLast4,
+      cardType,
     });
   }
   return { pushed: false, reason: 'no_kwentra_reservation' };
@@ -44,6 +46,8 @@ router.post('/paymob', async (req, res, next) => {
       provider: 'paymob',
       transactionId: obj.id,
       merchantOrderId,
+      cardLast4: String(obj.source_data?.pan || '').slice(-4),
+      cardType: obj.source_data?.sub_type,
     });
 
     res.json({ received: true, handled: true, merchantOrderId, kwentraPayment });

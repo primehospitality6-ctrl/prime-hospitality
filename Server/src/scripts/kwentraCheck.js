@@ -3,15 +3,10 @@
  *   npm run kwentra:check            → the tenant in KWENTRA_TENANT_ID
  *   npm run kwentra:check -- 394 375 → those tenants
  * Prints what Kwentra returns (room types, rooms, rates and their web flag, channel profiles,
- * markets, sources). Credentials are never printed.
+ * markets, sources, the latest reservation's billing account). Read only. Credentials are never printed.
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const kwentra = require('../services/kwentraService');
-
-const CANDIDATES = {
-  markets: ['/api/core/market/', '/api/reservation/market/', '/api/core/markets/'],
-  sources: ['/api/core/source/', '/api/reservation/source/', '/api/core/sources/'],
-};
 
 const brief = (v) => {
   const s = JSON.stringify(v);
@@ -29,18 +24,9 @@ async function step(label, fn) {
   }
 }
 
-async function probe(kind, tenantId) {
-  const configured = String(process.env[`KWENTRA_PATH_${kind.toUpperCase()}`] || '').trim();
-  for (const path of configured ? [configured] : CANDIDATES[kind]) {
-    try {
-      const list = await kwentra.listAll(path, { tenantId, maxPages: 2 });
-      const rows = list.map((m) => `${m.id}:${m.name || m.description || m.code || '?'}`);
-      console.log(`  ✓ ${kind} at ${path}: ${rows.length} → ${rows.slice(0, 12).join(', ')}`);
-      return;
-    } catch (err) {
-      console.log(`  · ${kind} not at ${path} (${err.status || err.message})`);
-    }
-  }
+async function listLookup(kind, tenantId) {
+  const list = await kwentra.listAll(kwentra.pathFor(kind), { tenantId, maxPages: 2, keys: [kind] });
+  return `${list.length} → ${list.slice(0, 15).map((m) => `${m.id}:${m.code || ''} ${m.description || m.name || ''}`.trim()).join(', ')}`;
 }
 
 async function checkTenant(tenantId) {
@@ -85,8 +71,23 @@ async function checkTenant(tenantId) {
     });
   }
 
-  await probe('markets', tenantId);
-  await probe('sources', tenantId);
+  await step('markets', () => listLookup('markets', tenantId));
+  await step('sources', () => listLookup('sources', tenantId));
+  await step('market + source the website will use', async () => brief(await kwentra.websiteMarketSource(tenantId)));
+
+  await step('latest reservation (read only)', async () => {
+    const { reservations } = await kwentra.listReservations({ tenantId, stateRegex: '', includes: [] });
+    const latest = reservations[0];
+    if (!latest) return 'none yet';
+    const full = await kwentra.getReservation(latest.id, { tenantId });
+    console.log(`    fields: ${Object.keys(full || {}).join(', ')}`);
+    const accountId = kwentra.reservationAccountId(full);
+    if (accountId) {
+      const postings = await kwentra.listPostings({ tenantId, accountId }).catch((err) => ({ error: err.message }));
+      console.log(`    postings on account ${accountId}: ${Array.isArray(postings) ? postings.length : postings.error}`);
+    }
+    return `#${latest.id} · billing account: ${accountId ?? 'not found'}`;
+  });
 }
 
 async function main() {

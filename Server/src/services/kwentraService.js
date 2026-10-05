@@ -9,6 +9,8 @@
  *  individualprofile-v3      GET/POST/PUT /api/core/individualprofile/v3/
  *  individualreservation-v2  POST /api/reservation/individualreservation/v2/ · PUT {id}/ · POST {id}/note/
  *                            PATCH /api/reservation/individualreservation/{id}/change_state/
+ *  market · source           GET  /api/core/market/ · /api/core/source/  → {id, code, description}
+ *  billing                   POST /api/income/payment/ · GET /api/income/posting/
  *
  * Every request carries `tenant_id` — the Kwentra tenant of the property the unit belongs to
  * (property "Kwentra tenant ID" in the admin), falling back to KWENTRA_TENANT_ID.
@@ -34,10 +36,11 @@ const PATHS = {
   reservation: ['KWENTRA_PATH_RESERVATION', '/api/reservation/individualreservation/v2/:id/'],
   reservationNote: ['KWENTRA_PATH_RESERVATION_NOTE', '/api/reservation/individualreservation/v2/:id/note/'],
   reservationState: ['KWENTRA_PATH_RESERVATION_STATE', '/api/reservation/individualreservation/:id/change_state/'],
-  // Market / Source / Billing APIs were sent separately — set the paths once their docs are in hand
   markets: ['KWENTRA_PATH_MARKETS', '/api/core/market/'],
   sources: ['KWENTRA_PATH_SOURCES', '/api/core/source/'],
-  payment: ['KWENTRA_PATH_PAYMENT', ''],
+  // Billing API: credit posting on a billing account window
+  payment: ['KWENTRA_PATH_PAYMENT', '/api/income/payment/'],
+  postings: ['KWENTRA_PATH_POSTINGS', '/api/income/posting/'],
 };
 
 function pathFor(key, id) {
@@ -150,12 +153,33 @@ function errorMessage(data, status) {
 const MAX_RATE_LIMIT_RETRIES = 3;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const AUTH_PAUSE_MS = 15 * 60_000;
+let authBlocked = null;
+
+/** Rejected login / expired password / locked account — repeated attempts would keep the account locked */
+const isAuthFailure = (err) => err.status === 401 || err.status === 423 || (err.status === 403 && /password|credential|locked|authenticat/i.test(err.message));
+
+function authStatus() {
+  return authBlocked && Date.now() < authBlocked.until ? { ...authBlocked } : null;
+}
+
 /** Kwentra allows a limited number of requests per minute — wait and retry on 429 */
 async function kwentraFetch(path, options = {}) {
+  const blocked = authStatus();
+  if (blocked) {
+    const err = new Error(`Kwentra login paused until ${new Date(blocked.until).toLocaleTimeString()} after: ${blocked.message}`);
+    err.status = blocked.status;
+    err.code = 'KWENTRA_AUTH_PAUSED';
+    throw err;
+  }
   for (let attempt = 0; ; attempt += 1) {
     try {
       return await kwentraRequest(path, options);
     } catch (err) {
+      if (isAuthFailure(err)) {
+        authBlocked = { status: err.status, message: err.message, until: Date.now() + AUTH_PAUSE_MS };
+        console.warn(`[kwentra] login refused (${err.status} ${err.message}) — pausing Kwentra calls for 15 minutes`);
+      }
       if (err.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) throw err;
       const retryAfter = Number(err.retryAfter);
       await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : 2000 * 2 ** attempt);
@@ -516,6 +540,42 @@ async function updateReservation(id, body, { tenantId } = {}) {
   return kwentraFetch(pathFor('reservation', id), { method: 'PUT', body, tenantId });
 }
 
+/** GET /api/reservation/individualreservation/v2/{id}/ */
+async function getReservation(id, { tenantId } = {}) {
+  const data = await kwentraFetch(pathFor('reservation', id), { tenantId });
+  return data?.reservation || data;
+}
+
+/** Billing account of a reservation — the field Kwentra uses is configurable (KWENTRA_RESERVATION_ACCOUNT_FIELD) */
+function reservationAccountId(reservation) {
+  const fields = [process.env.KWENTRA_RESERVATION_ACCOUNT_FIELD, 'billing_account', 'account_id', 'reservation_account', 'account'].filter(Boolean);
+  for (const field of fields) {
+    const v = reservation?.[field];
+    const id = v && typeof v === 'object' ? v.id : v;
+    if (id != null && id !== '' && Number.isFinite(Number(id))) return Number(id);
+  }
+  return null;
+}
+
+/**
+ * Billing API — POST /api/income/payment/?account={id}&window_number={n} (or ?window={id}) with
+ * [{ department, amount, comments, credit_card_number?, cc_type? }]. department = a credit department
+ * (e.g. "Online payment"). Allowed while the reservation is Expected or Checked In.
+ */
+async function postPayment({ tenantId, accountId, windowId, windowNumber = 1, department, amount, comments, cardLast4, cardType } = {}) {
+  const query = windowId ? { window: windowId } : { account: accountId, window_number: windowNumber };
+  const posting = { department: Number(department), amount: Number(amount), comments: comments || '' };
+  if (/^\d{4}$/.test(String(cardLast4 || ''))) posting.credit_card_number = String(cardLast4);
+  if (cardType) posting.cc_type = String(cardType);
+  return kwentraFetch(pathFor('payment'), { method: 'POST', query, body: [posting], tenantId });
+}
+
+/** GET /api/income/posting/?account={id} — postings on a billing account */
+async function listPostings({ tenantId, accountId, windowId } = {}) {
+  const data = await kwentraFetch(pathFor('postings'), { query: { account: accountId, window: windowId }, tenantId });
+  return extractList(data, ['postings']);
+}
+
 /** Partial update (e.g. only hold_status) — PATCH, or PUT when the server does not allow PATCH */
 async function patchReservation(id, body, { tenantId } = {}) {
   try {
@@ -682,6 +742,7 @@ async function uploadGuestAttachment(profileId, fileBuffer, filename, contentTyp
 
 module.exports = {
   isConfigured,
+  authStatus,
   getTenantId,
   baseUrl,
   pathFor,
@@ -703,6 +764,10 @@ module.exports = {
   createReservation,
   updateReservation,
   patchReservation,
+  getReservation,
+  reservationAccountId,
+  postPayment,
+  listPostings,
   changeReservationState,
   cancelReservation,
   addReservationNote,

@@ -602,10 +602,24 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
 }
 
 /**
- * After the guest pays on the website: confirm a held reservation, leave a billing note with the
- * payment reference, and post the payment when Kwentra provides an endpoint (KWENTRA_PATH_PAYMENT).
+ * Credit department online payments are posted to, per tenant:
+ * KWENTRA_PAYMENT_DEPARTMENTS={"394":53,"375":12}, else KWENTRA_PAYMENT_DEPARTMENT_ID.
  */
-async function pushPayment({ booking, reservationId, amount, currency = 'EGP', merchantOrderId, provider, transactionId }) {
+function paymentDepartment(tenantId) {
+  try {
+    const map = JSON.parse(process.env.KWENTRA_PAYMENT_DEPARTMENTS || '{}');
+    if (map && map[String(tenantId)] != null) return String(map[String(tenantId)]);
+  } catch {
+    console.warn('[kwentra] KWENTRA_PAYMENT_DEPARTMENTS is not valid JSON — ignoring it');
+  }
+  return String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim();
+}
+
+/**
+ * After the guest pays on the website: confirm a held reservation, post the payment on the
+ * reservation's billing account (Billing API), and leave a billing note with the payment reference.
+ */
+async function pushPayment({ booking, reservationId, amount, currency = 'EGP', merchantOrderId, provider, transactionId, cardLast4, cardType }) {
   if (!kwentra.isConfigured() || !reservationId) {
     return { pushed: false, reason: !reservationId ? 'missing_reservation_id' : 'not_configured' };
   }
@@ -624,23 +638,28 @@ async function pushPayment({ booking, reservationId, amount, currency = 'EGP', m
     await attempt('confirmed', () => kwentra.patchReservation(reservationId, { hold_status: 'CONFIRMED' }, { tenantId }));
   }
   const ref = transactionId || merchantOrderId || '';
-  await attempt('noted', () =>
-    kwentra.addReservationNote(
-      reservationId,
-      `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`,
-      { type: 'billing', tenantId }
-    )
-  );
-  const paymentPath = kwentra.pathFor('payment', reservationId);
-  if (paymentPath) {
-    await attempt('posted', () =>
-      kwentra.kwentraFetch(paymentPath, {
-        method: 'POST',
-        body: { amount: Number(amount), currency, provider, transaction_id: transactionId, merchant_order_id: merchantOrderId },
+  const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`;
+
+  const department = paymentDepartment(tenantId);
+  if (department) {
+    await attempt('posted', async () => {
+      const accountId = kwentra.reservationAccountId(await kwentra.getReservation(reservationId, { tenantId }));
+      if (!accountId) throw new Error('the reservation has no billing account id — set KWENTRA_RESERVATION_ACCOUNT_FIELD');
+      await kwentra.postPayment({
         tenantId,
-      })
-    );
+        accountId,
+        windowNumber: Number(process.env.KWENTRA_PAYMENT_WINDOW || 1),
+        department,
+        amount,
+        comments: summary,
+        cardLast4,
+        cardType,
+      });
+    });
+  } else {
+    result.errors.push('posted: no payment department set (KWENTRA_PAYMENT_DEPARTMENT_ID) — recorded as a note only');
   }
+  await attempt('noted', () => kwentra.addReservationNote(reservationId, summary, { type: 'billing', tenantId }));
   result.pushed = result.noted || result.posted || result.confirmed;
   return result;
 }
@@ -925,6 +944,7 @@ async function syncStatus() {
     autoSyncMinutes: configured ? syncMinutes() : 0,
     last: syncState.last,
     lastTrigger: syncState.lastTrigger,
+    loginPaused: kwentra.authStatus(),
     tenants: {
       defaultTenant: Boolean(kwentra.getTenantId()),
       properties: linked.map((c) => ({ id: c.id, name: c.name, tenantId: c.kwentraTenantId })),
