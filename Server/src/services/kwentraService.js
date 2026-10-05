@@ -1,7 +1,9 @@
 /**
  * Kwentra PMS — headless HTTP client aligned to the Kwentra API pack (OpenAPI files):
  *
- *  roomtype                  GET  /api/core/roomtype/
+ *  roomtype                  GET  /api/reservation/roomtype/
+ *
+ * Lists are dynamic-rest: only ids come back unless the wanted fields are asked for with include[].
  *  room-v2                   GET  /api/reservation/room/v2/?filter{type}=…&filter{from_date}…&filter{showvacantrooms}
  *  room-availability         GET  /api/reservation/rooms/availability/{room_type_id}/?start_date&end_date
  *  rate-v2                   GET  /api/reservation/rate/v2/ · /api/reservation/rate/v2/totalstay/
@@ -24,8 +26,8 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** key → [env overrides…, default path from the API pack] */
 const PATHS = {
-  roomTypes: ['KWENTRA_PATH_ROOM_TYPES', '/api/core/roomtype/'],
-  roomType: ['KWENTRA_PATH_ROOM_TYPE', '/api/core/roomtype/:id/'],
+  roomTypes: ['KWENTRA_PATH_ROOM_TYPES', '/api/reservation/roomtype/'],
+  roomType: ['KWENTRA_PATH_ROOM_TYPE', '/api/reservation/roomtype/:id/'],
   rooms: ['KWENTRA_PATH_ROOMS', '/api/reservation/room/v2/'],
   availability: ['KWENTRA_PATH_AVAILABILITY', '/api/reservation/rooms/availability/:id/'],
   rates: ['KWENTRA_PATH_RATES', '/api/reservation/rate/v2/'],
@@ -277,8 +279,15 @@ async function listAll(path, { query = {}, keys = [], tenantId, maxPages = 50 } 
 
 /* ——— Inventory ——— */
 
+const ROOM_TYPE_INCLUDES = ['room_type', 'code', 'description', 'capacity', 'category'];
+const LOOKUP_INCLUDES = ['code', 'description'];
+
 async function listRoomTypes({ tenantId } = {}) {
-  return listAll(pathFor('roomTypes'), { tenantId, keys: ['RoomType_Entities', 'room_types', 'roomtypes', 'roomtype'] });
+  return listAll(pathFor('roomTypes'), {
+    tenantId,
+    query: { 'include[]': ROOM_TYPE_INCLUDES },
+    keys: ['RoomType_Entities', 'room_types', 'roomtypes', 'roomtype'],
+  });
 }
 
 /** Physical rooms; with from/to + vacantOnly → rooms free on every night from `from` to `to` (to = the last night, not departure) */
@@ -382,9 +391,13 @@ async function quoteTotalStay({ tenantId, arrivalDate, departureDate, adults = 1
 }
 
 async function listChannelProfiles({ tenantId } = {}) {
-  const data = await kwentraFetch(pathFor('channelProfiles'), { tenantId });
-  const raw = data?.channel_profiles ?? data?.results ?? data;
-  return (Array.isArray(raw) ? raw : raw ? [raw] : []).map((c) => ({
+  const list = await listAll(pathFor('channelProfiles'), {
+    tenantId,
+    maxPages: 5,
+    query: { 'include[]': ['name', 'rates.code'] },
+    keys: ['channel_profiles', 'channelprofiles'],
+  });
+  return list.map((c) => ({
     id: c.id != null ? String(c.id) : '',
     name: c.name || '',
     rates: (c.rates || []).map((r) => ({ id: String(r.id), code: r.code || '' })),
@@ -456,19 +469,43 @@ async function webRateIds(tenantId) {
   }
 }
 
+/** Markets or sources of a tenant → [{id, code, description}] */
+async function listLookup(key, { tenantId } = {}) {
+  return listAll(pathFor(key), {
+    tenantId,
+    maxPages: 5,
+    query: { 'include[]': LOOKUP_INCLUDES },
+    keys: [key, 'results'],
+  });
+}
+
+/** Per-tenant id from a JSON env map like {"394": "2", "375": "5"} */
+function tenantMapValue(envName, tenant) {
+  try {
+    const map = JSON.parse(process.env[envName] || '{}');
+    const value = map?.[tenant];
+    return value != null ? String(value).trim() : '';
+  } catch {
+    console.warn(`[kwentra] ${envName} is not valid JSON`);
+    return '';
+  }
+}
+
 /**
- * Market and source ids for website bookings in a tenant: KWENTRA_MARKET_ID / KWENTRA_SOURCE_ID when set,
- * else the entry whose name matches KWENTRA_MARKET_NAME / KWENTRA_SOURCE_NAME (default website/web/online/internet).
+ * Market and source ids for website bookings in a tenant, first found of:
+ * KWENTRA_MARKET_IDS / KWENTRA_SOURCE_IDS (JSON per tenant), KWENTRA_MARKET_ID / KWENTRA_SOURCE_ID,
+ * the entry whose name matches KWENTRA_MARKET_NAME / KWENTRA_SOURCE_NAME (default website/direct/internet).
+ * "Online" is not in the default match — it would pick "Online Travel Agency".
  */
 async function websiteMarketSource(tenantId) {
   const tenant = String(tenantId || getTenantId());
   const pick = async (key, envId, envName) => {
-    const forced = String(process.env[envId] || '').trim();
+    const forced = tenantMapValue(`${envId}S`, tenant) || String(process.env[envId] || '').trim();
     if (forced) return forced;
     try {
       return await cached(`${key}:${tenant}`, async () => {
-        const list = await listAll(pathFor(key), { tenantId: tenant, maxPages: 5, keys: [key, 'results'] });
-        const wanted = new RegExp(process.env[envName] || 'website|web|online|internet', 'i');
+        const list = await listLookup(key, { tenantId: tenant });
+        const wanted = new RegExp(process.env[envName] || '\\bweb|website|direct|internet|booking engine', 'i');
         const match = list.find((m) => wanted.test(`${m.name || ''} ${m.description || ''} ${m.code || ''}`));
         return match?.id != null ? String(match.id) : '';
       });
@@ -758,6 +795,7 @@ module.exports = {
   websiteChannel,
   websiteChannelId,
   webRateIds,
+  listLookup,
   websiteMarketSource,
   clearLookupCache,
   listReservations,

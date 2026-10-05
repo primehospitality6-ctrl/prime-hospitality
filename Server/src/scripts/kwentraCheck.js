@@ -25,7 +25,7 @@ async function step(label, fn) {
 }
 
 async function listLookup(kind, tenantId) {
-  const list = await kwentra.listAll(kwentra.pathFor(kind), { tenantId, maxPages: 2, keys: [kind] });
+  const list = await kwentra.listLookup(kind, { tenantId });
   return `${list.length} → ${list.slice(0, 15).map((m) => `${m.id}:${m.code || ''} ${m.description || m.name || ''}`.trim()).join(', ')}`;
 }
 
@@ -44,7 +44,7 @@ async function checkTenant(tenantId) {
 
   await step('rooms', async () => {
     const rooms = await kwentra.listRooms({ tenantId });
-    return `${rooms.length} → ${rooms.slice(0, 8).map((r) => `${r.id}:${r.room_number || r.number || r.name}`).join(', ')}`;
+    return `${rooms.length} → ${rooms.slice(0, 8).map((r) => `${r.id}:${r.room_number || r.number || r.name || ''}(type ${r.type?.id ?? r.type ?? '?'})`).join(', ')}`;
   });
 
   await step('rates', async () => {
