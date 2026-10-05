@@ -10,7 +10,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/seedDatabase.js",
-    "seed:sql": "node src/scripts/exportSeedSql.js"
+    "seed:sql": "node src/scripts/exportSeedSql.js",
+    "kwentra:check": "node src/scripts/kwentraCheck.js"
   },
   "dependencies": {
     "cloudinary": "^2.11.0",

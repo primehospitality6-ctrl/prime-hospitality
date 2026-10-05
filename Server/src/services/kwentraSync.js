@@ -345,18 +345,21 @@ function mappedRateId(planCode) {
 
 /**
  * Kwentra rate a website plan is booked on: the plan's mapped rate, else the base rate —
- * KWENTRA_DEFAULT_RATE_ID → the rate mapped to FLEX → the first rate on the website channel → cheapest.
+ * KWENTRA_DEFAULT_RATE_ID → the rate mapped to FLEX → the cheapest web=true rate →
+ * the first rate on the website channel → cheapest.
  */
 function pickRate(rates = [], planCode) {
   const usable = rates.filter((r) => r.quote > 0);
   const byId = (id) => (id ? usable.find((r) => r.rateId === String(id)) : null);
+  const cheapest = (list) => [...list].sort((a, b) => a.quote - b.quote)[0];
   const own = byId(mappedRateId(planCode));
   if (own) return { ...own, mapped: true };
   const base =
     byId(process.env.KWENTRA_DEFAULT_RATE_ID) ||
     byId(mappedRateId('FLEX')) ||
+    cheapest(usable.filter((r) => r.onWeb)) ||
     usable.find((r) => r.onChannel) ||
-    [...usable].sort((a, b) => a.quote - b.quote)[0];
+    cheapest(usable);
   return base ? { ...base, mapped: false } : null;
 }
 
@@ -374,13 +377,15 @@ function defaultChildAges(children) {
 
 /**
  * Kwentra rates offered for this unit's room type over [arrival, departure).
+ * When the tenant flags rates web=true, only those (plus explicitly mapped rates) are sold.
  * Returns [] when Kwentra has no rates for the period.
  */
 async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, children = 0, tenantId } = {}) {
   const roomTypeId = String(listing?.kwentraRoomTypeId || '');
   if (!roomTypeId) return [];
   const tenant = tenantId ?? (await tenantForUnit(listing));
-  const channel = await kwentra.websiteChannel(tenant);
+  const [channel, webIds] = await Promise.all([kwentra.websiteChannel(tenant), kwentra.webRateIds(tenant)]);
+  const allowed = new Set([...webIds, ...Object.values(rateMap()).map(String), String(process.env.KWENTRA_DEFAULT_RATE_ID || '')]);
   const rates = await kwentra.quoteTotalStay({
     tenantId: tenant,
     arrivalDate,
@@ -395,7 +400,8 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
   };
   return rates
     .filter((r) => r.roomTypeId === roomTypeId)
-    .map((r) => ({ ...r, onChannel: channel.rateIds.includes(r.rateId) }))
+    .filter((r) => !webIds.length || allowed.has(r.rateId))
+    .map((r) => ({ ...r, onWeb: webIds.includes(r.rateId), onChannel: channel.rateIds.includes(r.rateId) }))
     .sort((a, b) => order(a) - order(b));
 }
 
@@ -490,7 +496,7 @@ const toKwentraTime = (hhmm, fallback) => (hhmm ? String(hhmm).slice(0, 5) : fal
  * CreateReservation body (individualreservation-v2): integer ids, one room night block for the stay.
  * to_date is the last night (departure − 1), as in Kwentra's examples.
  */
-function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelId, guestProfileId, discountPct = 0, hold = false }) {
+function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelId, marketId, sourceId, guestProfileId, discountPct = 0, hold = false }) {
   const remarks = [
     `Website booking ${booking.voucherNumber}`,
     `${booking.ratePlanName} — ${booking.rateAmount} ${booking.rateCurrency}`,
@@ -507,8 +513,8 @@ function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelI
     departure_date: booking.departureDate,
     check_in_time: toKwentraTime(booking.checkInTime, process.env.KWENTRA_DEFAULT_CHECKIN || '15:00'),
     check_out_time: toKwentraTime(booking.checkOutTime, process.env.KWENTRA_DEFAULT_CHECKOUT || '12:00'),
-    market: intOrUndefined(process.env.KWENTRA_MARKET_ID),
-    source: intOrUndefined(process.env.KWENTRA_SOURCE_ID),
+    market: intOrUndefined(marketId),
+    source: intOrUndefined(sourceId),
     channel: intOrUndefined(channelId),
     account: intOrUndefined(process.env.KWENTRA_ACCOUNT_ID),
     country: booking.reservationCountry || booking.nationality || undefined,
@@ -540,7 +546,7 @@ function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelI
 /** First room of the type that is vacant for the whole stay */
 async function findVacantRoom({ tenantId, roomTypeId, arrivalDate, departureDate }) {
   const rooms = (
-    await kwentra.listRooms({ tenantId, roomTypeId, from: arrivalDate, to: departureDate, vacantOnly: true })
+    await kwentra.listRooms({ tenantId, roomTypeId, from: arrivalDate, to: addDays(departureDate, -1), vacantOnly: true })
   ).map(normalizeRoom);
   const room = rooms.find((r) => r.id && (!r.roomTypeId || r.roomTypeId === String(roomTypeId)));
   if (!room) return null;
@@ -575,12 +581,15 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
       }).catch(() => []));
     const rate = pickRate(offered, ratePlan?.code);
     const discountPct = rate && !rate.mapped ? -(Number(ratePlan?.adjustmentPct) || 0) : 0;
+    const [channelId, { market, source }] = await Promise.all([kwentra.websiteChannelId(tenantId), kwentra.websiteMarketSource(tenantId)]);
     const payload = buildReservationPayload({
       booking,
       roomTypeId,
       roomId: room.ref,
       rateId: rate?.rateId || process.env.KWENTRA_DEFAULT_RATE_ID,
-      channelId: await kwentra.websiteChannelId(tenantId),
+      channelId,
+      marketId: market,
+      sourceId: source,
       guestProfileId,
       discountPct,
       hold: envFlag('KWENTRA_HOLD_UNTIL_PAID'),
@@ -612,7 +621,7 @@ async function pushPayment({ booking, reservationId, amount, currency = 'EGP', m
   };
 
   if (envFlag('KWENTRA_HOLD_UNTIL_PAID')) {
-    await attempt('confirmed', () => kwentra.updateReservation(reservationId, { hold_status: 'CONFIRMED' }, { tenantId }));
+    await attempt('confirmed', () => kwentra.patchReservation(reservationId, { hold_status: 'CONFIRMED' }, { tenantId }));
   }
   const ref = transactionId || merchantOrderId || '';
   await attempt('noted', () =>

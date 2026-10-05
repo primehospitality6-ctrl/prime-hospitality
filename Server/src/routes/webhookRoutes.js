@@ -84,16 +84,39 @@ function kwentraSecretOk(req) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** A reservation Kwentra cancelled (e.g. an unpaid hold that reached its hold date) → cancel the website booking */
+async function applyReservationEvent(body) {
+  const r = body.reservation || body.data || body;
+  const id = String(r.id ?? r.reservation_id ?? body.reservation_id ?? '');
+  const state = String(r.state?.name || r.state || r.status || r.hold_status || '');
+  if (!id || !/cancel/i.test(state)) return { matched: false };
+  const booking = (await listBookings()).find((b) => String(b.kwentraReservationId || '') === id);
+  if (!booking || booking.status === 'cancelled') return { matched: Boolean(booking) };
+  await updateBooking(booking.id, { status: 'cancelled' });
+  return { matched: true, cancelled: booking.id };
+}
+
 /**
- * Kwentra calls this whenever inventory changes (room type / room / property / destination
- * created, updated or deleted). The website pulls the fresh data straight away.
+ * Kwentra webhooks: availability, rates and reservations. Availability and rates are read live,
+ * so those only refresh cached rate lookups; anything else triggers an inventory sync.
  */
-router.post('/kwentra', (req, res) => {
-  if (!kwentraSecretOk(req)) return res.status(401).json({ error: 'Invalid webhook secret' });
-  const body = req.body || {};
-  const event = String(body.event || body.type || body.action || body.model || 'change');
-  console.log('[webhook/kwentra]', event, JSON.stringify(body).slice(0, 300));
-  res.status(202).json({ received: true, event, sync: sync.requestSync(`kwentra webhook: ${event}`) });
+router.post('/kwentra', async (req, res, next) => {
+  try {
+    if (!kwentraSecretOk(req)) return res.status(401).json({ error: 'Invalid webhook secret' });
+    const body = req.body || {};
+    const event = String(body.event || body.type || body.action || body.model || 'change');
+    console.log('[webhook/kwentra]', event, JSON.stringify(body).slice(0, 300));
+    if (/reservation/i.test(event)) {
+      return res.status(202).json({ received: true, event, reservation: await applyReservationEvent(body) });
+    }
+    if (/avail|rate/i.test(event)) {
+      kwentra.clearLookupCache();
+      return res.status(202).json({ received: true, event });
+    }
+    res.status(202).json({ received: true, event, sync: sync.requestSync(`kwentra webhook: ${event}`) });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

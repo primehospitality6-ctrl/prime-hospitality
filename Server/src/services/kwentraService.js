@@ -34,7 +34,9 @@ const PATHS = {
   reservation: ['KWENTRA_PATH_RESERVATION', '/api/reservation/individualreservation/v2/:id/'],
   reservationNote: ['KWENTRA_PATH_RESERVATION_NOTE', '/api/reservation/individualreservation/v2/:id/note/'],
   reservationState: ['KWENTRA_PATH_RESERVATION_STATE', '/api/reservation/individualreservation/:id/change_state/'],
-  // Not in the API pack — only used when Kwentra provides it
+  // Market / Source / Billing APIs were sent separately — set the paths once their docs are in hand
+  markets: ['KWENTRA_PATH_MARKETS', '/api/core/market/'],
+  sources: ['KWENTRA_PATH_SOURCES', '/api/core/source/'],
   payment: ['KWENTRA_PATH_PAYMENT', ''],
 };
 
@@ -145,7 +147,23 @@ function errorMessage(data, status) {
   return `Kwentra ${status}`;
 }
 
-async function kwentraFetch(path, { method = 'GET', query, body, formData, tenantId } = {}) {
+const MAX_RATE_LIMIT_RETRIES = 3;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Kwentra allows a limited number of requests per minute — wait and retry on 429 */
+async function kwentraFetch(path, options = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await kwentraRequest(path, options);
+    } catch (err) {
+      if (err.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) throw err;
+      const retryAfter = Number(err.retryAfter);
+      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : 2000 * 2 ** attempt);
+    }
+  }
+}
+
+async function kwentraRequest(path, { method = 'GET', query, body, formData, tenantId } = {}) {
   if (!isConfigured()) {
     const err = new Error('Kwentra is not configured. Set the Kwentra API credentials and tenant ID in Server/.env.');
     err.status = 503;
@@ -182,6 +200,7 @@ async function kwentraFetch(path, { method = 'GET', query, body, formData, tenan
       const err = new Error(errorMessage(data, res.status));
       err.status = res.status;
       err.data = data;
+      err.retryAfter = res.headers.get('retry-after');
       throw err;
     }
     return data;
@@ -238,7 +257,7 @@ async function listRoomTypes({ tenantId } = {}) {
   return listAll(pathFor('roomTypes'), { tenantId, keys: ['RoomType_Entities', 'room_types', 'roomtypes', 'roomtype'] });
 }
 
-/** Physical rooms; with from/to + vacantOnly → rooms free for the whole stay */
+/** Physical rooms; with from/to + vacantOnly → rooms free on every night from `from` to `to` (to = the last night, not departure) */
 async function listRooms({ tenantId, roomTypeId, from, to, vacantOnly = false } = {}) {
   const query = {};
   if (roomTypeId) query['filter{type}'] = roomTypeId;
@@ -378,6 +397,68 @@ async function websiteChannelId(tenantId) {
   return (await websiteChannel(tenantId)).id;
 }
 
+const lookupCache = new Map();
+
+async function cached(key, fn) {
+  const hit = lookupCache.get(key);
+  if (hit && Date.now() - hit.at < CHANNEL_TTL_MS) return hit.value;
+  const value = await fn();
+  lookupCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+function clearLookupCache() {
+  lookupCache.clear();
+  channelCache.clear();
+}
+
+const isTrue = (v) => v === true || v === 1 || v === 'true' || v === 'True';
+
+/**
+ * Rates flagged web=true in a tenant — the rates Kwentra's own booking engine sold online.
+ * Empty when the tenant has none or the lookup fails (callers then fall back to the channel profile).
+ */
+async function webRateIds(tenantId) {
+  const tenant = String(tenantId || getTenantId());
+  try {
+    return await cached(`web-rates:${tenant}`, async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const rates = await listRates({ tenantId: tenant, from: today, to: addDays(today, 30) });
+      return rates.filter((r) => isTrue(r.web)).map((r) => String(r.id));
+    });
+  } catch (err) {
+    console.warn('[kwentra] web rates lookup failed:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Market and source ids for website bookings in a tenant: KWENTRA_MARKET_ID / KWENTRA_SOURCE_ID when set,
+ * else the entry whose name matches KWENTRA_MARKET_NAME / KWENTRA_SOURCE_NAME (default website/web/online/internet).
+ */
+async function websiteMarketSource(tenantId) {
+  const tenant = String(tenantId || getTenantId());
+  const pick = async (key, envId, envName) => {
+    const forced = String(process.env[envId] || '').trim();
+    if (forced) return forced;
+    try {
+      return await cached(`${key}:${tenant}`, async () => {
+        const list = await listAll(pathFor(key), { tenantId: tenant, maxPages: 5, keys: [key, 'results'] });
+        const wanted = new RegExp(process.env[envName] || 'website|web|online|internet', 'i');
+        const match = list.find((m) => wanted.test(`${m.name || ''} ${m.description || ''} ${m.code || ''}`));
+        return match?.id != null ? String(match.id) : '';
+      });
+    } catch (err) {
+      console.warn(`[kwentra] ${key} lookup failed:`, err.message);
+      return '';
+    }
+  };
+  return {
+    market: await pick('markets', 'KWENTRA_MARKET_ID', 'KWENTRA_MARKET_NAME'),
+    source: await pick('sources', 'KWENTRA_SOURCE_ID', 'KWENTRA_SOURCE_NAME'),
+  };
+}
+
 /* ——— Reservations ——— */
 
 function extractReservations(payload) {
@@ -433,6 +514,16 @@ async function createReservation(body, { tenantId } = {}) {
 /** PUT /api/reservation/individualreservation/v2/{id}/ */
 async function updateReservation(id, body, { tenantId } = {}) {
   return kwentraFetch(pathFor('reservation', id), { method: 'PUT', body, tenantId });
+}
+
+/** Partial update (e.g. only hold_status) — PATCH, or PUT when the server does not allow PATCH */
+async function patchReservation(id, body, { tenantId } = {}) {
+  try {
+    return await kwentraFetch(pathFor('reservation', id), { method: 'PATCH', body, tenantId });
+  } catch (err) {
+    if (err.status !== 405) throw err;
+    return updateReservation(id, body, { tenantId });
+  }
 }
 
 /** PATCH …/{id}/change_state/ — Expected | Checked In | Checked Out | Canceled | No'Show */
@@ -605,9 +696,13 @@ module.exports = {
   listChannelProfiles,
   websiteChannel,
   websiteChannelId,
+  webRateIds,
+  websiteMarketSource,
+  clearLookupCache,
   listReservations,
   createReservation,
   updateReservation,
+  patchReservation,
   changeReservationState,
   cancelReservation,
   addReservationNote,
