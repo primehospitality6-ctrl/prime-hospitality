@@ -180,6 +180,8 @@ alter table bookings add column if not exists average_nightly_rate numeric;
 alter table bookings add column if not exists external_ref text;
 alter table bookings add column if not exists kwentra_reservation_id text;
 alter table bookings add column if not exists kwentra_profile_id text;
+-- Something staff must fix by hand in Kwentra (e.g. paid after the hold was auto-cancelled)
+alter table bookings add column if not exists kwentra_issue text;
 
 create index if not exists bookings_external_ref_idx on bookings (external_ref);
 

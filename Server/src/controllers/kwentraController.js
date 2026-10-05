@@ -120,8 +120,8 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
     try {
       const tenantId = await sync.tenantForUnit(listing);
       const [availability, offered] = await Promise.all([
-        kwentra.getAvailability(listing.kwentraRoomTypeId, { from: arrivalDate, to: departureDate, tenantId }),
-        sync.roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId }).catch((err) => {
+        kwentra.getAvailability(listing.kwentraRoomTypeId, { from: arrivalDate, to: departureDate, tenantId, fresh: strict }),
+        sync.roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId, fresh: strict }).catch((err) => {
           console.warn('[kwentra] rates lookup failed:', err.message);
           return [];
         }),
@@ -376,6 +376,7 @@ async function bookDirect(req, res, next) {
         });
       } else if (kwentraReservationPush.error) {
         console.warn('[kwentra] reservation push failed:', kwentraReservationPush.error);
+        booking.kwentraIssue = `Not in Kwentra yet: ${kwentraReservationPush.error}`;
       }
     }
 
@@ -448,6 +449,7 @@ async function confirmMockPayment(req, res, next) {
         provider: 'mock',
         transactionId: `mock_${booking.externalRef}`,
       });
+      booking = (await sync.recordPaymentResult(booking, paymentPush)) || booking;
     }
 
     res.json({

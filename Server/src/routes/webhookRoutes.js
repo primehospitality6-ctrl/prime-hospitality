@@ -11,7 +11,7 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
   if (!booking) return null;
   await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
   if (booking.kwentraReservationId && kwentra.isConfigured()) {
-    return sync.pushPayment({
+    const result = await sync.pushPayment({
       booking,
       reservationId: booking.kwentraReservationId,
       amount: booking.rateAmount ?? booking.amount,
@@ -22,6 +22,11 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
       cardLast4,
       cardType,
     });
+    await sync.recordPaymentResult(booking, result);
+    return result;
+  }
+  if (kwentra.isConfigured() && booking.kwentraRoomTypeId) {
+    await updateBooking(booking.id, { kwentraIssue: 'Guest paid but the booking never reached Kwentra — book it by hand.' });
   }
   return { pushed: false, reason: 'no_kwentra_reservation' };
 }
@@ -96,6 +101,11 @@ async function applyReservationEvent(body) {
   if (!id || !/cancel/i.test(state)) return { matched: false };
   const booking = (await listBookings()).find((b) => String(b.kwentraReservationId || '') === id);
   if (!booking || booking.status === 'cancelled') return { matched: Boolean(booking) };
+  if (booking.paymentStatus === 'paid') {
+    // A paid booking is never cancelled silently — staff decide between rebooking and a refund
+    await updateBooking(booking.id, { kwentraIssue: `Kwentra cancelled reservation ${id} although the guest paid — rebook or refund.` });
+    return { matched: true, flagged: booking.id };
+  }
   await updateBooking(booking.id, { status: 'cancelled' });
   return { matched: true, cancelled: booking.id };
 }
@@ -111,6 +121,7 @@ router.post('/kwentra', async (req, res, next) => {
     const event = String(body.event || body.type || body.action || body.model || 'change');
     console.log('[webhook/kwentra]', event, JSON.stringify(body).slice(0, 300));
     if (/reservation/i.test(event)) {
+      kwentra.clearLiveCache();
       return res.status(202).json({ received: true, event, reservation: await applyReservationEvent(body) });
     }
     if (/avail|rate/i.test(event)) {

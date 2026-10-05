@@ -271,6 +271,7 @@ function bookingFromRow(row) {
     externalRef: row.external_ref || '',
     kwentraReservationId: row.kwentra_reservation_id || null,
     kwentraProfileId: row.kwentra_profile_id || null,
+    kwentraIssue: row.kwentra_issue || '',
   };
 }
 
@@ -316,6 +317,7 @@ function bookingToRow(b) {
     external_ref: b.externalRef || null,
     kwentra_reservation_id: b.kwentraReservationId || null,
     kwentra_profile_id: b.kwentraProfileId || null,
+    kwentra_issue: b.kwentraIssue || null,
   };
 }
 

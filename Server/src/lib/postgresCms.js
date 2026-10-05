@@ -574,6 +574,7 @@ async function updateBooking(id, patch) {
   if (patch.status !== undefined) row.status = patch.status;
   if (patch.paymentStatus !== undefined) row.payment_status = patch.paymentStatus;
   if (patch.kwentraReservationId !== undefined) row.kwentra_reservation_id = patch.kwentraReservationId;
+  if (patch.kwentraIssue !== undefined) row.kwentra_issue = patch.kwentraIssue || null;
   if (!UUID_RE.test(String(id))) return null;
   return bookingFromRow(await updateRow('bookings', id, row));
 }

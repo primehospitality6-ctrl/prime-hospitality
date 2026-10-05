@@ -308,12 +308,53 @@ const addDays = (iso, n) => {
   return d.toISOString().slice(0, 10);
 };
 
+/*
+ * Kwentra limits requests per minute, so identical availability / price lookups share one answer for
+ * KWENTRA_CACHE_SECONDS (default 60) and concurrent identical calls share one request.
+ * Booking checks pass fresh: true and always ask Kwentra.
+ */
+const liveCache = new Map();
+const LIVE_CACHE_MAX = 500;
+
+function liveCacheMs() {
+  const seconds = Number(process.env.KWENTRA_CACHE_SECONDS);
+  return (Number.isFinite(seconds) && seconds >= 0 ? seconds : 60) * 1000;
+}
+
+function cachedLive(key, fresh, fn) {
+  const ttl = liveCacheMs();
+  const hit = liveCache.get(key);
+  if (!fresh && ttl && hit && Date.now() - hit.at < ttl) return hit.promise;
+  const promise = fn();
+  liveCache.set(key, { at: Date.now(), promise });
+  promise.catch(() => liveCache.get(key)?.promise === promise && liveCache.delete(key));
+  if (liveCache.size > LIVE_CACHE_MAX) {
+    for (const [k, v] of liveCache) if (Date.now() - v.at >= ttl) liveCache.delete(k);
+    while (liveCache.size > LIVE_CACHE_MAX) liveCache.delete(liveCache.keys().next().value);
+  }
+  return promise;
+}
+
+/** Drop cached availability / prices — all, or one tenant's (after a booking or a Kwentra webhook) */
+function clearLiveCache(tenantId) {
+  if (tenantId == null) return liveCache.clear();
+  const prefix = `${tenantId}|`;
+  for (const k of liveCache.keys()) if (k.split(':')[1]?.startsWith(prefix)) liveCache.delete(k);
+}
+
 /**
  * GET /api/reservation/rooms/availability/{room_type_id}/ → [{dt, avail, occupancy, room_count, ooo}]
  * A night is blocked when no room of the type is free. The list is per night, so checking out on the
  * morning of a blocked night is already allowed — no separate checkout dates.
  */
-async function getAvailability(roomTypeId, { from, to, tenantId } = {}) {
+function getAvailability(roomTypeId, { from, to, tenantId, fresh = false } = {}) {
+  const tenant = String(tenantId || getTenantId());
+  return cachedLive(`avail:${tenant}|${roomTypeId}|${from}|${to}`, fresh, () =>
+    fetchAvailability(roomTypeId, { from, to, tenantId: tenant })
+  );
+}
+
+async function fetchAvailability(roomTypeId, { from, to, tenantId } = {}) {
   const data = await kwentraFetch(pathFor('availability', roomTypeId), {
     query: { start_date: from, end_date: to },
     tenantId,
@@ -364,7 +405,14 @@ function childrenAgesParam(ages = []) {
  * GET /api/reservation/rate/v2/totalstay/ — every applicable rate and its total for the stay,
  * grouped by room type name. Returns a flat list; empty when Kwentra answers 204 (no rates).
  */
-async function quoteTotalStay({ tenantId, arrivalDate, departureDate, adults = 1, childrenAges = [], channel, rate, company } = {}) {
+function quoteTotalStay({ fresh = false, ...params } = {}) {
+  const tenant = String(params.tenantId || getTenantId());
+  const { arrivalDate, departureDate, adults = 1, childrenAges = [], channel, rate, company } = params;
+  const key = `quote:${tenant}|${arrivalDate}|${departureDate}|${adults}|${childrenAges.join(',')}|${channel || ''}|${rate || ''}|${company || ''}`;
+  return cachedLive(key, fresh, () => fetchTotalStay({ ...params, tenantId: tenant }));
+}
+
+async function fetchTotalStay({ tenantId, arrivalDate, departureDate, adults = 1, childrenAges = [], channel, rate, company } = {}) {
   const data = await kwentraFetch(pathFor('totalStay'), {
     query: {
       arrival_date: arrivalDate,
@@ -447,6 +495,7 @@ async function cached(key, fn) {
 function clearLookupCache() {
   lookupCache.clear();
   channelCache.clear();
+  liveCache.clear();
 }
 
 const isTrue = (v) => v === true || v === 1 || v === 'true' || v === 'True';
@@ -578,10 +627,13 @@ async function updateReservation(id, body, { tenantId } = {}) {
 }
 
 /** GET /api/reservation/individualreservation/v2/{id}/ */
-async function getReservation(id, { tenantId } = {}) {
-  const data = await kwentraFetch(pathFor('reservation', id), { tenantId });
+async function getReservation(id, { tenantId, includes = ['state.name'] } = {}) {
+  const data = await kwentraFetch(pathFor('reservation', id), { tenantId, query: { 'include[]': includes } });
   return data?.reservation || data;
 }
+
+/** Kwentra cancels an unpaid ON_HOLD reservation at its hold date; the state turns "Canceled" */
+const isCancelledReservation = (reservation) => /cancel/i.test(String(reservation?.state?.name || reservation?.state || ''));
 
 /** Billing account of a reservation — the field Kwentra uses is configurable (KWENTRA_RESERVATION_ACCOUNT_FIELD) */
 function reservationAccountId(reservation) {
@@ -614,7 +666,9 @@ async function listPostings({ tenantId, accountId, windowId } = {}) {
 }
 
 /** Partial update (e.g. only hold_status) — PATCH, or PUT when the server does not allow PATCH */
-async function patchReservation(id, body, { tenantId } = {}) {
+async function patchReservation(id, patch, { tenantId } = {}) {
+  // Kwentra rejects writes without the reservation's current updated_on (edit lock)
+  const body = patch.updated_on !== undefined ? patch : { ...patch, updated_on: (await getReservation(id, { tenantId, includes: [] }))?.updated_on ?? null };
   try {
     return await kwentraFetch(pathFor('reservation', id), { method: 'PATCH', body, tenantId });
   } catch (err) {
@@ -700,49 +754,33 @@ function splitName(fullName = '') {
   return { first_name, last_name, name: parts.join(' ') || first_name };
 }
 
-/** Individual Profile v3 body from the website guest form */
+/**
+ * Individual Profile v3 body from the website guest form — only fields Kwentra accepts on create.
+ * The guest's country goes in the contact info. Sending `nationality` or `nationality_object` makes
+ * the test server answer 500, so nationality is only sent once KWENTRA_PROFILE_NATIONALITY_FIELD names
+ * the field Kwentra expects (value: the ISO code).
+ */
 function buildProfilePayloadFromGuest({ name, email, phone, notes, nationality = 'EG', address = '', city = '' } = {}) {
   const { first_name, last_name } = splitName(name);
-  return {
+  const iso = String(nationality || 'EG').toUpperCase();
+  const body = {
     first_name,
     last_name,
-    date_of_birth: null,
-    language: null,
-    gender: null,
-    nationality_object: nationality,
-    guest_preferences: notes || '',
-    letter_greeting: null,
-    place_of_birth: '',
-    company: null,
-    occupation: null,
-    old_id: null,
-    loyalty_points: null,
-    document_type: '',
-    ID_number: null,
-    issue_place: null,
-    issue_date: null,
-    expiry_date: null,
-    passport: null,
-    driving_license_number: null,
     email: email || '',
     mobile: phone || '',
-    telephone: '',
-    work_phone: null,
-    keep_email: false,
-    email_third_party: false,
-    keep_personal_info: false,
+    guest_preferences: notes || '',
     individualprofilecontactinfo_set: [
       {
         address: address || '',
         city: city || '',
-        country: { id: nationality, iso: nationality, name: nationality === 'EG' ? 'EGYPT' : nationality },
-        zip_code: '',
-        po_box: '',
-        contact_type: { id: 1, description: 'Main' },
+        country: { id: iso, iso },
+        contact_type: { id: 1 },
       },
     ],
-    attachments: null,
   };
+  const nationalityField = String(process.env.KWENTRA_PROFILE_NATIONALITY_FIELD || '').trim();
+  if (nationalityField) body[nationalityField] = iso;
+  return body;
 }
 
 /** POST /api/core/individualprofile/v3/ */
@@ -763,7 +801,8 @@ async function sendGuestFromWebsite(guest = {}, { tenantId } = {}) {
   }
   if (profileId) {
     const patch = { ...splitName(name), email, mobile: phone || '', guest_preferences: notes || '' };
-    if (nationality) patch.nationality_object = nationality;
+    const nationalityField = String(process.env.KWENTRA_PROFILE_NATIONALITY_FIELD || '').trim();
+    if (nationality && nationalityField) patch[nationalityField] = String(nationality).toUpperCase();
     return { action: 'updated', profile: await patchGuestProfile(profileId, patch, { tenantId }) };
   }
   const profile = await createGuestProfile({ name, email, phone, notes, nationality, address, city }, { tenantId });
@@ -798,11 +837,13 @@ module.exports = {
   listLookup,
   websiteMarketSource,
   clearLookupCache,
+  clearLiveCache,
   listReservations,
   createReservation,
   updateReservation,
   patchReservation,
   getReservation,
+  isCancelledReservation,
   reservationAccountId,
   postPayment,
   listPostings,

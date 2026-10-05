@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { ChevronDown, Download } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Download } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader } from '../../components/admin/AdminUi';
 import { formatMoney } from '../../theme/brand';
@@ -58,6 +58,8 @@ export default function AdminBookingsPage() {
     );
   }, [items, query]);
 
+  const issues = useMemo(() => items.filter((b) => b.kwentraIssue), [items]);
+
   return (
     <div>
       <AdminPageHeader
@@ -84,6 +86,25 @@ export default function AdminBookingsPage() {
         }
       />
       {error ? <p className="mb-4 text-sm text-red-600">{error}</p> : null}
+      {issues.length ? (
+        <div className="mb-4 flex items-start gap-3 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+          <div>
+            <p className="font-semibold">
+              {issues.length === 1 ? '1 booking needs' : `${issues.length} bookings need`} attention in Kwentra
+            </p>
+            <ul className="mt-1 space-y-0.5 text-[13px]">
+              {issues.slice(0, 5).map((b) => (
+                <li key={b.id}>
+                  <button type="button" className="text-start underline-offset-2 hover:underline" onClick={() => setOpen(b.id)}>
+                    <span className="font-semibold tabular-nums">{b.voucherNumber || b.id}</span> — {b.kwentraIssue}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto border border-prime-line bg-prime-surface">
         <table className="w-full min-w-[960px] text-left text-sm">
@@ -138,6 +159,12 @@ export default function AdminBookingsPage() {
                       >
                         {b.paymentStatus || b.status || '—'}
                       </span>
+                      {b.kwentraIssue ? (
+                        <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-red-700">
+                          <AlertTriangle size={12} aria-hidden />
+                          Needs attention
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-3 py-3 text-end">
                       <ChevronDown size={15} className={cn('inline transition', expanded && 'rotate-180')} aria-hidden />
@@ -146,6 +173,15 @@ export default function AdminBookingsPage() {
                   {expanded && (
                     <tr className="border-b border-prime-line bg-prime-sand">
                       <td colSpan={9} className="px-5 py-4">
+                        {b.kwentraIssue ? (
+                          <p className="mb-4 flex items-start gap-2 border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+                            <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden />
+                            <span>
+                              {b.kwentraIssue}
+                              {b.kwentraReservationId ? ` (Kwentra reservation ${b.kwentraReservationId})` : ''}
+                            </span>
+                          </p>
+                        ) : null}
                         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-muted">
                           PMS data fields
                         </p>

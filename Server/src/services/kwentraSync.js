@@ -28,6 +28,7 @@ const {
   updateCompound,
   createDestination,
   updateDestination,
+  updateBooking,
   slugify,
 } = require('../lib/cmsStore');
 const { brandFromName } = require('../data/inventory');
@@ -380,7 +381,7 @@ function defaultChildAges(children) {
  * When the tenant flags rates web=true, only those (plus explicitly mapped rates) are sold.
  * Returns [] when Kwentra has no rates for the period.
  */
-async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, children = 0, tenantId } = {}) {
+async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, children = 0, tenantId, fresh = false } = {}) {
   const roomTypeId = String(listing?.kwentraRoomTypeId || '');
   if (!roomTypeId) return [];
   const tenant = tenantId ?? (await tenantForUnit(listing));
@@ -393,6 +394,7 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
     adults: Math.max(1, Number(adults) || 1),
     childrenAges: defaultChildAges(children),
     channel: channel.id || undefined,
+    fresh,
   });
   const order = (r) => {
     const i = channel.rateIds.indexOf(r.rateId);
@@ -492,6 +494,22 @@ const intOrUndefined = (v) => {
 };
 const toKwentraTime = (hhmm, fallback) => (hhmm ? String(hhmm).slice(0, 5) : fallback);
 
+/** Today's date at the hotels (KWENTRA_TIMEZONE, default Africa/Cairo) — not the UTC date */
+function hotelToday() {
+  const zone = process.env.KWENTRA_TIMEZONE || 'Africa/Cairo';
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+/** Kwentra cancels an ON_HOLD reservation once its hold date is reached, so the hold ends at least one full day ahead */
+function holdUntilDate() {
+  const days = Math.max(1, Math.floor(Number(process.env.KWENTRA_HOLD_DAYS) || 1));
+  return addDays(hotelToday(), days);
+}
+
 /**
  * CreateReservation body (individualreservation-v2): integer ids, one room night block for the stay.
  * to_date is the last night (departure − 1), as in Kwentra's examples.
@@ -524,8 +542,10 @@ function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelI
     remarks,
     reservation_mode: 'daily',
     hold_status: hold ? 'ON_HOLD' : 'CONFIRMED',
-    hold_date: hold ? addDays(new Date().toISOString().slice(0, 10), Number(process.env.KWENTRA_HOLD_DAYS || 1)) : undefined,
+    hold_date: hold ? holdUntilDate() : undefined,
     voucher_no: booking.voucherNumber,
+    // Kwentra's edit lock: required on every write, null on create
+    updated_on: null,
     room_nights: [
       {
         room_number: intOrUndefined(roomId),
@@ -559,7 +579,7 @@ const isConflict = (err) => err?.status === 409 || /overbook|not available|no (v
  * Create the reservation in the unit's Kwentra tenant.
  * conflict: true when Kwentra has no room left for those dates (the booking must not go ahead).
  */
-async function pushReservation({ booking, listing, guestProfileId, ratePlan, rates }) {
+async function pushReservation({ booking, listing, guestProfileId, ratePlan, rates, hold = envFlag('KWENTRA_HOLD_UNTIL_PAID') }) {
   if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
   const roomTypeId = String(listing?.kwentraRoomTypeId || '');
   if (!roomTypeId) return { pushed: false, reason: 'missing_kwentraRoomTypeId' };
@@ -592,9 +612,10 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
       sourceId: source,
       guestProfileId,
       discountPct,
-      hold: envFlag('KWENTRA_HOLD_UNTIL_PAID'),
+      hold,
     });
     const { id } = await kwentra.createReservation(payload, { tenantId });
+    kwentra.clearLiveCache(tenantId);
     return { pushed: true, path, tenantId, reservationId: id != null ? String(id) : null, room: room.number, rateId: rate?.rateId || null };
   } catch (err) {
     return { pushed: false, conflict: isConflict(err), path, status: err.status, error: err.message };
@@ -615,16 +636,32 @@ function paymentDepartment(tenantId) {
   return String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim();
 }
 
+/** Paid, but Kwentra already cancelled the hold → book the same stay again, confirmed this time */
+async function rebookPaidBooking(booking) {
+  const listing = await findUnit(booking.listingId || booking.slug);
+  if (!listing) return { pushed: false, reason: 'unit_not_found' };
+  return pushReservation({
+    booking,
+    listing,
+    guestProfileId: booking.kwentraProfileId,
+    ratePlan: { code: booking.ratePlanCode, adjustmentPct: 0 },
+    hold: false,
+  });
+}
+
 /**
  * After the guest pays on the website: confirm a held reservation, post the payment on the
  * reservation's billing account (Billing API), and leave a billing note with the payment reference.
+ * If the hold already expired, the stay is booked again; when that fails, `issue` says what staff must do.
+ * `reservationId` in the result is the reservation the payment ended up on.
  */
-async function pushPayment({ booking, reservationId, amount, currency = 'EGP', merchantOrderId, provider, transactionId, cardLast4, cardType }) {
-  if (!kwentra.isConfigured() || !reservationId) {
-    return { pushed: false, reason: !reservationId ? 'missing_reservation_id' : 'not_configured' };
+async function pushPayment({ booking, reservationId: heldId, amount, currency = 'EGP', merchantOrderId, provider, transactionId, cardLast4, cardType }) {
+  if (!kwentra.isConfigured() || !heldId) {
+    return { pushed: false, reason: !heldId ? 'missing_reservation_id' : 'not_configured' };
   }
   const tenantId = await tenantForBooking(booking);
-  const result = { pushed: false, confirmed: false, noted: false, posted: false, errors: [] };
+  let reservationId = heldId;
+  const result = { pushed: false, confirmed: false, noted: false, posted: false, reservationId, errors: [] };
   const attempt = async (key, fn) => {
     try {
       await fn();
@@ -635,7 +672,37 @@ async function pushPayment({ booking, reservationId, amount, currency = 'EGP', m
   };
 
   if (envFlag('KWENTRA_HOLD_UNTIL_PAID')) {
-    await attempt('confirmed', () => kwentra.patchReservation(reservationId, { hold_status: 'CONFIRMED' }, { tenantId }));
+    const held = await kwentra.getReservation(heldId, { tenantId }).catch((err) => {
+      result.errors.push(`lookup: ${err.message}`);
+      return null;
+    });
+    let mustRebook = kwentra.isCancelledReservation(held);
+    if (!mustRebook) {
+      await attempt('confirmed', () => kwentra.patchReservation(reservationId, { hold_status: 'CONFIRMED' }, { tenantId }));
+      if (!result.confirmed) {
+        // Confirming failed: free the held room and book the stay again as confirmed, before the hold expires
+        mustRebook = await kwentra
+          .cancelReservation(heldId, 'Replaced by a confirmed reservation after online payment', { tenantId })
+          .then(() => true)
+          .catch((err) => {
+            result.errors.push(`cancel held: ${err.message}`);
+            return false;
+          });
+      }
+    }
+    if (mustRebook) {
+      const rebooked = await rebookPaidBooking(booking);
+      if (!rebooked.pushed) {
+        const why = rebooked.conflict ? 'no room of this type is free any more' : `re-booking failed (${rebooked.error || rebooked.reason})`;
+        result.issue = `Guest paid but the held reservation ${heldId} is cancelled in Kwentra and ${why}. Book it by hand in Kwentra or refund the guest.`;
+        result.errors.push(result.issue);
+        return result;
+      }
+      reservationId = rebooked.reservationId;
+      result.reservationId = reservationId;
+      result.rebooked = true;
+      result.confirmed = true;
+    }
   }
   const ref = transactionId || merchantOrderId || '';
   const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`;
@@ -661,7 +728,24 @@ async function pushPayment({ booking, reservationId, amount, currency = 'EGP', m
   }
   await attempt('noted', () => kwentra.addReservationNote(reservationId, summary, { type: 'billing', tenantId }));
   result.pushed = result.noted || result.posted || result.confirmed;
+  if (!result.posted) {
+    result.issue = `Payment of ${Number(amount)} ${currency} is not on the Kwentra folio of reservation ${reservationId} — post it by hand.`;
+  }
+  if (envFlag('KWENTRA_HOLD_UNTIL_PAID') && !result.confirmed) {
+    result.issue = `Reservation ${reservationId} is still ON HOLD in Kwentra although the guest paid — confirm it before its hold date. ${result.issue || ''}`.trim();
+  }
   return result;
+}
+
+/** Keep the booking pointing at the reservation the payment landed on, and surface anything staff must fix */
+async function recordPaymentResult(booking, result) {
+  if (!booking?.id || !result) return null;
+  const patch = { kwentraIssue: result.issue || '' };
+  if (result.reservationId && result.reservationId !== booking.kwentraReservationId) {
+    patch.kwentraReservationId = result.reservationId;
+  }
+  if (result.issue) console.warn(`[kwentra] booking ${booking.voucherNumber || booking.id}: ${result.issue}`);
+  return updateBooking(booking.id, patch);
 }
 
 /* ——— Persisted sync: Kwentra → CMS store ——— */
@@ -1000,6 +1084,7 @@ module.exports = {
   pushUnitEdit,
   pushReservation,
   pushPayment,
+  recordPaymentResult,
   buildReservationPayload,
   saveUnitWithSync,
   normalizeRoomType,
