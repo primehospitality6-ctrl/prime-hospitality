@@ -63,7 +63,7 @@ async function main() {
   console.log(`  vacant room ${room.number} (internal id ${room.id})`);
 
   const guest = await kwentra.sendGuestFromWebsite(
-    { name: 'Prime Api Test', email: 'api-test@stayatprime.com', phone: '+201000000000', notes: 'Website integration test' },
+    { name: 'Prime Api Test', email: 'api-test@stayatprime.com', phone: '+201000000000', notes: 'Website integration test', nationality: 'EG' },
     { tenantId }
   );
   const guestId = guest.profile?.id;
@@ -101,11 +101,11 @@ async function main() {
 
   let confirmed = null;
   try {
-    await kwentra.patchReservation(id, { hold_status: 'CONFIRMED' }, { tenantId });
+    await kwentra.confirmHeldReservation(id, { tenantId });
     confirmed = await kwentra.getReservation(id, { tenantId });
     show('confirmed', confirmed);
   } catch (err) {
-    console.log(`  ✗ confirm (update with hold_status only): ${err.status || ''} ${err.message}`);
+    console.log(`  ✗ confirm (full update, hold_status CONFIRMED): ${err.status || ''} ${err.message}`);
     confirmed = await kwentra.getReservation(id, { tenantId });
   }
 

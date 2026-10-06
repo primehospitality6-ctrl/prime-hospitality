@@ -9,26 +9,20 @@ const router = Router();
 
 async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId, cardLast4, cardType }) {
   if (!booking) return null;
+  if (booking.paymentStatus === 'paid') return { pushed: false, reason: 'already_paid' };
   await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
-  if (booking.kwentraReservationId && kwentra.isConfigured()) {
-    const result = await sync.pushPayment({
-      booking,
-      reservationId: booking.kwentraReservationId,
-      amount: booking.rateAmount ?? booking.amount,
-      currency: booking.rateCurrency || booking.currency || 'EGP',
-      merchantOrderId: merchantOrderId || booking.externalRef,
-      provider,
-      transactionId,
-      cardLast4,
-      cardType,
-    });
-    await sync.recordPaymentResult(booking, result);
-    return result;
-  }
-  if (kwentra.isConfigured() && booking.kwentraRoomTypeId) {
-    await updateBooking(booking.id, { kwentraIssue: 'Guest paid but the booking never reached Kwentra — book it by hand.' });
-  }
-  return { pushed: false, reason: 'no_kwentra_reservation' };
+  if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
+  const result = await sync.pushPaidBooking(booking, {
+    amount: booking.rateAmount ?? booking.amount,
+    currency: booking.rateCurrency || booking.currency || 'EGP',
+    merchantOrderId: merchantOrderId || booking.externalRef,
+    provider,
+    transactionId,
+    cardLast4,
+    cardType,
+  });
+  await sync.recordPaymentResult(booking, result);
+  return result;
 }
 
 router.post('/paymob', async (req, res, next) => {
@@ -82,24 +76,63 @@ router.post('/stripe', async (req, res, next) => {
   }
 });
 
-function kwentraSecretOk(req) {
-  const expected = process.env.KWENTRA_WEBHOOK_SECRET;
-  if (!expected) return true;
-  const given = String(
-    req.headers['x-kwentra-secret'] || req.headers['x-webhook-secret'] || req.query.secret || req.query.token || ''
-  );
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+const safeEqual = (given, expected) => {
+  const a = Buffer.from(String(given || ''));
+  const b = Buffer.from(String(expected || ''));
+  return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+};
+
+/**
+ * Kwentra webhooks authenticate with Basic auth or a token, set by the property's admin in
+ * Kwentra (Settings > Integrations > Webhooks). Accepted, whichever is configured here:
+ *   KWENTRA_WEBHOOK_USERNAME + KWENTRA_WEBHOOK_PASSWORD → Authorization: Basic …
+ *   KWENTRA_WEBHOOK_TOKEN → Authorization: Bearer|Token|JWT …
+ *   KWENTRA_WEBHOOK_SECRET → X-Kwentra-Secret header or ?secret=
+ * With none configured, calls are only accepted outside production.
+ */
+function kwentraWebhookAuthorized(req) {
+  const user = process.env.KWENTRA_WEBHOOK_USERNAME;
+  const pass = process.env.KWENTRA_WEBHOOK_PASSWORD;
+  const token = process.env.KWENTRA_WEBHOOK_TOKEN;
+  const secret = process.env.KWENTRA_WEBHOOK_SECRET;
+  if (!(user && pass) && !token && !secret) return process.env.NODE_ENV !== 'production';
+
+  const header = String(req.headers.authorization || '');
+  const [scheme, value = ''] = header.split(/\s+/, 2);
+  if (user && pass && /^basic$/i.test(scheme)) {
+    const decoded = Buffer.from(value, 'base64').toString('utf8');
+    const i = decoded.indexOf(':');
+    if (i > 0 && safeEqual(decoded.slice(0, i), user) && safeEqual(decoded.slice(i + 1), pass)) return true;
+  }
+  if (token && /^(bearer|token|jwt)$/i.test(scheme) && safeEqual(value, token)) return true;
+  if (secret && safeEqual(req.headers['x-kwentra-secret'] || req.headers['x-webhook-secret'] || req.query.secret, secret)) return true;
+  return false;
+}
+
+/** Kwentra may deliver an event more than once — remember recent event_ids once they were handled */
+const seenEvents = new Map();
+const alreadySeen = (eventId) => Boolean(eventId) && seenEvents.has(String(eventId));
+function rememberEvent(eventId) {
+  if (!eventId) return;
+  seenEvents.set(String(eventId), Date.now());
+  if (seenEvents.size > 2000) seenEvents.delete(seenEvents.keys().next().value);
 }
 
 /** A reservation Kwentra cancelled (e.g. an unpaid hold that reached its hold date) → cancel the website booking */
-async function applyReservationEvent(body) {
+async function applyReservationEvent(body, tenantId = null) {
   const r = body.reservation || body.data || body;
   const id = String(r.id ?? r.reservation_id ?? body.reservation_id ?? '');
   const state = String(r.state?.name || r.state || r.status || r.hold_status || '');
   if (!id || !/cancel/i.test(state)) return { matched: false };
-  const booking = (await listBookings()).find((b) => String(b.kwentraReservationId || '') === id);
+  // Reservation ids are only unique within a tenant
+  let booking = null;
+  for (const b of await listBookings()) {
+    if (String(b.kwentraReservationId || '') !== id) continue;
+    if (tenantId == null || String(await sync.tenantForBooking(b)) === String(tenantId)) {
+      booking = b;
+      break;
+    }
+  }
   if (!booking || booking.status === 'cancelled') return { matched: Boolean(booking) };
   if (booking.paymentStatus === 'paid') {
     // A paid booking is never cancelled silently — staff decide between rebooking and a refund
@@ -111,24 +144,42 @@ async function applyReservationEvent(body) {
 }
 
 /**
- * Kwentra webhooks: availability, rates and reservations. Availability and rates are read live,
- * so those only refresh cached rate lookups; anything else triggers an inventory sync.
+ * Kwentra webhooks — POST JSON envelope { event_id, tenant_id, data_type, event_time, data }:
+ *   reservation  → data: [{ reservation, postings, accommodation }] — cancellations update website bookings
+ *   availability → data: { tenant_id, inventory_counts: [...] }    — drop that tenant's cached availability
+ *   rates        → data: { tenant_id, rates: [...] }               — drop cached rates and rate lookups
+ * Availability and prices are always read live from Kwentra, so the cache refresh is all that is needed.
  */
 router.post('/kwentra', async (req, res, next) => {
   try {
-    if (!kwentraSecretOk(req)) return res.status(401).json({ error: 'Invalid webhook secret' });
+    if (!kwentraWebhookAuthorized(req)) {
+      res.set('WWW-Authenticate', 'Basic realm="kwentra-webhook"');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const body = req.body || {};
-    const event = String(body.event || body.type || body.action || body.model || 'change');
-    console.log('[webhook/kwentra]', event, JSON.stringify(body).slice(0, 300));
-    if (/reservation/i.test(event)) {
-      kwentra.clearLiveCache();
-      return res.status(202).json({ received: true, event, reservation: await applyReservationEvent(body) });
+    const type = String(body.data_type || body.event || body.type || 'change').toLowerCase();
+    const tenantId = body.tenant_id ?? body.data?.tenant_id ?? null;
+    if (alreadySeen(body.event_id)) return res.json({ received: true, duplicate: true });
+    console.log('[webhook/kwentra]', type, `tenant ${tenantId ?? '?'}`, body.event_id || '');
+
+    if (/reserv/.test(type)) {
+      kwentra.clearLiveCache(tenantId ?? undefined);
+      const items = Array.isArray(body.data) ? body.data : [body.data || body];
+      const results = [];
+      for (const item of items) results.push(await applyReservationEvent(item || {}, tenantId));
+      rememberEvent(body.event_id);
+      return res.json({ received: true, type, reservations: results });
     }
-    if (/avail|rate/i.test(event)) {
+    rememberEvent(body.event_id);
+    if (/avail/.test(type)) {
+      kwentra.clearLiveCache(tenantId ?? undefined);
+      return res.json({ received: true, type });
+    }
+    if (/rate/.test(type)) {
       kwentra.clearLookupCache();
-      return res.status(202).json({ received: true, event });
+      return res.json({ received: true, type });
     }
-    res.status(202).json({ received: true, event, sync: sync.requestSync(`kwentra webhook: ${event}`) });
+    res.json({ received: true, type, sync: sync.requestSync(`kwentra webhook: ${type}`) });
   } catch (err) {
     next(err);
   }

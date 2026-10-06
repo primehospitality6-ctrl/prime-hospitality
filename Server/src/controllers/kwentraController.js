@@ -334,7 +334,9 @@ async function bookDirect(req, res, next) {
     let kwentraGuest = null;
     let kwentraReservationPush = null;
 
-    if (kwentra.isConfigured()) {
+    // ON_HOLD mode only (KWENTRA_HOLD_UNTIL_PAID): reserve now, confirm after payment.
+    // Otherwise the reservation is created confirmed once the payment succeeds (see pushPaidBooking).
+    if (kwentra.isConfigured() && sync.isLinked(listing) && sync.holdUntilPaid()) {
       const tenantId = await sync.tenantForUnit(listing);
       try {
         kwentraGuest = await kwentra.sendGuestFromWebsite(
@@ -436,13 +438,14 @@ async function confirmMockPayment(req, res, next) {
     }
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
+    if (booking.paymentStatus === 'paid') {
+      return res.json({ ok: true, booking: publicBooking(booking), kwentraPayment: null, message: 'Already paid.' });
+    }
     booking = (await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' })) || booking;
 
     let paymentPush = null;
-    if (booking.kwentraReservationId && kwentra.isConfigured()) {
-      paymentPush = await sync.pushPayment({
-        booking,
-        reservationId: booking.kwentraReservationId,
+    if (kwentra.isConfigured()) {
+      paymentPush = await sync.pushPaidBooking(booking, {
         amount: booking.rateAmount ?? booking.amount,
         currency: booking.rateCurrency || booking.currency || 'EGP',
         merchantOrderId: booking.externalRef,

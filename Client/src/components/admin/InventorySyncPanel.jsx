@@ -89,6 +89,29 @@ function KwentraCard({ onChanged }) {
         </p>
       ) : null}
 
+      {status?.loginPaused ? (
+        <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          Kwentra refused the login ({status.loginPaused.message}). Calls are paused until{' '}
+          {formatTime(new Date(status.loginPaused.until).toISOString())} so the account is not locked. If the password
+          expired, set a new one in Kwentra and in <span className="font-mono text-xs">Server/.env</span>, then restart the
+          API.
+        </p>
+      ) : null}
+
+      {status?.password ? (
+        <p
+          className={cn(
+            'mt-4 border px-3 py-2 text-sm',
+            status.password.dueSoon ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-prime-line text-prime-muted'
+          )}
+        >
+          {status.password.daysLeft > 0
+            ? `Kwentra API password expires in ${status.password.daysLeft} day${status.password.daysLeft === 1 ? '' : 's'} (${status.password.expiresOn}).`
+            : `Kwentra API password expired on ${status.password.expiresOn}.`}{' '}
+          Change it in Kwentra, then update KWENTRA_PASSWORD and KWENTRA_PASSWORD_CHANGED_ON in Server/.env.
+        </p>
+      ) : null}
+
       {status?.configured && status.tenants ? (
         <div className="mt-4 border border-prime-line px-4 py-3 text-sm">
           <p className={labelCls}>Kwentra tenants</p>
@@ -130,11 +153,16 @@ function KwentraCard({ onChanged }) {
           <p className={labelCls}>Webhook for Kwentra</p>
           <p className="break-all font-mono text-xs">{webhookUrl}</p>
           <p className="mt-1 text-xs text-prime-muted">
-            Give Kwentra this URL for room type, room, property and destination changes
+            Each property&apos;s Kwentra admin registers this URL in Kwentra under Settings › Integrations › Webhooks, for
+            availability, rates and reservations
             {status.webhook.url ? '' : ' (set PUBLIC_API_URL in Server/.env to show the real address)'}.{' '}
-            {status.webhook.secretConfigured
-              ? 'Protected by KWENTRA_WEBHOOK_SECRET (send it in the X-Kwentra-Secret header).'
-              : 'Set KWENTRA_WEBHOOK_SECRET in Server/.env before going live.'}
+            {status.webhook.auth === 'basic'
+              ? 'Authentication: Basic auth with KWENTRA_WEBHOOK_USERNAME / KWENTRA_WEBHOOK_PASSWORD from Server/.env.'
+              : status.webhook.auth === 'token'
+                ? 'Authentication: the token in KWENTRA_WEBHOOK_TOKEN (Server/.env).'
+                : status.webhook.auth === 'secret'
+                  ? 'Authentication: KWENTRA_WEBHOOK_SECRET in the X-Kwentra-Secret header.'
+                  : 'Set KWENTRA_WEBHOOK_USERNAME and KWENTRA_WEBHOOK_PASSWORD in Server/.env and use them as the webhook’s Basic auth — calls are refused in production until then.'}
           </p>
         </div>
       ) : null}

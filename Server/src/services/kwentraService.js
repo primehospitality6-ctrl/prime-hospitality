@@ -165,7 +165,62 @@ function authStatus() {
   return authBlocked && Date.now() < authBlocked.until ? { ...authBlocked } : null;
 }
 
-/** Kwentra allows a limited number of requests per minute — wait and retry on 429 */
+/**
+ * Kwentra API passwords expire every 70 days (KWENTRA_PASSWORD_DAYS). With KWENTRA_PASSWORD_CHANGED_ON
+ * (YYYY-MM-DD) set, the admin shows when the next change is due. No password value is ever read here.
+ */
+function passwordStatus() {
+  const changedOn = String(process.env.KWENTRA_PASSWORD_CHANGED_ON || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(changedOn) || process.env.KWENTRA_API_TOKEN) return null;
+  const lifetime = Math.max(1, Number(process.env.KWENTRA_PASSWORD_DAYS) || 70);
+  const expiresOn = addDays(changedOn, lifetime);
+  const daysLeft = Math.ceil((Date.parse(`${expiresOn}T00:00:00Z`) - Date.now()) / 864e5);
+  return { changedOn, expiresOn, daysLeft, dueSoon: daysLeft <= 10 };
+}
+
+/**
+ * Kwentra API passwords expire every 70 days. KWENTRA_PASSWORD_CHANGED_ON (YYYY-MM-DD, the day the
+ * password was last set) lets the admin warn before bookings stop. null when the date is not set.
+ */
+function passwordStatus() {
+  const changed = String(process.env.KWENTRA_PASSWORD_CHANGED_ON || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(changed) || process.env.KWENTRA_API_TOKEN) return null;
+  const days = Math.max(1, Number(process.env.KWENTRA_PASSWORD_DAYS) || 70);
+  const expires = new Date(`${changed}T00:00:00Z`);
+  expires.setUTCDate(expires.getUTCDate() + days);
+  const daysLeft = Math.ceil((expires.getTime() - Date.now()) / 864e5);
+  return { changedOn: changed, expiresOn: expires.toISOString().slice(0, 10), daysLeft };
+}
+
+/*
+ * Kwentra allows 7 calls per second. Every request takes a slot first; at most KWENTRA_MAX_RPS
+ * (default 6, a margin under the limit) start in any one-second window, the rest wait their turn.
+ */
+const startTimes = [];
+let slotQueue = Promise.resolve();
+
+function maxPerSecond() {
+  const n = Math.floor(Number(process.env.KWENTRA_MAX_RPS));
+  return n > 0 ? Math.min(n, 7) : 6;
+}
+
+function takeSlot() {
+  const turn = slotQueue.then(async () => {
+    for (;;) {
+      const now = Date.now();
+      while (startTimes.length && now - startTimes[0] >= 1000) startTimes.shift();
+      if (startTimes.length < maxPerSecond()) {
+        startTimes.push(now);
+        return;
+      }
+      await sleep(1000 - (now - startTimes[0]) + 5);
+    }
+  });
+  slotQueue = turn.catch(() => {});
+  return turn;
+}
+
+/** Throttled to Kwentra's per-second limit; waits and retries on 429 */
 async function kwentraFetch(path, options = {}) {
   const blocked = authStatus();
   if (blocked) {
@@ -176,6 +231,7 @@ async function kwentraFetch(path, options = {}) {
   }
   for (let attempt = 0; ; attempt += 1) {
     try {
+      await takeSlot();
       return await kwentraRequest(path, options);
     } catch (err) {
       if (isAuthFailure(err)) {
@@ -279,7 +335,16 @@ async function listAll(path, { query = {}, keys = [], tenantId, maxPages = 50 } 
 
 /* ——— Inventory ——— */
 
-const ROOM_TYPE_INCLUDES = ['room_type', 'code', 'description', 'capacity', 'category'];
+const ROOM_TYPE_INCLUDES = [
+  'room_type',
+  'code',
+  'description',
+  'capacity',
+  'category',
+  'child_related',
+  'room_features',
+  'roomtypeoccupancy_set',
+];
 const LOOKUP_INCLUDES = ['code', 'description'];
 
 async function listRoomTypes({ tenantId } = {}) {
@@ -501,16 +566,20 @@ function clearLookupCache() {
 const isTrue = (v) => v === true || v === 1 || v === 'true' || v === 'True';
 
 /**
- * Rates flagged web=true in a tenant — the rates Kwentra's own booking engine sold online.
- * Empty when the tenant has none or the lookup fails (callers then fall back to the channel profile).
+ * Rates flagged web=true in a tenant (Kwentra: `filter{web}=true`) — the rates the previous online
+ * booking engine sold. Only trusted when the filter actually narrows the list: a server that ignores
+ * it returns every rate, and then this is empty so callers fall back to the website channel profile.
  */
 async function webRateIds(tenantId) {
   const tenant = String(tenantId || getTenantId());
   try {
     return await cached(`web-rates:${tenant}`, async () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const rates = await listRates({ tenantId: tenant, from: today, to: addDays(today, 30) });
-      return rates.filter((r) => isTrue(r.web)).map((r) => String(r.id));
+      const ids = async (filter) =>
+        (await listAll(pathFor('rates'), { tenantId: tenant, maxPages: 5, query: filter, keys: ['rates', 'Rate_Entities'] }))
+          .filter((r) => r?.id != null && (filter['filter{web}'] !== 'true' || r.web == null || isTrue(r.web)))
+          .map((r) => String(r.id));
+      const [web, all] = await Promise.all([ids({ 'filter{web}': 'true' }), ids({})]);
+      return web.length && web.length < all.length ? web : [];
     });
   } catch (err) {
     console.warn('[kwentra] web rates lookup failed:', err.message);
@@ -665,16 +734,109 @@ async function listPostings({ tenantId, accountId, windowId } = {}) {
   return extractList(data, ['postings']);
 }
 
-/** Partial update (e.g. only hold_status) — PATCH, or PUT when the server does not allow PATCH */
+const UPDATE_INCLUDES = [
+  'state.name',
+  'room_nights.number_of_adults',
+  'room_nights.number_of_children',
+  'room_nights.room_number',
+  'room_nights.manual_rate',
+  'room_nights.rate_amount',
+  'room_nights.daily_charges_posted',
+];
+
+/** Linked records come back as {id, …}; Kwentra's update body takes the id, or "" when empty */
+const refId = (v) => (v && typeof v === 'object' ? v.id ?? '' : v ?? '');
+
+/**
+ * The full body Kwentra's Update Reservation expects, rebuilt from GET — an update must carry the
+ * whole reservation (not just the changed fields) plus its current updated_on (edit lock).
+ */
+function reservationUpdateBody(r, changes = {}) {
+  return {
+    id: r.id,
+    arrival_date: r.arrival_date,
+    departure_date: r.departure_date,
+    check_in_time: r.check_in_time,
+    check_out_time: r.check_out_time,
+    purpose_of_stay: r.purpose_of_stay,
+    rate_confirmation: r.rate_confirmation,
+    reservation_confirmation: r.reservation_confirmation,
+    guarantee_type: refId(r.guarantee_type),
+    reservation_mode: r.reservation_mode || 'daily',
+    room_nights: (r.room_nights || []).map((n) => ({
+      room_type: refId(n.room_type),
+      actual_room_type: refId(n.actual_room_type),
+      rate: refId(n.rate),
+      room_number: refId(n.room_number) || null,
+      from_date: n.from_date,
+      to_date: n.to_date,
+      number_of_adults: n.number_of_adults,
+      number_of_children: n.number_of_children,
+      children: n.children || [],
+      manual_rate: Boolean(n.manual_rate),
+      ...(n.manual_rate && n.rate_amount != null ? { rate_amount: n.rate_amount } : {}),
+      daily_charges_posted: Boolean(n.daily_charges_posted),
+      board_type: refId(n.board_type) || null,
+      discount_amount: n.discount_amount ?? 0,
+      discount_percentage: n.discount_percentage ?? 0,
+    })),
+    market: refId(r.market),
+    source: refId(r.source),
+    channel: refId(r.channel),
+    voucher_no: r.voucher_no || '',
+    block: refId(r.block),
+    country: r.country?.iso || refId(r.country),
+    state: r.state,
+    arrival_flight_number: r.arrival_flight_number ?? null,
+    arrival_flight_time: r.arrival_flight_time ?? null,
+    departure_flight_number: r.departure_flight_number ?? null,
+    departure_flight_time: r.departure_flight_time ?? null,
+    booker: refId(r.booker),
+    name: refId(r.name),
+    other_names: (r.other_names || []).map(refId),
+    group_reservation: refId(r.group_reservation),
+    account: refId(r.account),
+    credit_card: r.credit_card || '',
+    guest_flag: refId(r.guest_flag),
+    order: refId(r.order),
+    first_meal: refId(r.first_meal),
+    language: refId(r.language),
+    company: refId(r.company),
+    remarks: r.remarks || '',
+    hold_date: r.hold_date ?? null,
+    hold_status: r.hold_status || 'CONFIRMED',
+    do_not_move: Boolean(r.do_not_move),
+    auto_send_folio: Boolean(r.auto_send_folio),
+    updated_on: r.updated_on ?? null,
+    ...changes,
+  };
+}
+
+/** Change fields on a reservation: GET it, apply the changes to the full body, PUT it back */
+async function updateReservationFields(id, changes, { tenantId } = {}) {
+  const current = await getReservation(id, { tenantId, includes: UPDATE_INCLUDES });
+  return updateReservation(id, reservationUpdateBody(current, changes), { tenantId });
+}
+
+/** ON_HOLD → CONFIRMED after payment: the hold date is removed so Kwentra no longer auto-cancels it */
+async function confirmHeldReservation(id, { tenantId } = {}) {
+  return updateReservationFields(id, { hold_status: 'CONFIRMED', hold_date: null }, { tenantId });
+}
+
+/**
+ * PUT …/v2/{id}/reinstate/ — bring a cancelled reservation back (same reservation, same id), confirmed.
+ * Used when the guest paid after Kwentra auto-cancelled the hold; fails when the room is gone.
+ */
+async function reinstateReservation(id, reason, { tenantId } = {}) {
+  const current = await getReservation(id, { tenantId, includes: UPDATE_INCLUDES });
+  const body = reservationUpdateBody(current, { hold_status: 'CONFIRMED', hold_date: null, reason });
+  delete body.state;
+  return kwentraFetch(`${pathFor('reservation', id).replace(/\/$/, '')}/reinstate/`, { method: 'PUT', body, tenantId });
+}
+
+/** Kept for callers that pass a partial patch — sent as a full update */
 async function patchReservation(id, patch, { tenantId } = {}) {
-  // Kwentra rejects writes without the reservation's current updated_on (edit lock)
-  const body = patch.updated_on !== undefined ? patch : { ...patch, updated_on: (await getReservation(id, { tenantId, includes: [] }))?.updated_on ?? null };
-  try {
-    return await kwentraFetch(pathFor('reservation', id), { method: 'PATCH', body, tenantId });
-  } catch (err) {
-    if (err.status !== 405) throw err;
-    return updateReservation(id, body, { tenantId });
-  }
+  return updateReservationFields(id, patch, { tenantId });
 }
 
 /** PATCH …/{id}/change_state/ — Expected | Checked In | Checked Out | Canceled | No'Show */
@@ -755,32 +917,46 @@ function splitName(fullName = '') {
 }
 
 /**
- * Individual Profile v3 body from the website guest form — only fields Kwentra accepts on create.
- * The guest's country goes in the contact info. Sending `nationality` or `nationality_object` makes
- * the test server answer 500, so nationality is only sent once KWENTRA_PROFILE_NATIONALITY_FIELD names
- * the field Kwentra expects (value: the ISO code).
+ * Individual Profile v3 body from the website guest form, in the shape of Kwentra's working example:
+ * nationality_object = ISO-2 code, unused fields null. The contact-info list stays empty — Kwentra
+ * answers 500 when it is sent together with a nationality (the country is on the reservation anyway).
  */
-function buildProfilePayloadFromGuest({ name, email, phone, notes, nationality = 'EG', address = '', city = '' } = {}) {
+function buildProfilePayloadFromGuest({ name, email, phone, notes, nationality } = {}) {
   const { first_name, last_name } = splitName(name);
-  const iso = String(nationality || 'EG').toUpperCase();
-  const body = {
+  const iso = /^[A-Za-z]{2}$/.test(String(nationality || '')) ? String(nationality).toUpperCase() : null;
+  return {
     first_name,
     last_name,
-    email: email || '',
-    mobile: phone || '',
-    guest_preferences: notes || '',
-    individualprofilecontactinfo_set: [
-      {
-        address: address || '',
-        city: city || '',
-        country: { id: iso, iso },
-        contact_type: { id: 1 },
-      },
-    ],
+    date_of_birth: null,
+    language: null,
+    gender: null,
+    nationality_object: iso,
+    guest_preferences: notes || null,
+    letter_greeting: null,
+    place_of_birth: null,
+    company: null,
+    occupation: null,
+    old_id: null,
+    loyalty_points: null,
+    is_house_use_officer: null,
+    document_type: null,
+    ID_number: null,
+    version_number: null,
+    issue_place: null,
+    issue_date: null,
+    expiry_date: null,
+    passport: null,
+    driving_license_number: null,
+    email: email || null,
+    mobile: phone || null,
+    telephone: null,
+    work_phone: null,
+    keep_email: null,
+    email_third_party: null,
+    keep_personal_info: null,
+    individualprofilecontactinfo_set: [],
+    attachments: null,
   };
-  const nationalityField = String(process.env.KWENTRA_PROFILE_NATIONALITY_FIELD || '').trim();
-  if (nationalityField) body[nationalityField] = iso;
-  return body;
 }
 
 /** POST /api/core/individualprofile/v3/ */
@@ -801,8 +977,7 @@ async function sendGuestFromWebsite(guest = {}, { tenantId } = {}) {
   }
   if (profileId) {
     const patch = { ...splitName(name), email, mobile: phone || '', guest_preferences: notes || '' };
-    const nationalityField = String(process.env.KWENTRA_PROFILE_NATIONALITY_FIELD || '').trim();
-    if (nationality && nationalityField) patch[nationalityField] = String(nationality).toUpperCase();
+    if (/^[A-Za-z]{2}$/.test(String(nationality || ''))) patch.nationality_object = String(nationality).toUpperCase();
     return { action: 'updated', profile: await patchGuestProfile(profileId, patch, { tenantId }) };
   }
   const profile = await createGuestProfile({ name, email, phone, notes, nationality, address, city }, { tenantId });
@@ -819,6 +994,7 @@ async function uploadGuestAttachment(profileId, fileBuffer, filename, contentTyp
 module.exports = {
   isConfigured,
   authStatus,
+  passwordStatus,
   getTenantId,
   baseUrl,
   pathFor,
@@ -842,6 +1018,10 @@ module.exports = {
   createReservation,
   updateReservation,
   patchReservation,
+  updateReservationFields,
+  confirmHeldReservation,
+  reinstateReservation,
+  reservationUpdateBody,
   getReservation,
   isCancelledReservation,
   reservationAccountId,
