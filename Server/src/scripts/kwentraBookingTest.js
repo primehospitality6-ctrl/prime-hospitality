@@ -1,7 +1,7 @@
 /**
  * End-to-end booking test on a Kwentra TEST tenant — the flow a website booking goes through:
- *   guest profile → vacant room → website rate → reservation ON_HOLD → confirm (hold_status only)
- *   → payment on the billing account (only when a payment department is set) → cancel.
+ *   guest profile → vacant room → website rate → confirmed reservation (or ON_HOLD → confirm when
+ *   KWENTRA_HOLD_UNTIL_PAID=true) → payment on the billing account (only when a payment department is set) → cancel.
  *
  *   npm run kwentra:test-booking -- 394          → tenant 394, first room type with a rate
  *   npm run kwentra:test-booking -- 394 7        → room type 7
@@ -93,20 +93,22 @@ async function main() {
     marketId: lookups.market,
     sourceId: lookups.source,
     guestProfileId: guestId,
-    hold: true,
+    hold: sync.holdUntilPaid(),
   });
   const { id } = await kwentra.createReservation(payload, { tenantId });
   if (!id) throw new Error('Kwentra did not return a reservation id');
-  show('created', await kwentra.getReservation(id, { tenantId }));
+  let confirmed = await kwentra.getReservation(id, { tenantId });
+  show('created', confirmed);
 
-  let confirmed = null;
-  try {
-    await kwentra.confirmHeldReservation(id, { tenantId });
-    confirmed = await kwentra.getReservation(id, { tenantId });
-    show('confirmed', confirmed);
-  } catch (err) {
-    console.log(`  ✗ confirm (full update, hold_status CONFIRMED): ${err.status || ''} ${err.message}`);
-    confirmed = await kwentra.getReservation(id, { tenantId });
+  if (confirmed.hold_status === 'ON_HOLD') {
+    try {
+      await kwentra.confirmHeldReservation(id, { tenantId });
+      confirmed = await kwentra.getReservation(id, { tenantId });
+      show('confirmed', confirmed);
+    } catch (err) {
+      console.log(`  ✗ confirm (full update, hold_status CONFIRMED): ${err.status || ''} ${err.message}`);
+      confirmed = await kwentra.getReservation(id, { tenantId });
+    }
   }
 
   const department = String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim() ||

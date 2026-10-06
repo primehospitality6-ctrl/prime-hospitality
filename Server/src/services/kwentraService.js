@@ -521,19 +521,24 @@ const channelCache = new Map();
 const CHANNEL_TTL_MS = 10 * 60_000;
 
 /**
- * Website channel of a tenant → { id, rateIds }: KWENTRA_CHANNEL_ID, else the channel profile named
- * Website/Direct/Online. rateIds = rates Kwentra offers on that channel, in Kwentra's order.
+ * Website channel of a tenant → { id, rateIds }: KWENTRA_CHANNEL_IDS (JSON per tenant) / KWENTRA_CHANNEL_ID,
+ * else the profile matching KWENTRA_CHANNEL_NAME, else the one named "Hotel Website" (Prime's revenue
+ * manager), else the first Website/Direct one. rateIds = rates Kwentra offers on that channel, in order.
  */
 async function websiteChannel(tenantId) {
   const key = String(tenantId || getTenantId());
   const cached = channelCache.get(key);
   if (cached && Date.now() - cached.at < CHANNEL_TTL_MS) return cached.value;
-  const forcedId = String(process.env.KWENTRA_CHANNEL_ID || '').trim();
+  const forcedId = tenantMapValue('KWENTRA_CHANNEL_IDS', key) || String(process.env.KWENTRA_CHANNEL_ID || '').trim();
   let value = { id: forcedId, rateIds: [] };
   try {
     const profiles = await listChannelProfiles({ tenantId });
-    const wanted = new RegExp(process.env.KWENTRA_CHANNEL_NAME || 'website|web|direct|online', 'i');
-    const profile = forcedId ? profiles.find((c) => c.id === forcedId) : profiles.find((c) => wanted.test(c.name));
+    const named = (re) => profiles.find((c) => re.test(String(c.name || '').trim()));
+    const profile = forcedId
+      ? profiles.find((c) => c.id === forcedId)
+      : process.env.KWENTRA_CHANNEL_NAME
+        ? named(new RegExp(process.env.KWENTRA_CHANNEL_NAME, 'i'))
+        : named(/^hotel\s*website$/i) || named(/^website$/i) || named(/\bdirect\b/i);
     value = { id: forcedId || profile?.id || '', rateIds: (profile?.rates || []).map((r) => r.id) };
   } catch (err) {
     console.warn('[kwentra] channel profiles lookup failed:', err.message);
@@ -612,19 +617,22 @@ function tenantMapValue(envName, tenant) {
 /**
  * Market and source ids for website bookings in a tenant, first found of:
  * KWENTRA_MARKET_IDS / KWENTRA_SOURCE_IDS (JSON per tenant), KWENTRA_MARKET_ID / KWENTRA_SOURCE_ID,
- * the entry whose name matches KWENTRA_MARKET_NAME / KWENTRA_SOURCE_NAME (default website/direct/internet).
- * "Online" is not in the default match — it would pick "Online Travel Agency".
+ * the entry whose name matches KWENTRA_MARKET_NAME / KWENTRA_SOURCE_NAME.
+ * Without a name setting: source = "Individual" / "Independent" (code IN preferred), market = none —
+ * Prime does not tie markets to the channel, so the reservation is sent without one.
  */
 async function websiteMarketSource(tenantId) {
   const tenant = String(tenantId || getTenantId());
-  const pick = async (key, envId, envName) => {
+  const pick = async (key, envId, envName, defaultName) => {
     const forced = tenantMapValue(`${envId}S`, tenant) || String(process.env[envId] || '').trim();
     if (forced) return forced;
+    const wanted = process.env[envName] ? new RegExp(process.env[envName], 'i') : defaultName;
+    if (!wanted) return '';
     try {
       return await cached(`${key}:${tenant}`, async () => {
         const list = await listLookup(key, { tenantId: tenant });
-        const wanted = new RegExp(process.env[envName] || '\\bweb|website|direct|internet|booking engine', 'i');
-        const match = list.find((m) => wanted.test(`${m.name || ''} ${m.description || ''} ${m.code || ''}`));
+        const matches = list.filter((m) => wanted.test(String(m.description || m.name || '').trim()) || wanted.test(String(m.code || '').trim()));
+        const match = matches.find((m) => /^IN$/i.test(String(m.code || '').trim())) || matches[0];
         return match?.id != null ? String(match.id) : '';
       });
     } catch (err) {
@@ -633,8 +641,8 @@ async function websiteMarketSource(tenantId) {
     }
   };
   return {
-    market: await pick('markets', 'KWENTRA_MARKET_ID', 'KWENTRA_MARKET_NAME'),
-    source: await pick('sources', 'KWENTRA_SOURCE_ID', 'KWENTRA_SOURCE_NAME'),
+    market: await pick('markets', 'KWENTRA_MARKET_ID', 'KWENTRA_MARKET_NAME', null),
+    source: await pick('sources', 'KWENTRA_SOURCE_ID', 'KWENTRA_SOURCE_NAME', /^(individual|independent)$/i),
   };
 }
 

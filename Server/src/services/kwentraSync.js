@@ -364,10 +364,23 @@ function mappedRateId(planCode) {
   return id != null && id !== '' ? String(id) : '';
 }
 
+/** KWENTRA_RATE_NAMES="Website,BAR" — rate codes the website sells on, in order of preference */
+function websiteRateNames() {
+  return String(process.env.KWENTRA_RATE_NAMES || 'Website,BAR')
+    .split(',')
+    .map((n) => n.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+const rateNameRank = (rate) => {
+  const i = websiteRateNames().indexOf(String(rate?.rateCode || '').trim().toLowerCase());
+  return i < 0 ? Infinity : i;
+};
+
 /**
  * Kwentra rate a website plan is booked on: the plan's mapped rate, else the base rate —
- * KWENTRA_DEFAULT_RATE_ID → the rate mapped to FLEX → the cheapest web=true rate →
- * the first rate on the website channel → cheapest.
+ * KWENTRA_DEFAULT_RATE_ID → the rate mapped to FLEX → the rate named "Website", else "BAR"
+ * (KWENTRA_RATE_NAMES) → the cheapest web=true rate → the first rate on the website channel → cheapest.
  */
 function pickRate(rates = [], planCode) {
   const usable = rates.filter((r) => r.quote > 0);
@@ -375,9 +388,11 @@ function pickRate(rates = [], planCode) {
   const cheapest = (list) => [...list].sort((a, b) => a.quote - b.quote)[0];
   const own = byId(mappedRateId(planCode));
   if (own) return { ...own, mapped: true };
+  const named = [...usable].filter((r) => rateNameRank(r) < Infinity).sort((a, b) => rateNameRank(a) - rateNameRank(b))[0];
   const base =
     byId(process.env.KWENTRA_DEFAULT_RATE_ID) ||
     byId(mappedRateId('FLEX')) ||
+    named ||
     cheapest(usable.filter((r) => r.onWeb)) ||
     usable.find((r) => r.onChannel) ||
     cheapest(usable);
@@ -422,7 +437,7 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
   };
   return rates
     .filter((r) => r.roomTypeId === roomTypeId)
-    .filter((r) => !webIds.length || allowed.has(r.rateId))
+    .filter((r) => !webIds.length || allowed.has(r.rateId) || rateNameRank(r) < Infinity)
     .map((r) => ({ ...r, onWeb: webIds.includes(r.rateId), onChannel: channel.rateIds.includes(r.rateId) }))
     .sort((a, b) => order(a) - order(b));
 }
