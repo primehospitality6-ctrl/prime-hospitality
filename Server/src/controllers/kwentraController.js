@@ -113,14 +113,14 @@ async function getAvailability(req, res, next) {
  * Occupied nights + nightly prices for [arrival, departure) — Kwentra when the unit is linked, mock otherwise.
  * strict: a linked unit whose Kwentra availability can't be read is not bookable (no guessing).
  */
-async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, children = 0, strict = false } = {}) {
+async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, children = 0, strict = false, freshAvailability = strict } = {}) {
   let avail = null;
   let rates = null;
   if (sync.isLinked(listing)) {
     try {
       const tenantId = await sync.tenantForUnit(listing);
       const [availability, offered] = await Promise.all([
-        kwentra.getAvailability(listing.kwentraRoomTypeId, { from: arrivalDate, to: departureDate, tenantId, fresh: strict }),
+        kwentra.getAvailability(listing.kwentraRoomTypeId, { from: arrivalDate, to: departureDate, tenantId, fresh: freshAvailability }),
         sync.roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId, fresh: strict }).catch((err) => {
           console.warn('[kwentra] rates lookup failed:', err.message);
           return [];
@@ -195,9 +195,11 @@ async function getQuote(req, res, next) {
     if (nights < 1) {
       return res.status(400).json({ error: 'arrivalDate and departureDate are required' });
     }
+    // The guest is about to book these dates: availability is read live, prices may come from the short cache
     const stay = await resolveStay(listing, arrivalDate, departureDate, {
       adults: Number(req.body?.adults) || 2,
       children: Number(req.body?.children) || 0,
+      freshAvailability: true,
     });
     const ratePlans = pms.ratePlansForStay(nights).map((plan) => {
       const q = priceForPlan(plan, stay, listing, arrivalDate, departureDate);
