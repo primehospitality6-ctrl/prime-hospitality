@@ -668,37 +668,34 @@ function configuredPaymentDepartment(tenantId) {
 }
 
 /**
- * Credit department online payments are posted to, per tenant → { id, name } or { id: '', reason }:
- * KWENTRA_PAYMENT_DEPARTMENTS={"394":6} / KWENTRA_PAYMENT_DEPARTMENT_ID, else the active credit
- * department named like KWENTRA_PAYMENT_DEPARTMENT_NAME (default online/website/paymob), else the
- * only active credit-card department. Never a debit department: posting a payment on Room Revenue
- * would add a second charge to the guest's folio instead of settling it.
+ * Department online payments are posted to, per tenant → { id, name, type } or { id: '', reason }:
+ * KWENTRA_PAYMENT_DEPARTMENTS={"394":1} / KWENTRA_PAYMENT_DEPARTMENT_ID, else the active department
+ * named like KWENTRA_PAYMENT_DEPARTMENT_NAME (default Room / Rent Revenue). Prime's finance team posts
+ * website payments on the room revenue debit department and offsets them with a credit when the bank
+ * statement is reconciled, so debit departments are allowed; tax departments never are.
  */
 async function paymentDepartment(tenantId) {
   const forced = configuredPaymentDepartment(tenantId);
   let departments = null;
   try {
-    departments = (await kwentra.listDepartments({ tenantId })).filter((d) => d.active);
+    departments = (await kwentra.listDepartments({ tenantId })).filter((d) => d.active && d.type !== 'tax');
   } catch (err) {
-    if (forced) return { id: forced, name: '' };
+    if (forced) return { id: forced, name: '', type: '' };
     return { id: '', reason: `departments lookup failed (${err.message})` };
   }
-  const credit = departments.filter((d) => d.type === 'credit');
+  const found = (dept) => ({ id: dept.id, name: dept.name, type: dept.type });
   if (forced) {
     const dept = departments.find((d) => d.id === forced);
-    if (!dept) return { id: '', reason: `payment department ${forced} does not exist or is inactive in Kwentra` };
-    if (dept.type !== 'credit') return { id: '', reason: `department ${forced} (${dept.name}) is a ${dept.type} department — payments need a credit (payment) department` };
-    return { id: dept.id, name: dept.name };
+    return dept ? found(dept) : { id: '', reason: `department ${forced} does not exist, is inactive or is a tax department in Kwentra` };
   }
-  const wanted = new RegExp(process.env.KWENTRA_PAYMENT_DEPARTMENT_NAME || 'online|website|web payment|paymob', 'i');
-  const cards = credit.filter((d) => d.paymentType === 'credit_card');
-  const dept = credit.find((d) => wanted.test(d.name)) || (cards.length === 1 ? cards[0] : null);
-  if (dept) return { id: dept.id, name: dept.name };
+  const wanted = new RegExp(process.env.KWENTRA_PAYMENT_DEPARTMENT_NAME || '^(room|rent)(al)? revenue$', 'i');
+  const matches = departments.filter((d) => wanted.test(String(d.name).trim()));
+  if (matches.length === 1) return found(matches[0]);
   return {
     id: '',
-    reason: cards.length > 1
-      ? `several card departments (${cards.map((d) => d.name).join(', ')}) — set KWENTRA_PAYMENT_DEPARTMENTS`
-      : 'no online / credit-card payment department found — set KWENTRA_PAYMENT_DEPARTMENTS',
+    reason: matches.length
+      ? `several departments match (${matches.map((d) => d.name).join(', ')}) — set KWENTRA_PAYMENT_DEPARTMENTS`
+      : 'no Room / Rent Revenue department found — set KWENTRA_PAYMENT_DEPARTMENTS',
   };
 }
 

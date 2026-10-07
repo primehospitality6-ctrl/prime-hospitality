@@ -744,8 +744,9 @@ function reservationAccountId(reservation) {
 
 /**
  * Billing API — POST /api/income/payment/?account={id}&window_number={n} (or ?window={id}) with
- * [{ department, amount, comments, credit_card_number?, cc_type? }]. department = a credit department
- * (e.g. "Online payment"). Allowed while the reservation is Expected or Checked In.
+ * [{ department, amount, comments, credit_card_number?, cc_type? }]. Prime posts on its room revenue
+ * department (finance offsets it at bank reconciliation). Allowed while the reservation is Expected or
+ * Checked In, and only for an API user that is a cashier.
  */
 async function postPayment({ tenantId, accountId, windowId, windowNumber = 1, department, amount, comments, cardLast4, cardType } = {}) {
   const query = windowId ? { window: windowId } : { account: accountId, window_number: windowNumber };
