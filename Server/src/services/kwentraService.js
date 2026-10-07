@@ -30,7 +30,7 @@ const PATHS = {
   roomType: ['KWENTRA_PATH_ROOM_TYPE', '/api/reservation/roomtype/:id/'],
   rooms: ['KWENTRA_PATH_ROOMS', '/api/reservation/room/v2/'],
   availability: ['KWENTRA_PATH_AVAILABILITY', '/api/reservation/rooms/availability/:id/'],
-  rates: ['KWENTRA_PATH_RATES', '/api/reservation/rate/v2/'],
+  rates: ['KWENTRA_PATH_RATES', '/api/reservation/rate/v3/'],
   totalStay: ['KWENTRA_PATH_TOTAL_STAY', '/api/reservation/rate/v2/totalstay/'],
   channelProfiles: ['KWENTRA_PATH_CHANNEL_PROFILES', '/api/core/channelprofile/'],
   profiles: ['KWENTRA_PATH_PROFILES', 'KWENTRA_PATH_CREATE_PROFILE', '/api/core/individualprofile/v3/'],
@@ -43,6 +43,7 @@ const PATHS = {
   // Billing API: credit posting on a billing account window
   payment: ['KWENTRA_PATH_PAYMENT', '/api/income/payment/'],
   postings: ['KWENTRA_PATH_POSTINGS', '/api/income/posting/'],
+  departments: ['KWENTRA_PATH_DEPARTMENTS', '/api/income/department/v3/'],
 };
 
 function pathFor(key, id) {
@@ -602,6 +603,24 @@ async function listLookup(key, { tenantId } = {}) {
   });
 }
 
+/**
+ * Billing departments of a tenant → [{id, code, name, type, paymentType, active}].
+ * type: "debit" = charges (Room Revenue…), "credit" = payments (cash, card, city ledger), "tax".
+ */
+async function listDepartments({ tenantId } = {}) {
+  const tenant = String(tenantId || getTenantId());
+  return cached(`departments:${tenant}`, async () =>
+    (await listAll(pathFor('departments'), { tenantId: tenant, maxPages: 5, keys: ['departments', 'results'] })).map((d) => ({
+      id: String(d.id),
+      code: d.code != null ? String(d.code) : '',
+      name: d.description || d.name || '',
+      type: String(d.type || '').toLowerCase(),
+      paymentType: d.payment_type || null,
+      active: d.is_active !== false,
+    }))
+  );
+}
+
 /** Per-tenant id from a JSON env map like {"394": "2", "375": "5"} */
 function tenantMapValue(envName, tenant) {
   try {
@@ -924,14 +943,20 @@ function splitName(fullName = '') {
   return { first_name, last_name, name: parts.join(' ') || first_name };
 }
 
+const isoCountry = (value) => (/^[A-Za-z]{2}$/.test(String(value || '').trim()) ? String(value).trim().toUpperCase() : null);
+
 /**
- * Individual Profile v3 body from the website guest form, in the shape of Kwentra's working example:
- * nationality_object = ISO-2 code, unused fields null. The contact-info list stays empty — Kwentra
- * answers 500 when it is sent together with a nationality (the country is on the reservation anyway).
+ * Individual Profile v3 body from the website guest form, in the shape of Kwentra's example:
+ * nationality_object = ISO-2 code, one contact entry (contact_type "1") carrying the country of
+ * residence, unused fields null. ID / passport numbers are not collected online — front desk takes them.
  */
-function buildProfilePayloadFromGuest({ name, email, phone, notes, nationality } = {}) {
+function buildProfilePayloadFromGuest({ name, email, phone, notes, nationality, country, address, city } = {}) {
   const { first_name, last_name } = splitName(name);
-  const iso = /^[A-Za-z]{2}$/.test(String(nationality || '')) ? String(nationality).toUpperCase() : null;
+  const iso = isoCountry(nationality);
+  const residence = isoCountry(country) || iso;
+  const contacts = residence
+    ? [{ address: address || '', city: city || '', country: residence, zip_code: '', id: null, profile: null, po_box: '', contact_type: '1' }]
+    : [];
   return {
     first_name,
     last_name,
@@ -962,7 +987,7 @@ function buildProfilePayloadFromGuest({ name, email, phone, notes, nationality }
     keep_email: null,
     email_third_party: null,
     keep_personal_info: null,
-    individualprofilecontactinfo_set: [],
+    individualprofilecontactinfo_set: contacts,
     attachments: null,
   };
 }
@@ -977,7 +1002,7 @@ async function createGuestProfile(guest, { tenantId } = {}) {
  * Website → Kwentra guest profile: update when we know the profile id, otherwise create one.
  */
 async function sendGuestFromWebsite(guest = {}, { tenantId } = {}) {
-  const { profileId, name, email, phone, notes, nationality, address, city } = guest;
+  const { profileId, name, email, phone, notes, nationality, country, address, city } = guest;
   if (!name || !email) {
     const err = new Error('name and email are required to send guest to Kwentra');
     err.status = 400;
@@ -988,7 +1013,7 @@ async function sendGuestFromWebsite(guest = {}, { tenantId } = {}) {
     if (/^[A-Za-z]{2}$/.test(String(nationality || ''))) patch.nationality_object = String(nationality).toUpperCase();
     return { action: 'updated', profile: await patchGuestProfile(profileId, patch, { tenantId }) };
   }
-  const profile = await createGuestProfile({ name, email, phone, notes, nationality, address, city }, { tenantId });
+  const profile = await createGuestProfile({ name, email, phone, notes, nationality, country, address, city }, { tenantId });
   return { action: 'created', profile };
 }
 
@@ -1018,6 +1043,7 @@ module.exports = {
   websiteChannel,
   websiteChannelId,
   webRateIds,
+  listDepartments,
   listLookup,
   websiteMarketSource,
   clearLookupCache,

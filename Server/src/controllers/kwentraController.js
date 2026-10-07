@@ -351,6 +351,7 @@ async function bookDirect(req, res, next) {
               .filter(Boolean)
               .join(' | '),
             nationality: booking.nationality || booking.reservationCountry,
+            country: booking.reservationCountry,
             address: '',
             city: listing.city || '',
           },

@@ -657,11 +657,7 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
   }
 }
 
-/**
- * Credit department online payments are posted to, per tenant:
- * KWENTRA_PAYMENT_DEPARTMENTS={"394":53,"375":12}, else KWENTRA_PAYMENT_DEPARTMENT_ID.
- */
-function paymentDepartment(tenantId) {
+function configuredPaymentDepartment(tenantId) {
   try {
     const map = JSON.parse(process.env.KWENTRA_PAYMENT_DEPARTMENTS || '{}');
     if (map && map[String(tenantId)] != null) return String(map[String(tenantId)]);
@@ -669,6 +665,41 @@ function paymentDepartment(tenantId) {
     console.warn('[kwentra] KWENTRA_PAYMENT_DEPARTMENTS is not valid JSON — ignoring it');
   }
   return String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim();
+}
+
+/**
+ * Credit department online payments are posted to, per tenant → { id, name } or { id: '', reason }:
+ * KWENTRA_PAYMENT_DEPARTMENTS={"394":6} / KWENTRA_PAYMENT_DEPARTMENT_ID, else the active credit
+ * department named like KWENTRA_PAYMENT_DEPARTMENT_NAME (default online/website/paymob), else the
+ * only active credit-card department. Never a debit department: posting a payment on Room Revenue
+ * would add a second charge to the guest's folio instead of settling it.
+ */
+async function paymentDepartment(tenantId) {
+  const forced = configuredPaymentDepartment(tenantId);
+  let departments = null;
+  try {
+    departments = (await kwentra.listDepartments({ tenantId })).filter((d) => d.active);
+  } catch (err) {
+    if (forced) return { id: forced, name: '' };
+    return { id: '', reason: `departments lookup failed (${err.message})` };
+  }
+  const credit = departments.filter((d) => d.type === 'credit');
+  if (forced) {
+    const dept = departments.find((d) => d.id === forced);
+    if (!dept) return { id: '', reason: `payment department ${forced} does not exist or is inactive in Kwentra` };
+    if (dept.type !== 'credit') return { id: '', reason: `department ${forced} (${dept.name}) is a ${dept.type} department — payments need a credit (payment) department` };
+    return { id: dept.id, name: dept.name };
+  }
+  const wanted = new RegExp(process.env.KWENTRA_PAYMENT_DEPARTMENT_NAME || 'online|website|web payment|paymob', 'i');
+  const cards = credit.filter((d) => d.paymentType === 'credit_card');
+  const dept = credit.find((d) => wanted.test(d.name)) || (cards.length === 1 ? cards[0] : null);
+  if (dept) return { id: dept.id, name: dept.name };
+  return {
+    id: '',
+    reason: cards.length > 1
+      ? `several card departments (${cards.map((d) => d.name).join(', ')}) — set KWENTRA_PAYMENT_DEPARTMENTS`
+      : 'no online / credit-card payment department found — set KWENTRA_PAYMENT_DEPARTMENTS',
+  };
 }
 
 /**
@@ -693,6 +724,7 @@ async function pushPaidBooking(booking, payment = {}) {
             phone: booking.phone,
             notes: [`Voucher: ${booking.voucherNumber}`, booking.notes || ''].filter(Boolean).join(' | '),
             nationality: booking.nationality || booking.reservationCountry,
+            country: booking.reservationCountry,
           },
           { tenantId }
         );
@@ -762,7 +794,7 @@ async function pushPayment({ booking, reservationId, amount, currency = 'EGP', m
   const ref = transactionId || merchantOrderId || '';
   const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`;
 
-  const department = paymentDepartment(tenantId);
+  const { id: department, reason: noDepartment } = await paymentDepartment(tenantId);
   if (department) {
     await attempt('posted', async () => {
       const accountId = kwentra.reservationAccountId(await kwentra.getReservation(reservationId, { tenantId }));
@@ -779,12 +811,14 @@ async function pushPayment({ booking, reservationId, amount, currency = 'EGP', m
       });
     });
   } else {
-    result.errors.push('posted: no payment department set (KWENTRA_PAYMENT_DEPARTMENT_ID) — recorded as a note only');
+    result.errors.push(`posted: ${noDepartment} — recorded as a note only`);
   }
   await attempt('noted', () => kwentra.addReservationNote(reservationId, summary, { type: 'billing', tenantId }));
   result.pushed = result.noted || result.posted || result.confirmed;
   if (!result.posted) {
-    result.issue = `Payment of ${Number(amount)} ${currency} is not on the Kwentra folio of reservation ${reservationId} — post it by hand.`;
+    const postError = result.errors.find((e) => e.startsWith('posted:'))?.replace(/^posted:\s*/, '');
+    const hint = /cashier/i.test(postError || '') ? ' — the Kwentra API user must be made a cashier' : '';
+    result.issue = `Payment of ${Number(amount)} ${currency} is not on the Kwentra folio of reservation ${reservationId} — post it by hand.${postError ? ` (${postError}${hint})` : ''}`;
   }
   if (onHold && !result.confirmed) {
     result.issue = `Reservation ${reservationId} is still ON HOLD in Kwentra although the guest paid — confirm it before its hold date or Kwentra will cancel it. ${result.issue || ''}`.trim();
@@ -1150,6 +1184,7 @@ module.exports = {
   pushReservation,
   holdUntilPaid,
   pushPayment,
+  paymentDepartment,
   pushPaidBooking,
   recordPaymentResult,
   buildReservationPayload,

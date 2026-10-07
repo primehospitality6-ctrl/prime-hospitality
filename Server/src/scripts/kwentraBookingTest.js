@@ -111,21 +111,18 @@ async function main() {
     }
   }
 
-  const department = String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim() ||
-    (() => {
-      try {
-        return String(JSON.parse(process.env.KWENTRA_PAYMENT_DEPARTMENTS || '{}')[tenantId] || '');
-      } catch {
-        return '';
-      }
-    })();
+  const { id: department, name: departmentName, reason } = await sync.paymentDepartment(tenantId);
   const accountId = kwentra.reservationAccountId(confirmed);
   if (department && accountId) {
-    await kwentra.postPayment({ tenantId, accountId, windowNumber: Number(process.env.KWENTRA_PAYMENT_WINDOW || 1), department, amount: 1, comments: `Integration test ${booking.voucherNumber}` });
-    const postings = await kwentra.listPostings({ tenantId, accountId });
-    console.log(`  payment of 1 posted · ${postings.length} posting(s) on account ${accountId}`);
+    try {
+      await kwentra.postPayment({ tenantId, accountId, windowNumber: Number(process.env.KWENTRA_PAYMENT_WINDOW || 1), department, amount: 1, comments: `Integration test ${booking.voucherNumber}` });
+      const postings = await kwentra.listPostings({ tenantId, accountId });
+      console.log(`  payment of 1 posted to department ${department} (${departmentName}) · ${postings.length} posting(s) on account ${accountId}`);
+    } catch (err) {
+      console.log(`  ✗ payment to department ${department} (${departmentName}): ${err.status || ''} ${err.message}`);
+    }
   } else {
-    console.log('  payment skipped: no payment department set (KWENTRA_PAYMENT_DEPARTMENT_ID)');
+    console.log(`  payment skipped: ${reason || 'the reservation has no billing account'}`);
   }
 
   await kwentra.addReservationNote(id, `Website integration test ${booking.voucherNumber}`, { type: 'internal', tenantId });
