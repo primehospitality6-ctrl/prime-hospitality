@@ -12,6 +12,7 @@ import PartnerCta from '../components/home/PartnerCta';
 import ListingCard, { ListingCardSkeleton } from '../components/ListingCard';
 import Reveal from '../components/ui/Reveal';
 import SectionIntro from '../components/ui/SectionIntro';
+import Wordmark from '../components/ui/Wordmark';
 import api from '../api/client';
 import { useLocale } from '../context/LocaleContext';
 import { useSite } from '../context/SiteContext';
@@ -69,7 +70,7 @@ function Hero() {
   const next = (index + 1) % images.length;
 
   return (
-    <section className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-[#221f20] text-white">
+    <section className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-brand-black text-white">
       <div className="absolute inset-0 -z-10" aria-hidden>
         {images.map((src, i) => {
           // Only the visible slide, the one fading out and the next one are ever in the DOM
@@ -92,20 +93,26 @@ function Hero() {
             />
           );
         })}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/45" />
       </div>
+
+      <Wordmark
+        word="Hospitality"
+        className="prime-fade-in pointer-events-none absolute end-[-0.03em] top-[calc(var(--prime-header-h)+2rem)] -z-10 hidden text-[clamp(7rem,17vw,17rem)] text-white/[0.13] md:block"
+      />
 
       <div className="prime-container flex flex-1 flex-col justify-end pb-6 pt-32 md:pb-10">
         <div className="max-w-4xl">
-          <p className="prime-fade-up text-[11px] font-medium uppercase tracking-[0.34em] text-white/80">
-            {t('home.introEyebrow')} · Egypt
+          <p className="prime-fade-up flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-white/80">
+            <span className="h-px w-10 bg-prime-gold-soft" aria-hidden />
+            {t('home.introEyebrow')} · {t('home.country')}
           </p>
-          <h1 className="prime-fade-up mt-6 font-display text-display-2xl font-medium" style={{ animationDelay: '100ms' }}>
+          <h1 className="prime-fade-up mt-7 font-display text-display-2xl font-extralight" style={{ animationDelay: '100ms' }}>
             <span className="block">{t('home.heroLine1')}</span>
-            <span className="block italic text-prime-gold-soft">{t('home.heroLine2')}</span>
+            <span className="block text-prime-gold-soft">{t('home.heroLine2')}</span>
           </h1>
           <p
-            className="prime-fade-up mt-6 max-w-md text-[16px] font-light leading-relaxed text-white/85 md:text-[18px]"
+            className="prime-fade-up mt-7 max-w-md text-[15px] font-light leading-relaxed text-white/80 md:text-[17px]"
             style={{ animationDelay: '200ms' }}
           >
             {t('home.heroSubtitle')}
@@ -119,7 +126,7 @@ function Hero() {
         <div className="mt-6 flex items-center justify-between gap-6 md:mt-8">
           {images.length > 1 ? (
             <div className="flex items-center gap-4">
-              <span className="text-[11px] font-medium tabular-nums tracking-[0.2em] text-white/80">
+              <span className="text-[11px] font-semibold tabular-nums tracking-[0.2em] text-white/80">
                 {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
               </span>
               <div className="flex gap-1.5">
@@ -148,7 +155,7 @@ function Hero() {
           ) : (
             <span />
           )}
-          <span className="hidden items-center gap-3 text-[11px] font-medium uppercase tracking-[0.3em] text-white/70 md:inline-flex">
+          <span className="hidden items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70 md:inline-flex">
             {t('home.scroll')}
             <span className="relative block h-8 w-px overflow-hidden bg-white/25">
               <span className="absolute inset-x-0 top-0 h-1/2 animate-[primeScrollCue_2.2s_ease-in-out_infinite] bg-white" />
@@ -176,25 +183,33 @@ function Intro({ destinations }) {
   return (
     <section className="prime-section">
       <div className="prime-container">
-        <Reveal className="mx-auto max-w-4xl text-center">
-          <p className="prime-eyebrow text-prime-gold-deep">{t('home.introEyebrow')}</p>
-          <h2 className="mt-7 font-display text-display-lg font-medium text-prime-ink text-balance">{t('home.introTitle')}</h2>
-          <p className="prime-lede mx-auto mt-7 max-w-2xl">{t('home.introBody')}</p>
-          <Link to="/about" className="prime-link mt-9">
-            {t('home.ourStory')}
-          </Link>
+        <Reveal className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] md:gap-12">
+          <p className="prime-eyebrow flex items-center gap-4 text-prime-gold md:pt-3">
+            <span className="h-px w-8 bg-prime-gold" aria-hidden />
+            {t('home.introEyebrow')}
+          </p>
+          <div>
+            <h2 className="max-w-4xl font-display text-display-lg font-extralight text-prime-ink text-balance">{t('home.introTitle')}</h2>
+            <p className="prime-lede mt-8 max-w-2xl">{t('home.introBody')}</p>
+            <Link to="/about" className="prime-link mt-10">
+              {t('home.ourStory')}
+            </Link>
+          </div>
         </Reveal>
 
         {stats.length ? (
           <Reveal
             delay={150}
-            className="mx-auto mt-16 grid max-w-3xl divide-x divide-prime-line border-y border-prime-line md:mt-24 rtl:divide-x-reverse"
+            className="mt-16 grid border-t border-prime-ink md:mt-24 md:ms-[25%]"
             style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
           >
-            {stats.map((s) => (
-              <div key={s.label} className="px-3 py-8 text-center md:py-10">
-                <p className="font-display text-[2.6rem] font-medium leading-none text-prime-ink md:text-[3.6rem]">{s.value}</p>
-                <p className="mt-3 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">{s.label}</p>
+            {stats.map((s, i) => (
+              <div key={s.label} className="border-e border-prime-line px-4 pt-6 first:ps-0 last:border-e-0 md:px-6 md:pt-8 md:first:ps-0">
+                <p className="prime-label">{String(i + 1).padStart(2, '0')}</p>
+                <p className="mt-5 font-display text-[3rem] font-extralight leading-none tracking-[-0.04em] text-prime-ink md:text-[5rem]">
+                  {s.value}
+                </p>
+                <p className="mt-3 text-[12px] font-medium text-prime-muted">{s.label}</p>
               </div>
             ))}
           </Reveal>
@@ -251,7 +266,7 @@ function FeaturedCarousel() {
                 type="button"
                 onClick={() => scrollBy(-1)}
                 aria-label="Previous stays"
-                className="grid h-12 w-12 place-items-center rounded-full border border-prime-line transition hover:border-prime-ink"
+                className="grid h-12 w-12 place-items-center border border-prime-line transition hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
               >
                 <ArrowLeft size={18} strokeWidth={1.4} className="rtl:rotate-180" />
               </button>
@@ -259,7 +274,7 @@ function FeaturedCarousel() {
                 type="button"
                 onClick={() => scrollBy(1)}
                 aria-label="More stays"
-                className="grid h-12 w-12 place-items-center rounded-full border border-prime-line transition hover:border-prime-ink"
+                className="grid h-12 w-12 place-items-center border border-prime-line transition hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
               >
                 <ArrowRight size={18} strokeWidth={1.4} className="rtl:rotate-180" />
               </button>

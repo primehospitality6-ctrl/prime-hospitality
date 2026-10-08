@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { ArrowUp, Facebook, Instagram, Linkedin, Music2 } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Facebook, Instagram, Linkedin, Music2 } from 'lucide-react';
 import { brand, whatsappHref } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
 import { useSite } from '../../context/SiteContext';
+import Wordmark from '../ui/Wordmark';
 
 const COLS = [
   {
@@ -46,10 +47,15 @@ export default function Footer() {
   const social = SOCIAL.filter(([key]) => brand.social[key] && brand.social[key] !== '#');
 
   return (
-    <footer className="relative overflow-hidden bg-[#221f20] text-white">
+    <footer className="relative isolate overflow-hidden bg-brand-black text-white">
+      <Wordmark
+        word="Hospitality"
+        className="pointer-events-none absolute -bottom-[0.05em] end-[-0.03em] -z-10 text-[clamp(8rem,26vw,24rem)] text-white/[0.04]"
+      />
+
       <div className="prime-container pt-20 md:pt-28">
-        <div className="grid gap-10 border-b border-white/10 pb-16 md:pb-20 lg:grid-cols-[1.4fr_1fr] lg:items-end">
-          <h2 className="max-w-3xl font-display text-display-lg font-medium text-balance">
+        <div className="grid gap-10 border-b border-white/10 pb-16 md:pb-20 lg:grid-cols-[1.5fr_1fr] lg:items-end">
+          <h2 className="max-w-3xl font-display text-display-lg font-extralight text-balance">
             {t('footer.headline')} <em className="text-prime-gold-soft">{t('footer.headlineEm')}</em> {t('footer.headlineEnd')}
           </h2>
           <div className="flex flex-wrap gap-3 lg:justify-end">
@@ -58,31 +64,34 @@ export default function Footer() {
             </Link>
             <a href={whatsappHref()} target="_blank" rel="noreferrer" className="prime-btn-ghost">
               {t('footer.whatsapp')}
+              <ArrowUpRight size={14} strokeWidth={1.5} />
             </a>
           </div>
         </div>
 
-        <div className="grid gap-12 py-16 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
+        <div className="grid gap-12 py-16 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <img src={brand.logoLight} alt={brand.name} width="640" height="228" loading="lazy" className="h-12 w-auto" />
-            <address className="mt-8 space-y-2 text-[15px] font-light not-italic leading-relaxed text-white/60">
-              <a href={`mailto:${brand.email}`} className="prime-tap block transition hover:text-white">
+            <img src={brand.logoLight} alt={brand.name} width="640" height="228" loading="lazy" className="h-10 w-auto" />
+            <address className="mt-9 space-y-2.5 text-[13.5px] font-light not-italic leading-relaxed text-white/60">
+              <p>{brand.address}</p>
+              <a href={`tel:${brand.phone || brand.whatsapp}`} className="prime-tap flex gap-2 transition hover:text-white">
+                <span className="text-prime-gold-soft">m.</span>
+                <span dir="ltr">{brand.phoneDisplay}</span>
+              </a>
+              <a href={`mailto:${brand.email}`} className="prime-tap flex gap-2 transition hover:text-white">
+                <span className="text-prime-gold-soft">e.</span>
                 {brand.email}
               </a>
-              <a href={`tel:${brand.phone || brand.whatsapp}`} className="prime-tap block transition hover:text-white">
-                {brand.phoneDisplay}
-              </a>
-              <p>{brand.address}</p>
             </address>
           </div>
 
           {COLS.map((col) => (
             <nav key={col.titleKey} aria-label={t(col.titleKey)}>
-              <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-prime-gold">{t(col.titleKey)}</p>
-              <ul className="mt-6 space-y-3.5">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.24em] text-prime-gold-soft">{t(col.titleKey)}</p>
+              <ul className="mt-6 space-y-3">
                 {col.links.map((l) => (
                   <li key={l.to}>
-                    <Link to={l.to} className="prime-tap text-[15px] font-light text-white/65 transition hover:text-white">
+                    <Link to={l.to} className="prime-tap text-[14px] font-light text-white/65 transition hover:text-white">
                       {t(l.key)}
                     </Link>
                   </li>
@@ -92,7 +101,7 @@ export default function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col-reverse gap-6 border-t border-white/10 py-7 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col-reverse gap-6 border-t border-white/10 py-7 text-[12px] text-white/40 sm:flex-row sm:items-center sm:justify-between">
           <span>
             © {new Date().getFullYear()} {brand.name}. {t('footer.rights')}
           </span>
@@ -104,7 +113,7 @@ export default function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label={label}
-                className="grid h-10 w-10 place-items-center border border-white/15 text-white/70 transition hover:border-prime-gold hover:text-prime-gold"
+                className="grid h-10 w-10 place-items-center border border-white/15 text-white/70 transition hover:border-prime-gold-soft hover:text-prime-gold-soft"
               >
                 <Icon size={16} strokeWidth={1.5} />
               </a>
@@ -113,20 +122,13 @@ export default function Footer() {
               type="button"
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               aria-label="Back to top"
-              className="ms-3 grid h-10 w-10 place-items-center bg-white/5 text-white/70 transition hover:bg-prime-gold hover:text-[#221f20]"
+              className="ms-3 grid h-10 w-10 place-items-center border border-white/15 text-white/70 transition hover:border-white hover:bg-white hover:text-brand-black"
             >
               <ArrowUp size={16} strokeWidth={1.5} />
             </button>
           </div>
         </div>
       </div>
-
-      <p
-        aria-hidden
-        className="pointer-events-none select-none whitespace-nowrap text-center font-sans text-[22vw] font-light leading-[0.75] tracking-[0.18em] text-white/[0.035]"
-      >
-        PRIME
-      </p>
     </footer>
   );
 }

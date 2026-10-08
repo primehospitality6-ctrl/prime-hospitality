@@ -8,19 +8,16 @@ import { activeAnnouncement, useSite } from '../../context/SiteContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { cn } from '../../utils/cn';
-import { sizedSrc } from '../../utils/img';
+import Wordmark from '../ui/Wordmark';
 
 const MENU = [
-  { labelKey: 'nav.stays', to: '/search' },
-  { labelKey: 'nav.compounds', to: '/compounds' },
-  { labelKey: 'nav.about', to: '/about' },
+  { labelKey: 'nav.stays', to: '/search', inline: true },
+  { labelKey: 'nav.compounds', to: '/compounds', inline: true },
+  { labelKey: 'nav.about', to: '/about', inline: true },
   { labelKey: 'nav.becomePartner', to: '/owners' },
   { labelKey: 'nav.faq', to: '/faq' },
   { labelKey: 'nav.contact', to: '/contact' },
 ];
-
-const MENU_IMAGE =
-  'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=72';
 
 function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme();
@@ -41,8 +38,8 @@ function ThemeToggle() {
 }
 
 const BAR_TONES = {
-  night: 'bg-[#221f20] text-white',
-  gold: 'bg-prime-gold text-[#221f20]',
+  night: 'bg-brand-black text-white',
+  gold: 'bg-brand-gold text-white',
   sand: 'bg-prime-mist text-prime-ink',
 };
 const BAR_DISMISS_KEY = 'prime.announcement.dismissed';
@@ -89,12 +86,19 @@ function AnnouncementBar({ bar, collapsed, onDismiss }) {
 
 function MenuIcon() {
   return (
-    <span className="relative block h-3 w-6" aria-hidden>
+    <span className="relative block h-2.5 w-6" aria-hidden>
       <span className="absolute inset-x-0 top-0 h-px bg-current" />
       <span className="absolute bottom-0 start-0 h-px w-4 bg-current transition-all duration-500 ease-prime group-hover:w-6" />
     </span>
   );
 }
+
+const navLinkCls = ({ isActive }) =>
+  cn(
+    'relative py-2 text-[11px] font-semibold uppercase tracking-[0.2em] transition-opacity duration-300',
+    'after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:bg-current after:transition-transform after:duration-500 after:ease-prime',
+    isActive ? 'opacity-100 after:scale-x-100' : 'opacity-75 after:scale-x-0 hover:opacity-100 hover:after:scale-x-100'
+  );
 
 export default function Header({ overHero = false }) {
   const { t, locale, toggleLocale } = useLocale();
@@ -165,25 +169,32 @@ export default function Header({ overHero = false }) {
           'prime-header-shell fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow,color] duration-500 ease-prime',
           transparent
             ? 'bg-transparent text-white'
-            : 'bg-prime-sand/95 text-prime-ink shadow-[0_1px_0_rgba(34,31,32,0.08)] backdrop-blur-md'
+            : 'bg-prime-sand/90 text-prime-ink shadow-[0_1px_0_rgba(35,31,32,0.08)] backdrop-blur-xl backdrop-saturate-150'
         )}
       >
         {transparent ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/35 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 to-transparent" />
         ) : null}
         {showBar ? <AnnouncementBar bar={bar} collapsed={scrolled} onDismiss={dismissBar} /> : null}
         <div className="prime-container relative grid h-[var(--prime-header-h)] grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-7">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-expanded={menuOpen}
               aria-controls="prime-menu"
-              className="group -ms-2 inline-flex min-h-[44px] min-w-[44px] items-center gap-3 p-2 text-[11px] font-medium uppercase tracking-[0.28em]"
+              className="group -ms-2 inline-flex min-h-[44px] min-w-[44px] items-center gap-3 p-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
             >
               <MenuIcon />
-              <span className="hidden sm:inline">{t('nav.menu')}</span>
+              <span className="hidden sm:inline lg:sr-only">{t('nav.menu')}</span>
             </button>
+            <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
+              {MENU.filter((m) => m.inline).map((item) => (
+                <NavLink key={item.to} to={item.to} className={navLinkCls}>
+                  {t(item.labelKey)}
+                </NavLink>
+              ))}
+            </nav>
           </div>
 
           <Link to="/" className="block" aria-label={brand.name}>
@@ -192,7 +203,7 @@ export default function Header({ overHero = false }) {
               alt={brand.name}
               width="640"
               height="228"
-              className="h-9 w-auto sm:h-10 md:h-12"
+              className="h-8 w-auto md:h-10"
             />
           </Link>
 
@@ -200,7 +211,7 @@ export default function Header({ overHero = false }) {
             <button
               type="button"
               onClick={toggleLocale}
-              className="hidden p-2 text-[11px] font-medium uppercase tracking-[0.2em] opacity-80 transition-opacity hover:opacity-100 md:inline-flex"
+              className="hidden p-2 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-100 md:inline-flex"
               aria-label="Toggle language"
             >
               {locale === 'en' ? 'عربي' : 'EN'}
@@ -213,7 +224,7 @@ export default function Header({ overHero = false }) {
             >
               <Heart size={18} strokeWidth={1.5} />
               {ids.length ? (
-                <span className="absolute end-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-prime-gold px-1 text-[11px] font-semibold text-[#221f20]">
+                <span className="absolute end-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-gold px-1 text-[10px] font-semibold text-white">
                   {ids.length}
                 </span>
               ) : null}
@@ -221,10 +232,10 @@ export default function Header({ overHero = false }) {
             <Link
               to="/search"
               className={cn(
-                'ms-1 hidden min-h-[2.75rem] items-center px-5 text-[11px] font-medium uppercase tracking-[0.24em] transition duration-300 sm:inline-flex',
+                'ms-1 hidden min-h-[2.75rem] items-center px-5 text-[11px] font-semibold uppercase tracking-[0.2em] transition duration-300 sm:inline-flex',
                 transparent
-                  ? 'border border-white/50 hover:bg-white hover:text-[#221f20]'
-                  : 'bg-prime-ink text-prime-sand hover:bg-prime-gold-deep'
+                  ? 'border border-white/45 hover:border-white hover:bg-white hover:text-brand-black'
+                  : 'bg-prime-ink text-prime-sand hover:bg-brand-gold'
               )}
             >
               {t('nav.book')}
@@ -243,28 +254,32 @@ export default function Header({ overHero = false }) {
           role="dialog"
           aria-modal="true"
           aria-label={t('nav.menu')}
-          className="fixed inset-0 z-[90] flex bg-[#221f20] text-white"
+          className="fixed inset-0 z-[90] flex overflow-hidden bg-brand-black text-white"
           style={{ animation: 'primeMenuIn 0.7s var(--prime-ease) both' }}
         >
-          <div className="flex min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          <Wordmark
+            word="Hospitality"
+            className="pointer-events-none absolute -bottom-[0.06em] end-[-0.04em] text-[clamp(7rem,24vw,22rem)] text-white/[0.045]"
+          />
+          <div className="relative flex min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
             <div className="prime-container grid h-[var(--prime-header-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center">
               <button
                 ref={closeRef}
                 type="button"
                 onClick={() => setMenuOpen(false)}
-                className="-ms-2 inline-flex w-fit items-center gap-3 p-2 text-[11px] font-medium uppercase tracking-[0.28em]"
+                className="-ms-2 inline-flex w-fit items-center gap-3 p-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
               >
                 <X size={20} strokeWidth={1.25} />
                 <span className="hidden sm:inline">{t('nav.close')}</span>
               </button>
               <Link to="/" onClick={() => setMenuOpen(false)} aria-label={brand.name}>
-                <img src={brand.logoLight} alt={brand.name} width="640" height="228" className="h-9 w-auto sm:h-10 md:h-12" />
+                <img src={brand.logoLight} alt={brand.name} width="640" height="228" className="h-8 w-auto md:h-10" />
               </Link>
               <span />
             </div>
 
             <nav className="prime-container flex flex-1 flex-col justify-center py-10" aria-label="Menu">
-              <ol className="space-y-1 sm:space-y-2">
+              <ol className="max-w-3xl divide-y divide-white/10 border-y border-white/10">
                 {MENU.map((item, i) => (
                   <li
                     key={item.to}
@@ -275,12 +290,12 @@ export default function Header({ overHero = false }) {
                       to={item.to}
                       className={({ isActive }) =>
                         cn(
-                          'group flex items-baseline gap-5 py-1.5 font-display text-[clamp(2.1rem,6.5vw,4.25rem)] font-medium leading-[1.05] transition-colors duration-300',
+                          'group flex items-baseline gap-6 py-3 font-display text-[clamp(1.9rem,5vw,3.4rem)] font-extralight leading-[1.1] tracking-[-0.03em] transition-colors duration-300 md:py-4',
                           isActive ? 'text-prime-gold-soft' : 'text-white hover:text-prime-gold-soft'
                         )
                       }
                     >
-                      <span className="font-sans text-[11px] font-medium tracking-[0.2em] text-white/40">
+                      <span className="w-8 shrink-0 font-sans text-[11px] font-semibold tracking-[0.2em] text-white/35">
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       <span className="transition-transform duration-500 ease-prime group-hover:translate-x-2 rtl:group-hover:-translate-x-2">
@@ -292,8 +307,8 @@ export default function Header({ overHero = false }) {
               </ol>
             </nav>
 
-            <div className="prime-container shrink-0 border-t border-white/10 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-              <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5 text-[11px] font-medium uppercase tracking-[0.22em] text-white/60">
+            <div className="prime-container shrink-0 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+              <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                   <a href={`mailto:${brand.email}`} className="transition hover:text-white">
                     {brand.email}
@@ -313,18 +328,9 @@ export default function Header({ overHero = false }) {
             </div>
           </div>
 
-          <div className="relative hidden w-[38%] max-w-xl overflow-hidden lg:block">
-            <img
-              src={sizedSrc(MENU_IMAGE, 1080)}
-              alt=""
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover opacity-80"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#221f20] via-transparent to-transparent rtl:bg-gradient-to-l" />
-            <p className="absolute inset-x-10 bottom-10 font-display text-3xl font-medium italic leading-snug text-white/90">
-              {brand.tagline}
-            </p>
-          </div>
+          <p className="pointer-events-none absolute end-[max(1.25rem,4vw)] top-[calc(var(--prime-header-h)+2rem)] hidden max-w-[16rem] text-end text-[13px] font-light leading-relaxed text-white/50 lg:block">
+            {brand.tagline}
+          </p>
         </div>
       ) : null}
     </>

@@ -54,8 +54,8 @@ function useFloating(open, anchorRef, options) {
 
 const fieldBtn =
   'group flex h-full w-full items-center gap-3 px-5 py-4 text-start transition-colors hover:bg-prime-mist/60 md:px-6 md:py-5';
-const labelCls = 'flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted';
-const valueCls = 'mt-1.5 block truncate font-display text-[1.3rem] font-medium leading-none';
+const labelCls = 'flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.2em] text-prime-muted';
+const valueCls = 'mt-2 block truncate text-[15px] font-normal leading-none tracking-[-0.01em] md:text-[16px]';
 
 export default function HeroSearch() {
   const navigate = useNavigate();
@@ -196,7 +196,7 @@ export default function HeroSearch() {
     guestOpen && guestStyle
       ? createPortal(
           <div ref={guestMenuRef} style={guestStyle} className={cn(menuShell, 'p-5')}>
-            <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">{t('home.searchGuests')}</p>
+            <p className="prime-label">{t('home.searchGuests')}</p>
             <div className="mt-4 flex items-center justify-between gap-4">
               <button
                 type="button"
@@ -207,7 +207,7 @@ export default function HeroSearch() {
               >
                 <Minus size={16} strokeWidth={1.5} />
               </button>
-              <span className="font-display text-4xl font-medium tabular-nums">{criteria.guests}</span>
+              <span className="font-display text-4xl font-extralight tabular-nums">{criteria.guests}</span>
               <button
                 type="button"
                 onClick={() => setCriteria((c) => ({ ...c, guests: Math.min(16, c.guests + 1) }))}
@@ -291,7 +291,7 @@ export default function HeroSearch() {
           <button
             type="submit"
             disabled={criteria.checkin && criteria.checkout ? !hasValidRange : false}
-            className="group inline-flex min-h-[3.5rem] w-full items-center justify-center gap-3 bg-prime-ink px-8 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-sand transition hover:bg-prime-gold-deep disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[180px]"
+            className="group inline-flex min-h-[3.5rem] w-full items-center justify-center gap-3 bg-prime-ink px-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-sand transition hover:bg-brand-gold disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[180px]"
           >
             {t('home.searchStays')}
             <ArrowRight size={15} strokeWidth={1.5} className="transition-transform group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1" />

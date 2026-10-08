@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import Reveal from './Reveal';
 import { cn } from '../../utils/cn';
 
-/** Eyebrow + serif statement + optional body and “explore” link. */
+/** Eyebrow + light statement + optional body and “explore” link. */
 export default function SectionIntro({
   eyebrow,
   title,
@@ -28,10 +28,19 @@ export default function SectionIntro({
     >
       <div className={cn(split && 'max-w-2xl')}>
         {eyebrow ? (
-          <p className={cn('prime-eyebrow mb-5', dark ? 'text-prime-gold-soft' : 'text-prime-gold-deep')}>{eyebrow}</p>
+          <p
+            className={cn(
+              'prime-eyebrow mb-6 flex items-center gap-4',
+              centered && 'justify-center',
+              dark ? 'text-prime-gold-soft' : 'text-prime-gold'
+            )}
+          >
+            <span className={cn('h-px w-8', dark ? 'bg-prime-gold-soft' : 'bg-prime-gold')} aria-hidden />
+            {eyebrow}
+          </p>
         ) : null}
         <Heading
-          className={cn('font-display text-display-lg font-medium text-balance', dark ? 'text-white' : 'text-prime-ink')}
+          className={cn('font-display text-display-lg font-extralight text-balance', dark ? 'text-white' : 'text-prime-ink')}
         >
           {title}
         </Heading>

@@ -38,13 +38,25 @@ export default {
           surface: themed('--prime-surface'),
           white: themed('--prime-white'),
         },
+        // Sub-brand colours from the corporate identity guidelines (Pantone → RGB)
+        brand: {
+          gold: '#8C704D', // PMS 874C — the key in the logo
+          black: '#231F20', // Black 100% — Prime Hospitality
+          residence: '#58595B', // Black 80% — Prime Residence
+          select: '#8C2433', // PMS 202C — Prime Select
+          inn: '#00671B', // PMS 7728C — Prime Inn
+          cowork: '#1E355E', // PMS 534C — Prime Co-Work
+          holidays: '#005D67', // PMS 5473C — Prime Holidays
+        },
       },
       fontFamily: {
-        display: ['"Cormorant Garamond"', '"Noto Kufi Arabic"', 'Georgia', 'serif'],
-        sans: ['"Jost Variable"', 'Jost', '"Noto Kufi Arabic"', 'system-ui', 'sans-serif'],
+        // Montserrat is the corporate typeface for every English text; GE Thameen's
+        // stand-in for Arabic is Noto Kufi Arabic.
+        display: ['"Montserrat Variable"', 'Montserrat', '"Noto Kufi Arabic"', 'system-ui', 'sans-serif'],
+        sans: ['"Montserrat Variable"', 'Montserrat', '"Noto Kufi Arabic"', 'system-ui', 'sans-serif'],
       },
       maxWidth: {
-        prime: '1360px',
+        prime: '1440px',
       },
       // Viewport heights divided by the large-screen zoom (see index.css)
       minHeight: {
@@ -66,25 +78,25 @@ export default {
       },
       fontSize: {
         'display-2xl': [
-          'clamp(2.9rem, 8.2vw, 7.25rem)',
-          { lineHeight: '0.95', letterSpacing: '-0.02em', fontWeight: '500' },
+          'clamp(2.6rem, 7vw, 6.5rem)',
+          { lineHeight: '0.98', letterSpacing: '-0.035em', fontWeight: '300' },
         ],
         'display-xl': [
-          'clamp(2.5rem, 6vw, 5rem)',
-          { lineHeight: '1', letterSpacing: '-0.018em', fontWeight: '500' },
+          'clamp(2.2rem, 5vw, 4.4rem)',
+          { lineHeight: '1.02', letterSpacing: '-0.03em', fontWeight: '300' },
         ],
         'display-lg': [
-          'clamp(2.15rem, 4.3vw, 3.65rem)',
-          { lineHeight: '1.04', letterSpacing: '-0.015em', fontWeight: '500' },
+          'clamp(1.9rem, 3.6vw, 3.2rem)',
+          { lineHeight: '1.08', letterSpacing: '-0.025em', fontWeight: '300' },
         ],
         'display-md': [
-          'clamp(1.65rem, 2.6vw, 2.3rem)',
-          { lineHeight: '1.1', letterSpacing: '-0.01em', fontWeight: '500' },
+          'clamp(1.45rem, 2.2vw, 2rem)',
+          { lineHeight: '1.15', letterSpacing: '-0.015em', fontWeight: '400' },
         ],
       },
       boxShadow: {
-        premium: '0 24px 60px rgba(34, 31, 32, 0.08)',
-        'premium-lg': '0 32px 80px rgba(34, 31, 32, 0.14)',
+        premium: '0 24px 60px rgba(35, 31, 32, 0.08)',
+        'premium-lg': '0 32px 80px rgba(35, 31, 32, 0.14)',
       },
       transitionTimingFunction: {
         prime: 'cubic-bezier(0.22, 1, 0.36, 1)',

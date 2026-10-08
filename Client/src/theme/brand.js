@@ -12,10 +12,10 @@ export const brand = {
   domain: import.meta.env.VITE_SITE_URL || 'https://primehospitality.com',
   colors: {
     white: '#FFFFFF',
-    ink: '#221F20',
-    charcoal: '#2E2A2B',
-    gold: '#AC946B',
-    muted: '#6E6764',
+    ink: '#231F20',
+    charcoal: '#58595B',
+    gold: '#8C704D',
+    muted: '#6D6E71',
   },
   whatsapp: import.meta.env.VITE_WHATSAPP_NUMBER || '+201000000000',
   phoneDisplay: import.meta.env.VITE_PHONE_DISPLAY || '0100 000 0000',
@@ -27,6 +27,24 @@ export const brand = {
   },
   copyright: '© 2026 Prime Hospitality. All rights reserved.',
 };
+
+/**
+ * Prime sub-brands as the corporate identity guidelines draw them: each has its own colour
+ * and its name broken into the stacked syllables used as a watermark.
+ */
+export const subBrands = {
+  Hospitality: { color: '#231F20', syllables: ['HOSP', 'ITAL', 'ITY'] },
+  Residence: { color: '#58595B', syllables: ['RESI', 'DEN', 'CE'] },
+  Select: { color: '#8C2433', syllables: ['SEL', 'ECT'] },
+  Inn: { color: '#00671B', syllables: ['INN'] },
+  'Co-Work': { color: '#1E355E', syllables: ['CO-', 'WORK'] },
+  Holidays: { color: '#005D67', syllables: ['HOLI', 'DAYS'] },
+};
+
+export function subBrand(name) {
+  const key = Object.keys(subBrands).find((k) => k.toLowerCase() === String(name || '').trim().toLowerCase());
+  return key ? { name: key, ...subBrands[key] } : null;
+}
 
 export function whatsappHref(text) {
   const n = brand.whatsapp.replace(/\D/g, '');

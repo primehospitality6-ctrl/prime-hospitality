@@ -7,7 +7,7 @@ function PartnerLogo({ partner }) {
   const [failed, setFailed] = useState(false);
 
   if (failed || !partner.logo) {
-    return <span className="font-display text-xl font-medium text-prime-muted md:text-2xl">{partner.name}</span>;
+    return <span className="text-[13px] font-semibold uppercase tracking-[0.24em] text-prime-muted">{partner.name}</span>;
   }
 
   return (

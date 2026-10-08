@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Star } from 'lucide-react';
 import Img from './ui/Img';
-import { formatMoney } from '../theme/brand';
+import { formatMoney, subBrand } from '../theme/brand';
 import { useWishlist } from '../context/WishlistContext';
 import { cn } from '../utils/cn';
 
@@ -54,6 +54,25 @@ function CardMedia({ listing, href, sizes, priority, className }) {
   );
 }
 
+/** "Prime Residence" chip in the sub-brand's colour */
+function BrandChip({ name }) {
+  const sb = subBrand(name);
+  return (
+    <span
+      className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white"
+      style={{ backgroundColor: sb?.color || '#231F20' }}
+    >
+      Prime {sb?.name || name}
+    </span>
+  );
+}
+
+function FeaturedChip() {
+  return (
+    <span className="bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-gold">Featured</span>
+  );
+}
+
 function SaveButton({ listing, className }) {
   const { has, toggle } = useWishlist();
   const loved = has(listing.id);
@@ -62,8 +81,8 @@ function SaveButton({ listing, className }) {
       type="button"
       onClick={() => toggle(listing.id)}
       className={cn(
-        'pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[#221f20] backdrop-blur-sm transition hover:bg-white',
-        loved && 'text-prime-gold-deep',
+        'pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-white/90 text-brand-black backdrop-blur-sm transition hover:bg-white',
+        loved && 'text-brand-gold',
         className
       )}
       aria-pressed={loved}
@@ -87,13 +106,13 @@ function Rating({ listing }) {
 
 function Price({ listing }) {
   if (!Number(listing.pricePerNight)) {
-    return <p className="text-[13px] font-light uppercase tracking-[0.18em] text-prime-muted">Price on request</p>;
+    return <p className="prime-label">Price on request</p>;
   }
   return (
-    <p className="text-[15px] text-prime-ink">
-      <span className="text-[11px] uppercase tracking-[0.18em] text-prime-muted">From </span>
-      <span className="font-medium tabular-nums">{formatMoney(listing.pricePerNight, listing.currency)}</span>
-      <span className="text-[13px] font-light text-prime-muted"> / night</span>
+    <p className="text-[14px] text-prime-ink">
+      <span className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-prime-muted">From </span>
+      <span className="font-semibold tabular-nums">{formatMoney(listing.pricePerNight, listing.currency)}</span>
+      <span className="text-[12.5px] font-light text-prime-muted"> / night</span>
     </p>
   );
 }
@@ -134,14 +153,8 @@ export function ListingRow({ listing, priority = false }) {
         <CardMedia listing={listing} href={href} priority={priority} sizes="(min-width: 768px) 42vw, 100vw" />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
           <span className="flex flex-wrap gap-1.5">
-            {listing.featured ? (
-              <span className="bg-prime-gold px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#221f20]">Featured</span>
-            ) : null}
-            {listing.brand ? (
-              <span className="bg-white/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#221f20]">
-                Prime {listing.brand}
-              </span>
-            ) : null}
+            {listing.featured ? <FeaturedChip /> : null}
+            {listing.brand ? <BrandChip name={listing.brand} /> : null}
           </span>
           <SaveButton listing={listing} />
         </div>
@@ -149,11 +162,11 @@ export function ListingRow({ listing, priority = false }) {
 
       <div className="flex min-w-0 flex-col md:py-2">
         <div className="flex items-start justify-between gap-4">
-          <p className="min-w-0 truncate text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">{metaOf(listing)}</p>
+          <p className="prime-label min-w-0 truncate">{metaOf(listing)}</p>
           <Rating listing={listing} />
         </div>
-        <h3 className="mt-3 font-display text-[2rem] font-medium leading-[1.1] text-prime-ink text-balance md:text-[2.4rem]">
-          <Link to={href} className="transition-colors hover:text-prime-gold-deep">
+        <h3 className="mt-3 font-display text-[1.75rem] font-light leading-[1.12] tracking-[-0.025em] text-prime-ink text-balance md:text-[2.1rem]">
+          <Link to={href} className="transition-colors hover:text-prime-gold">
             {listing.title}
           </Link>
         </h3>
@@ -172,7 +185,7 @@ export function ListingRow({ listing, priority = false }) {
         {amenities.length ? (
           <ul className="mt-5 flex flex-wrap gap-2">
             {amenities.map((a) => (
-              <li key={a} className="border border-prime-line px-3 py-1 text-[11.5px] text-prime-muted">
+              <li key={a} className="border border-prime-line px-3 py-1 text-[11.5px] font-medium text-prime-muted">
                 {a}
               </li>
             ))}
@@ -200,16 +213,8 @@ export default function ListingCard({ listing, priority = false, featured = fals
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
           <span className="flex flex-wrap gap-1.5">
-            {featured ? (
-              <span className="bg-prime-gold px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#221f20]">
-                Featured
-              </span>
-            ) : null}
-            {listing.brand ? (
-              <span className="bg-white/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#221f20] backdrop-blur-sm">
-                Prime {listing.brand}
-              </span>
-            ) : null}
+            {featured ? <FeaturedChip /> : null}
+            {listing.brand ? <BrandChip name={listing.brand} /> : null}
           </span>
           <SaveButton listing={listing} />
         </div>
@@ -217,22 +222,24 @@ export default function ListingCard({ listing, priority = false, featured = fals
 
       <div className="flex flex-1 flex-col pt-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 truncate text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">{metaOf(listing)}</p>
+          <p className="prime-label min-w-0 truncate">{metaOf(listing)}</p>
           <Rating listing={listing} />
         </div>
         <h3
           className={cn(
-            'mt-2.5 font-display font-medium leading-[1.12] text-prime-ink text-balance',
-            featured ? 'text-[1.9rem] md:text-[2.3rem]' : 'text-[1.55rem]'
+            'mt-2.5 font-display leading-[1.2] tracking-[-0.02em] text-prime-ink text-balance',
+            featured ? 'text-[1.6rem] font-light md:text-[2rem]' : 'text-[1.15rem] font-normal'
           )}
         >
           <Link to={href} className="prime-tap bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat transition-[background-size] duration-500 ease-prime group-hover:bg-[length:100%_1px]">
             {listing.title}
           </Link>
         </h3>
-        {specs.length ? <p className="mt-2 text-[13.5px] font-light text-prime-muted">{specs.join('  ·  ')}</p> : null}
-        <div className="mt-auto flex items-baseline justify-between gap-3 pt-4">
-          <Price listing={listing} />
+        {specs.length ? <p className="mt-2 text-[13px] font-light text-prime-muted">{specs.join('  ·  ')}</p> : null}
+        <div className="mt-auto pt-4">
+          <div className="flex items-baseline justify-between gap-3 border-t border-prime-line pt-4">
+            <Price listing={listing} />
+          </div>
         </div>
       </div>
     </article>

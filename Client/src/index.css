@@ -3,47 +3,48 @@
 @tailwind utilities;
 
 /*
- * Prime palette — charcoal + key-gold from the logo, on warm bone / sand neutrals.
- * Light is the primary brand look; dark keeps the same hierarchy.
+ * Prime palette, from the corporate identity guidelines: Black 100% / Black 80% and the
+ * PMS 874C key-gold of the logo, on white. Gold is an accent — never a surface.
+ * Dark mode keeps the same hierarchy.
  */
 :root {
-  --prime-night: #221f20;
-  --prime-fg: #221f20;
-  --prime-charcoal: #3a3536;
-  --prime-gold: #ac946b;
-  --prime-gold-soft: #cbb893;
-  --prime-gold-deep: #7d6848;
-  --prime-muted: #6b6461;
-  --prime-line: #e4ddd2;
-  --prime-sand: #f7f4ef;
-  --prime-mist: #efe9df;
-  --prime-dune: #e5dac8;
+  --prime-night: #231f20;
+  --prime-fg: #231f20;
+  --prime-charcoal: #58595b;
+  --prime-gold: #8c704d;
+  --prime-gold-soft: #bba27c;
+  --prime-gold-deep: #725a3c;
+  --prime-muted: #6d6e71;
+  --prime-line: #e6e4e1;
+  --prime-sand: #ffffff;
+  --prime-mist: #f4f3f1;
+  --prime-dune: #e8e6e2;
   --prime-surface: #ffffff;
   --prime-white: #ffffff;
   --prime-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --prime-header-h: 4.5rem;
+  --prime-header-h: 4.25rem;
 }
 
 @media (min-width: 768px) {
   :root {
-    --prime-header-h: 5.5rem;
+    --prime-header-h: 5rem;
   }
 }
 
 html.dark {
-  --prime-night: #0f0e0e;
-  --prime-fg: #f2eee8;
-  --prime-charcoal: #c9bda9;
-  --prime-gold: #b89f74;
-  --prime-gold-soft: #cfbb95;
-  --prime-gold-deep: #d4bb8f;
-  --prime-muted: #9d958e;
-  --prime-line: #2d2a29;
-  --prime-sand: #141213;
-  --prime-mist: #1b1918;
-  --prime-dune: #25211e;
-  --prime-surface: #1f1c1c;
-  --prime-white: #1f1c1c;
+  --prime-night: #0e0d0d;
+  --prime-fg: #f2f0ed;
+  --prime-charcoal: #bdbcba;
+  --prime-gold: #b59b74;
+  --prime-gold-soft: #cdb48d;
+  --prime-gold-deep: #cdb48d;
+  --prime-muted: #9a9896;
+  --prime-line: #2a2828;
+  --prime-sand: #121111;
+  --prime-mist: #1a1919;
+  --prime-dune: #242222;
+  --prime-surface: #1c1b1b;
+  --prime-white: #1c1b1b;
 }
 
 html {
@@ -61,7 +62,7 @@ body {
   overflow-x: hidden;
   font-size: 16px;
   font-weight: 400;
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
   text-rendering: optimizeLegibility;
   transition: background-color 0.35s var(--prime-ease), color 0.35s var(--prime-ease);
 }
@@ -87,7 +88,7 @@ textarea {
 }
 
 ::selection {
-  background: rgba(172, 148, 107, 0.3);
+  background: rgba(140, 112, 77, 0.25);
   color: var(--prime-fg);
 }
 
@@ -95,20 +96,38 @@ h1,
 h2,
 h3,
 .font-display {
-  font-feature-settings: 'liga' on, 'kern' on, 'lnum' on;
-  font-optical-sizing: auto;
+  font-feature-settings: 'kern' on, 'lnum' on;
 }
 
-/* The serif is used at 500/600 only — map legacy bold headings onto the loaded cut */
+/*
+ * Display type is Montserrat Light / Extra Light (the guidelines' title cuts). Headings marked
+ * medium/bold are set Light at display sizes; there is no italic cut — emphasis is colour.
+ */
+.font-display.font-medium {
+  font-weight: 300;
+}
+
+.font-display.font-semibold,
 .font-display.font-bold,
 .font-display.font-extrabold {
-  font-weight: 600;
+  font-weight: 500;
+}
+
+.font-display.italic,
+.font-display .italic,
+.font-display em {
+  font-style: normal;
 }
 
 /* Arabic script must never be letter-spaced — tracking breaks the joined letterforms */
 html[dir='rtl'] body,
 html[dir='rtl'] body * {
   letter-spacing: 0 !important;
+}
+
+/* Kufi glyphs are much taller than Montserrat's, so the tight Latin display leading makes lines collide */
+html[lang='ar'] .font-display:not(.prime-wordmark) {
+  line-height: 1.4 !important;
 }
 
 :focus-visible {
@@ -170,7 +189,29 @@ html[dir='rtl'] body * {
   }
 
   .prime-eyebrow {
-    @apply text-[11px] font-medium uppercase tracking-[0.3em] text-prime-muted;
+    @apply text-[11px] font-semibold uppercase tracking-[0.26em] text-prime-muted;
+  }
+
+  /* Small uppercase label (specs, indexes, meta) */
+  .prime-label {
+    @apply text-[10.5px] font-semibold uppercase tracking-[0.2em] text-prime-muted;
+  }
+
+  /*
+   * The brand's signature: a word broken into stacked syllables (HOSP / ITAL / ITY), set in
+   * Montserrat Medium, used as a watermark. See components/ui/Wordmark.jsx.
+   */
+  .prime-wordmark {
+    display: block;
+    font-weight: 500;
+    line-height: 0.8;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    user-select: none;
+  }
+
+  .prime-wordmark > span {
+    display: block;
   }
 
   .prime-display {
@@ -203,7 +244,7 @@ html[dir='rtl'] body * {
 
   .prime-keyline--gold::before,
   .prime-keyline--gold::after {
-    background: linear-gradient(90deg, transparent, rgba(172, 148, 107, 0.9), transparent);
+    background: linear-gradient(90deg, transparent, rgba(140, 112, 77, 0.9), transparent);
   }
 
   .prime-keyline--light::before,
@@ -225,24 +266,24 @@ html[dir='rtl'] body * {
   }
 
   .prime-btn {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none bg-prime-ink px-8 py-3.5 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-sand transition duration-300 ease-prime hover:bg-prime-gold-deep disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none bg-prime-ink px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-sand transition duration-300 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-gold {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none bg-prime-gold px-8 py-3.5 text-[11px] font-medium uppercase tracking-[0.26em] text-[#221f20] transition duration-300 ease-prime hover:bg-prime-gold-soft disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none bg-brand-gold px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-outline {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none border border-prime-ink/30 bg-transparent px-8 py-3.5 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-ink transition duration-300 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none border border-prime-ink/25 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-300 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
   }
 
   .prime-btn-ghost {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none border border-white/45 bg-transparent px-8 py-3.5 text-[11px] font-medium uppercase tracking-[0.26em] text-white transition duration-300 ease-prime hover:border-white hover:bg-white hover:text-[#221f20];
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none border border-white/40 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
   }
 
   /* “Explore more” text link with a drawn line */
   .prime-link {
-    @apply inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.28em] text-prime-ink transition-colors duration-300 hover:text-prime-gold-deep;
+    @apply inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition-colors duration-300 hover:text-prime-gold;
   }
 
   .prime-link::after {
@@ -308,17 +349,17 @@ html[dir='rtl'] body * {
 
   /* Header stays light-branded regardless of html.dark theme */
   .prime-header-shell {
-    --prime-night: #221f20;
-    --prime-fg: #221f20;
-    --prime-charcoal: #3a3536;
-    --prime-gold: #ac946b;
-    --prime-gold-soft: #cbb893;
-    --prime-gold-deep: #7d6848;
-    --prime-muted: #6b6461;
-    --prime-line: #e4ddd2;
-    --prime-sand: #f7f4ef;
-    --prime-mist: #efe9df;
-    --prime-dune: #e5dac8;
+    --prime-night: #231f20;
+    --prime-fg: #231f20;
+    --prime-charcoal: #58595b;
+    --prime-gold: #8c704d;
+    --prime-gold-soft: #bba27c;
+    --prime-gold-deep: #725a3c;
+    --prime-muted: #6d6e71;
+    --prime-line: #e6e4e1;
+    --prime-sand: #ffffff;
+    --prime-mist: #f4f3f1;
+    --prime-dune: #e8e6e2;
     --prime-surface: #ffffff;
     --prime-white: #ffffff;
     color-scheme: light;
@@ -334,7 +375,7 @@ html[dir='rtl'] body * {
     position: absolute;
     width: 2.25rem;
     height: 2.25rem;
-    border-color: rgba(172, 148, 107, 0.55);
+    border-color: rgba(140, 112, 77, 0.55);
     pointer-events: none;
     z-index: 2;
   }

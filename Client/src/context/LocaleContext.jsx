@@ -24,6 +24,7 @@ export const defaultCopy = {
     'home.heroLine2': 'for Prime customers.',
     'home.scroll': 'Scroll',
     'home.introEyebrow': 'Prime Hospitality',
+    'home.country': 'Egypt',
     'home.introTitle': 'The warmth of a private residence, the standards of a refined hotel.',
     'home.introBody':
       'We curate and run Prime Inn, Residence and Select stays across Egypt — each chosen for its setting, designed for comfort and cared for by our own team.',
@@ -436,6 +437,7 @@ export const defaultCopy = {
     'home.heroLine2': 'لعملاء برايم.',
     'home.scroll': 'مرّر',
     'home.introEyebrow': 'برايم للضيافة',
+    'home.country': 'مصر',
     'home.introTitle': 'دفء المسكن الخاص، بمعايير الفندق الراقي.',
     'home.introBody':
       'نختار وندير إقامات برايم إن وريزيدنس وسيلكت في أنحاء مصر — كل إقامة مختارة لموقعها، مصممة لراحتك، ويعتني بها فريقنا.',

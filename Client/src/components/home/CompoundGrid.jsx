@@ -12,7 +12,7 @@ function DestinationTile({ destination, index, meta, lead }) {
     <Link
       to={`/search?destination=${encodeURIComponent(destination.id)}`}
       className={cn(
-        'group relative block w-[78vw] flex-none snap-start overflow-hidden bg-[#221f20] sm:w-[46vw] md:w-auto',
+        'group relative block w-[78vw] flex-none snap-start overflow-hidden bg-brand-black sm:w-[46vw] md:w-auto',
         lead ? 'aspect-[3/4] md:col-span-2 md:row-span-2 md:aspect-auto' : 'aspect-[3/4] md:aspect-[4/5]'
       )}
     >
@@ -23,17 +23,22 @@ function DestinationTile({ destination, index, meta, lead }) {
         className="absolute inset-0 h-full w-full object-cover opacity-90 transition duration-[1600ms] ease-prime group-hover:scale-[1.05] group-hover:opacity-100"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-      <span className="absolute start-5 top-5 text-[11px] font-medium tracking-[0.24em] text-white/70 md:start-7 md:top-7">
+      <span className="absolute start-5 top-5 text-[11px] font-semibold tracking-[0.2em] text-white/75 md:start-7 md:top-7">
         {String(index + 1).padStart(2, '0')}
       </span>
       <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-7">
-        <h3 className={cn('font-display font-medium leading-none', lead ? 'text-[2.4rem] md:text-[3.6rem]' : 'text-[2rem] md:text-[2.3rem]')}>
+        <h3
+          className={cn(
+            'font-display font-light leading-none tracking-[-0.03em]',
+            lead ? 'text-[2.3rem] md:text-[3.4rem]' : 'text-[1.9rem] md:text-[2.15rem]'
+          )}
+        >
           {destination.name}
         </h3>
-        {meta ? <p className="mt-3 text-[12px] font-light tracking-[0.06em] text-white/70">{meta}</p> : null}
-        <span className="mt-5 inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.28em] text-white/90">
+        {meta ? <p className="mt-3 text-[12px] font-light text-white/70">{meta}</p> : null}
+        <span className="mt-5 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/90">
           Discover
-          <span className="h-px w-6 bg-prime-gold transition-all duration-500 ease-prime group-hover:w-12" />
+          <span className="h-px w-6 bg-prime-gold-soft transition-all duration-500 ease-prime group-hover:w-12" />
         </span>
       </div>
     </Link>

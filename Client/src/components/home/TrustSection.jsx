@@ -35,8 +35,11 @@ export default function TrustSection() {
 
         <div className="lg:py-10">
           <Reveal>
-            <p className="prime-eyebrow mb-5 text-prime-gold-deep">{t('home.why')}</p>
-            <h2 className="font-display text-display-lg font-medium text-prime-ink text-balance">{t('home.trustTitle')}</h2>
+            <p className="prime-eyebrow mb-6 flex items-center gap-4 text-prime-gold">
+              <span className="h-px w-8 bg-prime-gold" aria-hidden />
+              {t('home.why')}
+            </p>
+            <h2 className="font-display text-display-lg font-extralight text-prime-ink text-balance">{t('home.trustTitle')}</h2>
             <p className="prime-lede mt-6 max-w-md">{t('home.trustBody')}</p>
           </Reveal>
 
@@ -46,13 +49,13 @@ export default function TrustSection() {
                 as="li"
                 key={p.title}
                 delay={i * 80}
-                className="grid grid-cols-[3.5rem_1fr] gap-4 border-t border-prime-line py-8 last:border-b sm:grid-cols-[5rem_1fr]"
+                className="grid grid-cols-[3rem_1fr] gap-4 border-t border-prime-line py-8 last:border-b sm:grid-cols-[4.5rem_1fr]"
               >
-                <span className="font-display text-[2rem] font-medium leading-none text-prime-gold">
+                <span className="pt-1.5 text-[11px] font-semibold tracking-[0.2em] text-prime-gold">
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <div>
-                  <h3 className="font-display text-[1.6rem] font-medium leading-snug text-prime-ink">
+                  <h3 className="text-[1.25rem] font-normal leading-snug tracking-[-0.015em] text-prime-ink md:text-[1.4rem]">
                     {(ar && p.titleAr) || p.title}
                   </h3>
                   <p className="mt-3 max-w-md text-[15px] font-light leading-[1.75] text-prime-muted">

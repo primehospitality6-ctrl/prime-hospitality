@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import { useLocale } from '../../context/LocaleContext';
+import { subBrand } from '../../theme/brand';
 import Img from '../ui/Img';
 import Reveal from '../ui/Reveal';
 import SectionIntro from '../ui/SectionIntro';
+import Wordmark from '../ui/Wordmark';
 
 const BRANDS = [
   {
@@ -23,6 +25,36 @@ const BRANDS = [
     fallback: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=72',
   },
 ];
+
+/** Each sub-brand as its business card: the brand colour, its name stacked in syllables, a photo on hover */
+function BrandCard({ id, image, copy, explore }) {
+  const { color } = subBrand(id);
+  return (
+    <Link to={`/search?brand=${id}`} className="group block">
+      <div className="relative isolate aspect-[4/5] overflow-hidden text-white" style={{ backgroundColor: color }}>
+        <Img
+          src={image}
+          alt=""
+          sizes="(min-width: 768px) 33vw, 100vw"
+          className="absolute inset-0 -z-20 h-full w-full scale-[1.06] object-cover opacity-0 transition duration-[1400ms] ease-prime group-hover:scale-100 group-hover:opacity-100"
+        />
+        <div
+          className="absolute inset-0 -z-10 opacity-0 mix-blend-multiply transition-opacity duration-[1400ms] ease-prime group-hover:opacity-90"
+          style={{ backgroundColor: color }}
+        />
+        <Wordmark word={id} className="absolute start-[7%] top-[7%] text-[24vw] text-white/90 md:text-[8.2vw] 2xl:text-[8rem]" />
+        <div className="absolute inset-x-[7%] bottom-[7%] flex items-end justify-between gap-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.42em]">
+            Prime <span className="font-light">{id}</span>
+          </p>
+          <span className="h-px w-8 bg-white/70 transition-all duration-500 ease-prime group-hover:w-14" aria-hidden />
+        </div>
+      </div>
+      <p className="mt-6 max-w-sm text-[14.5px] font-light leading-[1.75] text-prime-muted">{copy}</p>
+      <span className="prime-link mt-5">{explore}</span>
+    </Link>
+  );
+}
 
 export default function BrandsSection() {
   const { t } = useLocale();
@@ -51,26 +83,11 @@ export default function BrandsSection() {
   return (
     <section className="prime-section bg-prime-mist">
       <div className="prime-container">
-        <SectionIntro align="center" eyebrow={t('home.brandsEyebrow')} title={t('home.brandsTitle')} />
-        <div className="grid gap-12 md:grid-cols-3 md:gap-6 lg:gap-10">
+        <SectionIntro align="split" eyebrow={t('home.brandsEyebrow')} title={t('home.brandsTitle')} />
+        <div className="grid gap-12 md:grid-cols-3 md:gap-5 lg:gap-6">
           {BRANDS.map((b, i) => (
             <Reveal key={b.id} delay={i * 120}>
-              <Link to={`/search?brand=${b.id}`} className="group block">
-                <div className="relative aspect-[3/4] overflow-hidden bg-prime-dune md:aspect-[4/5] lg:aspect-[3/4]">
-                  <Img
-                    src={images[b.id] || b.fallback}
-                    alt=""
-                    sizes="(min-width: 768px) 33vw, 100vw"
-                    className="h-full w-full object-cover transition-transform duration-[1600ms] ease-prime group-hover:scale-[1.05]"
-                  />
-                </div>
-                <div className="mt-7 flex items-baseline gap-3">
-                  <span className="text-[12px] font-light uppercase tracking-[0.5em] text-prime-muted">Prime</span>
-                  <span className="font-display text-[2.4rem] font-medium italic leading-none text-prime-ink">{b.id}</span>
-                </div>
-                <p className="mt-4 max-w-sm text-[15px] font-light leading-[1.75] text-prime-muted">{t(b.copyKey)}</p>
-                <span className="prime-link mt-6">{t('home.explore')}</span>
-              </Link>
+              <BrandCard id={b.id} image={images[b.id] || b.fallback} copy={t(b.copyKey)} explore={t('home.explore')} />
             </Reveal>
           ))}
         </div>

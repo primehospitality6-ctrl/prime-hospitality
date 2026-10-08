@@ -1,5 +1,10 @@
 import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
+
+// Custom sizes from tailwind.config.js, otherwise twMerge reads them as colours and drops them next to text-prime-*
+const twMerge = extendTailwindMerge({
+  extend: { classGroups: { 'font-size': [{ text: ['display-2xl', 'display-xl', 'display-lg', 'display-md'] }] } },
+});
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));

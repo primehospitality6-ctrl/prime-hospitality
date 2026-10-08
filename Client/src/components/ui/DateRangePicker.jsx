@@ -174,11 +174,11 @@ export default function DateRangePicker({
     ? 'grid h-full grid-cols-2'
     : 'grid grid-cols-2 overflow-hidden border border-prime-line bg-prime-surface';
   const labelCls = isHero
-    ? 'block text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted'
-    : 'block text-[11px] font-medium uppercase tracking-[0.2em] text-prime-muted';
+    ? 'block text-[10.5px] font-semibold uppercase tracking-[0.2em] text-prime-muted'
+    : 'block text-[10.5px] font-semibold uppercase tracking-[0.18em] text-prime-muted';
   const valueCls = (filled) =>
     isHero
-      ? `mt-1.5 block truncate font-display text-[1.3rem] font-medium leading-none ${filled ? 'text-prime-ink' : 'text-prime-muted/80'}`
+      ? `mt-2 block truncate text-[15px] font-normal leading-none tracking-[-0.01em] md:text-[16px] ${filled ? 'text-prime-ink' : 'text-prime-muted/80'}`
       : `mt-0.5 block truncate text-sm font-medium ${filled ? 'text-prime-ink' : 'text-prime-muted'}`;
   const halfActive = (field) =>
     open && activeField === field ? 'bg-prime-mist' : isHero ? 'hover:bg-prime-mist/60' : 'hover:bg-prime-sand';
