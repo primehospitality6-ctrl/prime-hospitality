@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
-import { brand, whatsappHref } from '../../theme/brand';
+import { useLocale } from '../../context/LocaleContext';
+import { whatsappHref } from '../../theme/brand';
 import { cn } from '../../utils/cn';
 
 function WhatsAppGlyph({ size = 22 }) {
@@ -12,13 +13,14 @@ function WhatsAppGlyph({ size = 22 }) {
 
 export default function WhatsAppFAB() {
   const { pathname } = useLocation();
+  const { t } = useLocale();
   if (pathname.startsWith('/admin')) return null;
   // Listing pages pin a "Book now" bar to the bottom below the lg breakpoint
   const aboveBookingBar = pathname.startsWith('/listings/');
 
   return (
     <a
-      href={whatsappHref(`Hi ${brand.shortName} — I have a question.`)}
+      href={whatsappHref(t('whatsapp.question'))}
       target="_blank"
       rel="noreferrer"
       className={cn(
@@ -27,7 +29,7 @@ export default function WhatsAppFAB() {
           ? 'bottom-[calc(5.75rem+env(safe-area-inset-bottom))] lg:bottom-[max(1.25rem,env(safe-area-inset-bottom))]'
           : 'bottom-[max(1.25rem,env(safe-area-inset-bottom))]'
       )}
-      aria-label="Chat on WhatsApp"
+      aria-label={t('a11y.chatWhatsapp')}
     >
       <WhatsAppGlyph size={22} />
     </a>

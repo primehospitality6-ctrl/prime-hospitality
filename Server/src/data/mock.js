@@ -56,14 +56,20 @@ const trustPoints = [
   {
     title: 'Designs that feel like home',
     body: 'Artfully finished interiors and comfortable stays — each space chosen for character and calm.',
+    titleAr: 'تصاميم تشعرك بأنك في بيتك',
+    bodyAr: 'تشطيبات داخلية متقنة وإقامات مريحة — كل مساحة مختارة لطابعها وهدوئها.',
   },
   {
     title: 'Where you want to be',
     body: 'From Alexandria to East and West Cairo — stays matched to how you live and travel.',
+    titleAr: 'حيث تريد أن تكون',
+    bodyAr: 'من الإسكندرية إلى شرق وغرب القاهرة — إقامات تناسب أسلوب حياتك وسفرك.',
   },
   {
     title: 'Hotel perks, home warmth',
     body: 'Premium amenities with attentive support — so every stay feels effortless.',
+    titleAr: 'مزايا الفندق ودفء البيت',
+    bodyAr: 'مرافق راقية ودعم متواصل — لتكون كل إقامة سهلة ومريحة.',
   },
 ];
 
@@ -71,18 +77,26 @@ const faqs = [
   {
     q: 'Can I stay with my partner?',
     a: 'Following Egyptian law, couples with Egyptian or Arab passports must present an official marriage certificate. Non-Arab passport holders are welcomed without a marriage certificate.',
+    qAr: 'هل يمكنني الإقامة مع شريكي؟',
+    aAr: 'وفقًا للقانون المصري، يجب على الأزواج من حاملي الجوازات المصرية أو العربية تقديم وثيقة زواج رسمية. ونرحب بحاملي الجوازات غير العربية دون وثيقة زواج.',
   },
   {
     q: 'Are visits allowed?',
     a: 'For Arab guests, visitors of the same gender are allowed; mixed visitors should be first- or second-degree relatives, otherwise please meet in public areas.',
+    qAr: 'هل الزيارات مسموحة؟',
+    aAr: 'للضيوف العرب يُسمح بزيارة الضيوف من نفس الجنس، أما الزيارات المختلطة فيجب أن تكون من أقارب الدرجة الأولى أو الثانية، وإلا يُرجى الالتقاء في الأماكن العامة.',
   },
   {
     q: 'Do you allow pets?',
     a: 'It depends on each property policy. Check the listing details or ask our team before booking.',
+    qAr: 'هل يُسمح بالحيوانات الأليفة؟',
+    aAr: 'يعتمد ذلك على سياسة كل عقار. راجع تفاصيل الإقامة أو اسأل فريقنا قبل الحجز.',
   },
   {
     q: 'Are there long-stay discounts?',
     a: 'Yes — weekly and monthly rates are available depending on duration and property.',
+    qAr: 'هل توجد خصومات للإقامات الطويلة؟',
+    aAr: 'نعم — تتوفر أسعار أسبوعية وشهرية حسب مدة الإقامة والعقار.',
   },
 ];
 

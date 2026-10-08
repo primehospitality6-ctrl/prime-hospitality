@@ -13,13 +13,14 @@ import StaysFiltersBar, {
   findDestination,
 } from '../components/search/StaysFilters';
 import api from '../api/client';
+import { useLocale } from '../context/LocaleContext';
 import { cn } from '../utils/cn';
 
 const SORT_OPTIONS = [
-  { id: 'recommended', label: 'Recommended' },
-  { id: 'price-asc', label: 'Price: low to high' },
-  { id: 'price-desc', label: 'Price: high to low' },
-  { id: 'beds-desc', label: 'Most bedrooms' },
+  { id: 'recommended', label: 'search.sortRecommended' },
+  { id: 'price-asc', label: 'search.sortPriceAsc' },
+  { id: 'price-desc', label: 'search.sortPriceDesc' },
+  { id: 'beds-desc', label: 'search.sortBeds' },
 ];
 
 const PAGE_SIZE = 12;
@@ -28,27 +29,27 @@ const CONCIERGE_AFTER = 6;
 const shortName = (name = '') => name.replace(/^Prime\s+(Inn|Residence|Select)\s+/i, '');
 
 function ConciergeBand() {
+  const { t } = useLocale();
   return (
-    <div className="col-span-full grid items-center gap-6 bg-[#221f20] px-7 py-10 text-white sm:px-10 md:grid-cols-[1fr_auto] md:gap-10 md:px-14 md:py-12">
+    <div className="col-span-full grid items-center gap-6 bg-brand-black px-7 py-10 text-white sm:px-10 md:grid-cols-[1fr_auto] md:gap-10 md:px-14 md:py-12">
       <div>
-        <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-prime-gold-soft">Prime concierge</p>
-        <p className="mt-4 font-display text-[1.9rem] font-medium leading-tight md:text-[2.3rem]">
-          Not sure which home fits? We&apos;ll match you in minutes.
-        </p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-prime-gold-soft">{t('search.concierge')}</p>
+        <p className="mt-4 font-display text-[1.9rem] font-medium leading-tight md:text-[2.3rem]">{t('search.conciergeTitle')}</p>
       </div>
       <a
-        href={whatsappHref('Hi Prime — can you help me choose a stay?')}
+        href={whatsappHref(t('search.conciergeMsg'))}
         target="_blank"
         rel="noreferrer"
         className="prime-btn-gold justify-self-start md:justify-self-end"
       >
-        Ask on WhatsApp
+        {t('search.askWhatsapp')}
       </a>
     </div>
   );
 }
 
 export default function SearchPage() {
+  const { t, term } = useLocale();
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -178,8 +179,7 @@ export default function SearchPage() {
     else patchParams({ destination: placeId, compound: '' });
   }
 
-  const sortLabel =
-    SORT_OPTIONS.find((o) => o.id === filters.sort)?.label || 'Recommended';
+  const sortLabel = t(SORT_OPTIONS.find((o) => o.id === filters.sort)?.label || 'search.sortRecommended');
 
   const property = filters.compound
     ? (destination ? [destination] : destinations)
@@ -188,12 +188,12 @@ export default function SearchPage() {
     : null;
 
   const heading = property
-    ? shortName(property.name)
+    ? term(shortName(property.name))
     : destination
-      ? `Stays in ${destination.name}`
+      ? t('search.staysIn', { name: term(destination.name) })
       : filters.brand
-        ? `Prime ${filters.brand}`
-        : 'All stays';
+        ? term(`Prime ${filters.brand}`)
+        : t('search.allStays');
 
   const contextImage = property?.image || destination?.image;
   const contextText = property?.description || destination?.description;
@@ -211,32 +211,32 @@ export default function SearchPage() {
       <Header />
       <main>
         <section className="prime-container pb-8 pt-8 md:pb-12 md:pt-14">
-          <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">
-            <Link to="/" className="transition hover:text-prime-ink">Home</Link>
+          <nav aria-label={t('search.breadcrumb')} className="mb-6 flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">
+            <Link to="/" className="transition hover:text-prime-ink">{t('search.home')}</Link>
             <span aria-hidden>/</span>
             {destination || property ? (
               <button type="button" onClick={() => patchParams({ destination: '', compound: '' })} className="uppercase transition hover:text-prime-ink">
-                Stays
+                {t('search.stays')}
               </button>
             ) : (
-              <span className="text-prime-ink">Stays</span>
+              <span className="text-prime-ink">{t('search.stays')}</span>
             )}
             {destination ? (
               <>
                 <span aria-hidden>/</span>
                 {property ? (
                   <button type="button" onClick={() => patchParams({ compound: '' })} className="uppercase transition hover:text-prime-ink">
-                    {destination.name}
+                    {term(destination.name)}
                   </button>
                 ) : (
-                  <span className="text-prime-ink">{destination.name}</span>
+                  <span className="text-prime-ink">{term(destination.name)}</span>
                 )}
               </>
             ) : null}
             {property ? (
               <>
                 <span aria-hidden>/</span>
-                <span className="text-prime-ink">{shortName(property.name)}</span>
+                <span className="text-prime-ink">{term(shortName(property.name))}</span>
               </>
             ) : null}
           </nav>
@@ -244,12 +244,12 @@ export default function SearchPage() {
           <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-12">
             <div className="max-w-3xl">
               <p className="prime-eyebrow text-prime-gold-deep">
-                {property?.brand ? `Prime ${property.brand}` : 'Book direct with Prime'}
+                {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
               </p>
               <h1 className="mt-4 font-display text-display-lg font-medium text-prime-ink text-balance">{heading}</h1>
               {contextText ? <p className="prime-lede mt-4 max-w-2xl">{contextText}</p> : null}
               <p className="mt-5 text-[13px] font-medium uppercase tracking-[0.22em] text-prime-muted" aria-live="polite">
-                {loading ? 'Searching…' : `${total} ${total === 1 ? 'stay' : 'stays'} available`}
+                {loading ? t('search.searching') : t(total === 1 ? 'search.countOne' : 'search.countMany', { count: total })}
               </p>
             </div>
             {contextImage ? (
@@ -278,9 +278,9 @@ export default function SearchPage() {
               selectedId={destination ? filters.compound : ''}
               onSelect={selectPlace}
               onOpenFilters={() => setSheetOpen(true)}
-              allLabel={destination ? `All in ${destination.name}` : 'All destinations'}
-              emptyLabel="No properties in this destination yet"
-              backLabel="Destinations"
+              allLabel={destination ? t('search.allIn', { name: term(destination.name) }) : t('search.allDestinations')}
+              emptyLabel={t('search.noProperties')}
+              backLabel={t('home.destinations')}
               onBack={destination ? () => patchParams({ destination: '', compound: '' }) : undefined}
             />
           </div>
@@ -296,10 +296,10 @@ export default function SearchPage() {
             />
 
             <div className="ms-auto flex items-center gap-5">
-              <div className="hidden items-center border border-prime-line sm:flex" role="group" aria-label="Layout">
+              <div className="hidden items-center border border-prime-line sm:flex" role="group" aria-label={t('search.layout')}>
                 {[
-                  ['grid', LayoutGrid, 'Grid view'],
-                  ['list', List, 'List view'],
+                  ['grid', LayoutGrid, t('search.gridView')],
+                  ['list', List, t('search.listView')],
                 ].map(([id, Icon, label]) => (
                   <button
                     key={id}
@@ -324,7 +324,7 @@ export default function SearchPage() {
                   aria-expanded={sortOpen}
                   className="inline-flex items-center gap-2 py-2 text-[11px] font-medium uppercase tracking-[0.22em] text-prime-ink transition hover:text-prime-gold-deep"
                 >
-                  <span className="text-prime-muted">Sort</span> {sortLabel}
+                  <span className="text-prime-muted">{t('search.sort')}</span> {sortLabel}
                   <ChevronDown size={14} className={cn('transition', sortOpen && 'rotate-180')} />
                 </button>
                 {sortOpen ? (
@@ -342,7 +342,7 @@ export default function SearchPage() {
                           filters.sort === opt.id ? 'font-semibold text-prime-ink' : 'text-prime-muted'
                         )}
                       >
-                        {opt.label}
+                        {t(opt.label)}
                       </button>
                     ))}
                   </div>
@@ -372,12 +372,10 @@ export default function SearchPage() {
               ))}
             {!loading && !items.length && (
               <div className="col-span-full border-y border-prime-line px-6 py-20 text-center">
-                <p className="font-display text-display-md font-medium text-prime-ink">No stays match these filters</p>
-                <p className="mx-auto mt-4 max-w-md text-[15px] font-light text-prime-muted">
-                  Try another destination or dates — or clear the filters to see every stay.
-                </p>
+                <p className="font-display text-display-md font-medium text-prime-ink">{t('search.emptyTitle')}</p>
+                <p className="mx-auto mt-4 max-w-md text-[15px] font-light text-prime-muted">{t('search.emptyBody')}</p>
                 <button type="button" onClick={clearFilters} className="prime-btn-outline mt-8">
-                  Clear filters
+                  {t('search.clearFilters')}
                 </button>
               </div>
             )}
@@ -386,13 +384,13 @@ export default function SearchPage() {
           {!loading && items.length > shown ? (
             <div className="mt-16 flex flex-col items-center gap-5 text-center">
               <p className="text-[12px] font-medium uppercase tracking-[0.22em] text-prime-muted">
-                Showing {shown} of {items.length}
+                {t('search.showing', { shown, total: items.length })}
               </p>
               <div className="h-px w-40 bg-prime-line">
                 <div className="h-px bg-prime-gold" style={{ width: `${(shown / items.length) * 100}%` }} />
               </div>
               <button type="button" onClick={() => setShown((n) => n + PAGE_SIZE)} className="prime-btn-outline">
-                Show more stays
+                {t('search.showMore')}
               </button>
             </div>
           ) : null}
@@ -404,7 +402,7 @@ export default function SearchPage() {
           <button
             type="button"
             className="absolute inset-0 bg-black/40"
-            aria-label="Close filters backdrop"
+            aria-label={t('search.closeFilters')}
             onClick={() => setSheetOpen(false)}
           />
           <div

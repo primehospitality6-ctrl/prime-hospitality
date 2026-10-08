@@ -2,6 +2,17 @@ const { Router } = require('express');
 const { getContent, getSlideshow, getSettings, getSite } = require('../lib/cmsStore');
 const { BRANDS, UNIT_TYPES } = require('../data/inventory');
 const { publicSite } = require('../lib/siteContent');
+const defaults = require('../data/mock');
+
+/** Items saved before Arabic existed pick up the built-in Arabic when their English is still the default */
+function withDefaultArabic(items, builtIn, enKey, arKeys) {
+  const byEnglish = new Map(builtIn.map((d) => [d[enKey], d]));
+  return items.map((item) => {
+    const d = byEnglish.get(item[enKey]);
+    if (!d || arKeys.every((k) => item[k])) return item;
+    return { ...item, ...Object.fromEntries(arKeys.map((k) => [k, item[k] || d[k] || ''])) };
+  });
+}
 
 const router = Router();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -26,7 +37,7 @@ router.get(
   '/trust',
   wrap(async (_req, res) => {
     const { trustPoints } = await getContent();
-    res.json({ items: trustPoints || [] });
+    res.json({ items: withDefaultArabic(trustPoints || [], defaults.trustPoints, 'title', ['titleAr', 'bodyAr']) });
   })
 );
 
@@ -34,7 +45,7 @@ router.get(
   '/faqs',
   wrap(async (_req, res) => {
     const { faqs } = await getContent();
-    res.json({ items: faqs || [] });
+    res.json({ items: withDefaultArabic(faqs || [], defaults.faqs, 'q', ['qAr', 'aAr']) });
   })
 );
 

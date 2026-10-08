@@ -45,7 +45,7 @@ function Spec({ num, unit, label }) {
 
 /** Google map loads only on request — no third-party request until the guest asks for it */
 function LocationSection({ property, title }) {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const [showMap, setShowMap] = useState(false);
   const hasPin = property.latitude != null && property.longitude != null;
   const query = hasPin ? `${property.latitude},${property.longitude}` : [property.address, property.city].filter(Boolean).join(', ');
@@ -57,7 +57,7 @@ function LocationSection({ property, title }) {
       <h2 className="font-display text-[2rem] font-medium leading-tight text-prime-ink">{t('listing.location')}</h2>
       <p className="mt-4 flex items-start gap-2.5 text-[15px] font-light text-prime-ink/85">
         <MapPin size={16} strokeWidth={1.6} className="mt-1 shrink-0 text-prime-gold" aria-hidden />
-        <span>{[property.name, property.address || property.city].filter(Boolean).join(' — ')}</span>
+        <span>{[term(property.name), property.address || term(property.city)].filter(Boolean).join(' — ')}</span>
       </p>
       {query ? (
         <div className="relative mt-6 aspect-[16/9] overflow-hidden bg-prime-mist">
@@ -128,7 +128,7 @@ export default function ListingDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { t, localeTag } = useLocale();
+  const { t, term, localeTag } = useLocale();
   const { has, toggle } = useWishlist();
   const [listing, setListing] = useState(null);
   const [error, setError] = useState('');
@@ -178,7 +178,7 @@ export default function ListingDetailPage() {
         setReviews(res.item?.reviews || []);
       })
       .catch(() => {
-        if (!cancelled) setError('This stay could not be found.');
+        if (!cancelled) setError(t('listing.notFoundBody'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -269,15 +269,15 @@ export default function ListingDetailPage() {
     const destination = listing.destination || listing.region;
     return [
       destination && {
-        label: destination,
+        label: term(destination),
         to: `/search?destination=${encodeURIComponent(listing.destinationId || destination)}`,
       },
       listing.compound && {
-        label: listing.compound,
+        label: term(listing.compound),
         to: `/search?compound=${encodeURIComponent(listing.compoundId || listing.compound)}`,
       },
     ].filter(Boolean);
-  }, [listing]);
+  }, [listing, term]);
 
   const displayFromPrice = useMemo(() => {
     const today = localISO();
@@ -293,22 +293,22 @@ export default function ListingDetailPage() {
     if (!listing) return [];
     return [
       ...(listing.destination || listing.region
-        ? [{ label: t('bm.destination'), value: listing.destination || listing.region }]
+        ? [{ label: t('bm.destination'), value: term(listing.destination || listing.region) }]
         : []),
-      ...(listing.compound ? [{ label: t('bm.property'), value: listing.compound }] : []),
-      ...(listing.unitType ? [{ label: t('listing.specUnitType'), value: listing.unitType }] : []),
-      ...(listing.brand ? [{ label: t('listing.specBrand'), value: `Prime ${listing.brand}` }] : []),
+      ...(listing.compound ? [{ label: t('bm.property'), value: term(listing.compound) }] : []),
+      ...(listing.unitType ? [{ label: t('listing.specUnitType'), value: term(listing.unitType) }] : []),
+      ...(listing.brand ? [{ label: t('listing.specBrand'), value: term(`Prime ${listing.brand}`) }] : []),
       { label: t('listing.specGuests'), value: String(listing.maxGuests || '—') },
       { label: t('listing.specBedrooms'), value: String(listing.bedrooms ?? '—') },
       { label: t('listing.specBaths'), value: String(listing.bathrooms ?? '—') },
-      { label: t('listing.specArea'), value: listing.areaSqm ? `${listing.areaSqm} m²` : '—' },
-      ...(listing.bedType ? [{ label: t('listing.specBeds'), value: listing.bedType }] : []),
-      ...(listing.floor ? [{ label: t('listing.specFloor'), value: listing.floor }] : []),
+      { label: t('listing.specArea'), value: listing.areaSqm ? t('card.area', { count: listing.areaSqm }) : '—' },
+      ...(listing.bedType ? [{ label: t('listing.specBeds'), value: term(listing.bedType) }] : []),
+      ...(listing.floor ? [{ label: t('listing.specFloor'), value: term(listing.floor) }] : []),
       ...(listing.roomCount ? [{ label: t('listing.specUnitsOfType'), value: String(listing.roomCount) }] : []),
       { label: t('listing.specCheckIn'), value: t('listing.specCheckInValue') },
       { label: t('listing.specCheckOut'), value: t('listing.specCheckOutValue') },
     ];
-  }, [listing, t]);
+  }, [listing, t, term]);
 
   const averageRating =
     listing?.averageRating ??
@@ -365,7 +365,7 @@ export default function ListingDetailPage() {
       <Header />
       <main className="pb-28 lg:pb-0">
         <div className="prime-container">
-          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 py-6 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-muted">
+          <nav aria-label={t('search.breadcrumb')} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-6 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-muted">
             <Link to="/" className="transition hover:text-prime-ink">
               {t('listing.egypt')}
             </Link>
@@ -378,7 +378,7 @@ export default function ListingDetailPage() {
               </span>
             ))}
             <span aria-hidden className="text-prime-line">/</span>
-            <span className="text-prime-ink">{listing.unitType || listing.title}</span>
+            <span className="text-prime-ink">{term(listing.unitType || listing.title)}</span>
           </nav>
 
           <div className="mb-8 flex flex-wrap items-end justify-between gap-6 md:mb-10">
@@ -386,13 +386,14 @@ export default function ListingDetailPage() {
               <p className="prime-eyebrow text-prime-gold-deep">
                 {[listing.brand && `Prime ${listing.brand}`, listing.destination || listing.region]
                   .filter(Boolean)
+                  .map(term)
                   .join(' · ')}
               </p>
-              <h1 className="mt-4 font-display text-display-lg font-medium text-prime-ink text-balance">{listing.title}</h1>
+              <h1 className="mt-4 font-display text-display-lg font-medium text-prime-ink text-balance">{term(listing.title)}</h1>
               <p className="mt-4 text-[15px] font-light text-prime-muted">
-                <span className="font-normal text-prime-ink">{listing.unitType}</span>
+                <span className="font-normal text-prime-ink">{term(listing.unitType)}</span>
                 {[listing.compound, listing.city].filter(Boolean).length
-                  ? ` · ${[listing.compound, listing.city].filter(Boolean).join(', ')}`
+                  ? ` · ${[listing.compound, listing.city].filter(Boolean).map(term).join(t('common.listSep'))}`
                   : ''}
                 {reviewCount > 0 ? (
                   <>
@@ -557,7 +558,7 @@ export default function ListingDetailPage() {
                     </h3>
                     <div className="mb-9 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                       {amenities.map((a) => (
-                        <CheckRow key={a}>{a}</CheckRow>
+                        <CheckRow key={a}>{term(a)}</CheckRow>
                       ))}
                     </div>
                   </div>
@@ -570,7 +571,7 @@ export default function ListingDetailPage() {
                     </h3>
                     <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                       {facilities.map((f) => (
-                        <CheckRow key={f}>{f}</CheckRow>
+                        <CheckRow key={f}>{term(f)}</CheckRow>
                       ))}
                     </div>
                   </div>
@@ -599,7 +600,7 @@ export default function ListingDetailPage() {
                   <div className="mt-8 grid gap-x-10 gap-y-10 md:grid-cols-2">
                     {reviews.map((rev) => (
                       <figure key={rev.id}>
-                        <p className="text-[13px] tracking-[0.2em] text-prime-gold" aria-label={`${rev.rating} out of 5`}>
+                        <p className="text-[13px] tracking-[0.2em] text-prime-gold" aria-label={t('listing.ratingOutOf', { rating: rev.rating })}>
                           {'★'.repeat(Math.round(rev.rating || 0))}
                         </p>
                         <blockquote className="mt-3 font-display text-[1.35rem] font-medium italic leading-snug text-prime-ink">
@@ -664,7 +665,7 @@ export default function ListingDetailPage() {
                   <p className="mt-4 font-display text-[2.6rem] font-medium leading-none tabular-nums text-prime-ink">
                     {formatMoney(displayFromPrice, listing.currency)}
                   </p>
-                  <p className="mt-2 text-[13px] font-light text-prime-muted">per night · full total shown before you pay</p>
+                  <p className="mt-2 text-[13px] font-light text-prime-muted">{t('listing.perNightNote')}</p>
                 </>
               ) : (
                 <p className="mt-4 font-display text-[2rem] font-medium leading-tight text-prime-ink">{t('listing.priceOnRequest')}</p>
@@ -679,7 +680,7 @@ export default function ListingDetailPage() {
                 </a>
               </div>
               <p className="mt-6 text-center text-[12px] font-light leading-relaxed text-prime-muted">
-                Book direct — your voucher is issued the moment you confirm.
+                {t('listing.bookDirectNote')}
               </p>
             </aside>
           </div>
@@ -690,7 +691,7 @@ export default function ListingDetailPage() {
             <div className="prime-container">
               <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <p className="prime-eyebrow text-prime-gold-deep">{listing.compound}</p>
+                  <p className="prime-eyebrow text-prime-gold-deep">{term(listing.compound)}</p>
                   <h2 className="mt-4 font-display text-display-md font-medium text-prime-ink">{t('listing.similarRent')}</h2>
                 </div>
                 <Link to="/search" className="prime-link">
@@ -712,10 +713,10 @@ export default function ListingDetailPage() {
           <div className="min-w-0 flex-1">
             {hasPrice ? (
               <>
-                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-prime-muted">From</p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-prime-muted">{t('card.from')}</p>
                 <p className="truncate font-display text-[1.5rem] font-medium leading-tight tabular-nums text-prime-ink">
                   {formatMoney(displayFromPrice, listing.currency)}
-                  <span className="ms-1 font-sans text-[12px] font-light text-prime-muted">/ night</span>
+                  <span className="ms-1 font-sans text-[12px] font-light text-prime-muted">{t('card.perNight')}</span>
                 </p>
               </>
             ) : (

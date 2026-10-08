@@ -6,6 +6,7 @@ import { SiteProvider, isPreviewFrame } from './context/SiteContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { WishlistProvider } from './context/WishlistContext';
 import RouteFallback from './components/RouteFallback';
+import ScrollToTop from './components/ScrollToTop';
 import WhatsAppFAB from './components/layout/WhatsAppFAB';
 import MarketingPixels from './components/MarketingPixels';
 import SeoManager from './components/SeoManager';
@@ -72,6 +73,7 @@ export default function App() {
         <LocaleProvider>
           <ThemeProvider>
             <WishlistProvider>
+              <ScrollToTop />
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/" element={<HomePage />} />

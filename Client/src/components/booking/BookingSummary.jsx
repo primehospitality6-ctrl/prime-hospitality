@@ -34,7 +34,8 @@ function useSummaryRows({ stay, plan, planName, config }) {
 }
 
 function Crumbs({ listing, className }) {
-  const parts = [listing.destination || listing.region, listing.compound].filter(Boolean);
+  const { term } = useLocale();
+  const parts = [listing.destination || listing.region, listing.compound].filter(Boolean).map(term);
   return (
     <p className={cn('flex flex-wrap items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.2em]', className)}>
       {parts.map((p, i) => (
@@ -79,7 +80,7 @@ function Total({ price, currency, tone = 'dark' }) {
 }
 
 export function SummaryPanel({ listing, stay, plan, planName, price, config, className }) {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const rows = useSummaryRows({ stay, plan, planName, config });
   const cover = listing.images?.[0] || listing.image;
 
@@ -92,13 +93,13 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
         <div className="absolute inset-0 bg-gradient-to-t from-prime-night via-prime-night/45 to-black/10" />
         {listing.brand && (
           <span className="absolute start-5 top-5 border border-white/35 bg-black/25 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-sm">
-            Prime {listing.brand}
+            {term(`Prime ${listing.brand}`)}
           </span>
         )}
         <div className="absolute inset-x-0 bottom-0 px-6 pb-4">
           <Crumbs listing={listing} className="text-prime-gold-soft" />
           <h3 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-[-0.02em]">
-            {listing.compound || listing.title}
+            {term(listing.compound || listing.title)}
           </h3>
         </div>
       </div>
@@ -106,8 +107,8 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
       <div className="px-6 pt-4">
         <p className="text-sm text-white/70">
           {[
-            listing.unitType,
-            listing.areaSqm ? `${listing.areaSqm} m²` : null,
+            term(listing.unitType),
+            listing.areaSqm ? t('card.area', { count: listing.areaSqm }) : null,
             t('bm.sleeps', { count: listing.maxGuests || 2 }),
           ]
             .filter(Boolean)
@@ -147,7 +148,7 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
 }
 
 export function MobileSummary({ listing, stay, plan, planName, price, config, className }) {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const [open, setOpen] = useState(false);
   const rows = useSummaryRows({ stay, plan, planName, config });
   const cover = listing.images?.[0] || listing.image;
@@ -166,7 +167,7 @@ export function MobileSummary({ listing, stay, plan, planName, price, config, cl
         <span className="min-w-0 flex-1">
           <Crumbs listing={listing} className="text-prime-gold-deep" />
           <span className="block truncate text-sm font-semibold text-prime-ink">
-            {listing.compound} · {listing.unitType}
+            {term(listing.compound)} · {term(listing.unitType)}
           </span>
         </span>
         <span className="text-end">

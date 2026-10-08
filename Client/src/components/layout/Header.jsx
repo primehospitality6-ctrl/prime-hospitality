@@ -21,13 +21,14 @@ const MENU = [
 
 function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLocale();
   const iconCls = 'absolute inset-0 m-auto transition-all duration-500 ease-prime';
   return (
     <button
       type="button"
       aria-pressed={isDark}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={isDark ? 'Light mode' : 'Dark mode'}
+      aria-label={t(isDark ? 'a11y.toLight' : 'a11y.toDark')}
+      title={t(isDark ? 'a11y.lightMode' : 'a11y.darkMode')}
       onClick={toggleTheme}
       className="prime-tap relative inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center opacity-85 transition-opacity hover:opacity-100"
     >
@@ -45,6 +46,7 @@ const BAR_TONES = {
 const BAR_DISMISS_KEY = 'prime.announcement.dismissed';
 
 function AnnouncementBar({ bar, collapsed, onDismiss }) {
+  const { t } = useLocale();
   const external = /^https?:/i.test(bar.href);
   const linkCls = 'ms-2 underline decoration-current/40 underline-offset-4 transition hover:decoration-current';
   return (
@@ -73,7 +75,7 @@ function AnnouncementBar({ bar, collapsed, onDismiss }) {
           <button
             type="button"
             onClick={onDismiss}
-            aria-label="Dismiss announcement"
+            aria-label={t('a11y.dismiss')}
             className="absolute end-2 grid h-7 w-7 place-items-center opacity-70 transition hover:opacity-100"
           >
             <X size={14} strokeWidth={1.5} />
@@ -188,7 +190,7 @@ export default function Header({ overHero = false }) {
               <MenuIcon />
               <span className="hidden sm:inline lg:sr-only">{t('nav.menu')}</span>
             </button>
-            <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
+            <nav className="hidden items-center gap-7 lg:flex" aria-label={t('a11y.primaryNav')}>
               {MENU.filter((m) => m.inline).map((item) => (
                 <NavLink key={item.to} to={item.to} className={navLinkCls}>
                   {t(item.labelKey)}
@@ -212,7 +214,7 @@ export default function Header({ overHero = false }) {
               type="button"
               onClick={toggleLocale}
               className="hidden p-2 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-100 md:inline-flex"
-              aria-label="Toggle language"
+              aria-label={t('a11y.switchLanguage')}
             >
               {locale === 'en' ? 'عربي' : 'EN'}
             </button>
@@ -232,7 +234,7 @@ export default function Header({ overHero = false }) {
             <Link
               to="/search"
               className={cn(
-                'ms-1 hidden min-h-[2.75rem] items-center px-5 text-[11px] font-semibold uppercase tracking-[0.2em] transition duration-300 sm:inline-flex',
+                'ms-1 hidden min-h-[2.75rem] items-center rounded-btn px-5 text-[11px] font-semibold uppercase tracking-[0.2em] transition duration-300 sm:inline-flex',
                 transparent
                   ? 'border border-white/45 hover:border-white hover:bg-white hover:text-brand-black'
                   : 'bg-prime-ink text-prime-sand hover:bg-brand-gold'
@@ -278,7 +280,7 @@ export default function Header({ overHero = false }) {
               <span />
             </div>
 
-            <nav className="prime-container flex flex-1 flex-col justify-center py-10" aria-label="Menu">
+            <nav className="prime-container flex flex-1 flex-col justify-center py-10" aria-label={t('nav.menu')}>
               <ol className="max-w-3xl divide-y divide-white/10 border-y border-white/10">
                 {MENU.map((item, i) => (
                   <li
@@ -314,7 +316,7 @@ export default function Header({ overHero = false }) {
                     {brand.email}
                   </a>
                   <a href={whatsappHref()} target="_blank" rel="noreferrer" className="transition hover:text-white">
-                    WhatsApp
+                    {t('common.whatsapp')}
                   </a>
                   <Link to={staffTo} className="inline-flex items-center gap-1 transition hover:text-white">
                     {isAdmin ? t('nav.staffDashboard') : t('nav.staffSignIn')}
@@ -329,7 +331,7 @@ export default function Header({ overHero = false }) {
           </div>
 
           <p className="pointer-events-none absolute end-[max(1.25rem,4vw)] top-[calc(var(--prime-header-h)+2rem)] hidden max-w-[16rem] text-end text-[13px] font-light leading-relaxed text-white/50 lg:block">
-            {brand.tagline}
+            {locale === 'ar' ? t('home.heroTitle') : brand.tagline}
           </p>
         </div>
       ) : null}

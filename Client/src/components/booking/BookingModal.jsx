@@ -48,7 +48,7 @@ export default function BookingModal({
   onBooked,
   onDatesTaken,
 }) {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const maxGuests = listing?.maxGuests || 8;
   const scrollRef = useRef(null);
   const dialogRef = useRef(null);
@@ -349,7 +349,7 @@ export default function BookingModal({
                   {t('bm.eyebrow')}
                 </p>
                 <h2 id="bm-title" className="mt-1 truncate font-display text-lg font-bold tracking-[-0.02em] text-prime-ink">
-                  {listing.title}
+                  {term(listing.title)}
                 </h2>
               </div>
               <button

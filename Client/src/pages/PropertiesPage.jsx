@@ -15,7 +15,7 @@ const HERO = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=
 const shortName = (name) => name.replace(/^Prime\s+(Inn|Residence|Select)\s+/i, '');
 
 function PropertyCard({ property, destination, lead }) {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const href = `/search?destination=${encodeURIComponent(destination.id)}&compound=${encodeURIComponent(property.id)}`;
   return (
     <Link to={href} className="group block">
@@ -28,18 +28,18 @@ function PropertyCard({ property, destination, lead }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
         {property.brand ? (
-          <span className="absolute start-4 top-4 bg-white/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#221f20] backdrop-blur-sm">
-            Prime {property.brand}
+          <span className="absolute start-4 top-4 bg-white/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-black backdrop-blur-sm">
+            {term(`Prime ${property.brand}`)}
           </span>
         ) : null}
-        <span className="absolute bottom-4 end-4 grid h-11 w-11 translate-y-2 place-items-center rounded-full bg-white text-[#221f20] opacity-0 transition duration-500 ease-prime group-hover:translate-y-0 group-hover:opacity-100">
+        <span className="absolute bottom-4 end-4 grid h-11 w-11 translate-y-2 place-items-center rounded-full bg-white text-brand-black opacity-0 transition duration-500 ease-prime group-hover:translate-y-0 group-hover:opacity-100">
           <ArrowRight size={16} strokeWidth={1.5} className="rtl:-scale-x-100" />
         </span>
       </div>
       <div className="flex items-end justify-between gap-4 pt-5">
         <div className="min-w-0">
           <p className="truncate text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">
-            {[property.city || destination.name, t('home.unitTypesCount', { count: property.unitCount || 0 })]
+            {[term(property.city || destination.name), t('home.unitTypesCount', { count: property.unitCount || 0 })]
               .filter(Boolean)
               .join(' · ')}
           </p>
@@ -49,7 +49,7 @@ function PropertyCard({ property, destination, lead }) {
               lead ? 'text-[1.9rem] md:text-[2.3rem]' : 'text-[1.6rem]'
             )}
           >
-            {shortName(property.name)}
+            {term(shortName(property.name))}
           </h3>
         </div>
       </div>
@@ -58,7 +58,7 @@ function PropertyCard({ property, destination, lead }) {
 }
 
 function DestinationBlock({ destination, index, properties }) {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const unitTypes = properties.reduce((sum, p) => sum + (p.unitCount || 0), 0);
   return (
     <section id={`dest-${destination.id}`} className="scroll-mt-[calc(var(--prime-header-h)+5rem)] border-t border-prime-line pt-10 md:pt-14">
@@ -67,7 +67,7 @@ function DestinationBlock({ destination, index, properties }) {
           <span className="font-display text-[3.5rem] font-medium leading-none text-prime-gold/70 md:text-[4.5rem]">
             {String(index + 1).padStart(2, '0')}
           </span>
-          <h2 className="mt-4 font-display text-display-md font-medium text-prime-ink text-balance">{destination.name}</h2>
+          <h2 className="mt-4 font-display text-display-md font-medium text-prime-ink text-balance">{term(destination.name)}</h2>
           <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">
             {t('home.propertiesCount', { count: properties.length })}
             {unitTypes ? ` · ${t('home.unitTypesCount', { count: unitTypes })}` : ''}
@@ -76,7 +76,7 @@ function DestinationBlock({ destination, index, properties }) {
             <p className="mt-5 max-w-sm text-[15px] font-light leading-[1.8] text-prime-muted">{destination.description}</p>
           ) : null}
           <Link to={`/search?destination=${encodeURIComponent(destination.id)}`} className="prime-link mt-7">
-            {t('home.viewStaysIn', { name: destination.name })}
+            {t('home.viewStaysIn', { name: term(destination.name) })}
           </Link>
         </Reveal>
 
@@ -112,6 +112,7 @@ function Chip({ active, onClick, children, count }) {
 }
 
 export default function PropertiesPage() {
+  const { t, term } = useLocale();
   const [params, setParams] = useSearchParams();
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -174,16 +175,16 @@ export default function PropertiesPage() {
       <main>
         <PageHero
           image={HERO}
-          eyebrow="The collection"
-          title="Our properties"
-          lede="Every Prime Inn, Residence and Select address — chosen for its setting, finished to one standard."
+          eyebrow={t('home.brandsEyebrow')}
+          title={t('properties.title')}
+          lede={t('properties.lede')}
         >
           {stats.properties ? (
             <dl className="prime-fade-up mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/20 pt-6" style={{ animationDelay: '240ms' }}>
               {[
-                [stats.destinations, 'Destinations'],
-                [stats.properties, 'Properties'],
-                [stats.unitTypes, 'Unit types'],
+                [stats.destinations, t('home.statDestinations')],
+                [stats.properties, t('home.statProperties')],
+                [stats.unitTypes, t('home.statUnitTypes')],
               ].map(([value, label]) => (
                 <div key={label}>
                   <dt className="sr-only">{label}</dt>
@@ -199,7 +200,7 @@ export default function PropertiesPage() {
           <div className="prime-container flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="prime-scroll-x -mx-5 gap-2 px-5 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
               <Chip active={!activeDest} onClick={() => patch('destination', '')} count={stats.properties || null}>
-                All
+                {t('properties.all')}
               </Chip>
               {destinations.map((d) => (
                 <Chip
@@ -208,12 +209,12 @@ export default function PropertiesPage() {
                   onClick={() => patch('destination', activeDest === d.id ? '' : d.id)}
                   count={d.projects?.length ?? d.projectCount}
                 >
-                  {d.name}
+                  {term(d.name)}
                 </Chip>
               ))}
             </div>
             {brands.length > 1 ? (
-              <div className="flex max-w-full flex-wrap items-center gap-1 text-[11px] font-medium uppercase tracking-[0.2em]" role="group" aria-label="Brand">
+              <div className="flex max-w-full flex-wrap items-center gap-1 text-[11px] font-medium uppercase tracking-[0.2em]" role="group" aria-label={t('listing.specBrand')}>
                 {['', ...brands].map((b) => (
                   <button
                     key={b || 'all'}
@@ -225,7 +226,7 @@ export default function PropertiesPage() {
                       activeBrand === b ? 'text-prime-ink' : 'text-prime-muted hover:text-prime-ink'
                     )}
                   >
-                    {b ? `Prime ${b}` : 'All brands'}
+                    {b ? term(`Prime ${b}`) : t('filters.allBrands')}
                     <span
                       className={cn(
                         'absolute inset-x-3 bottom-0.5 h-px bg-prime-gold transition-transform duration-500 ease-prime',
@@ -262,10 +263,10 @@ export default function PropertiesPage() {
             ))
           ) : (
             <div className="border-y border-prime-line px-6 py-20 text-center">
-              <p className="font-display text-display-md font-medium text-prime-ink">No properties match</p>
-              <p className="mx-auto mt-4 max-w-md text-[15px] font-light text-prime-muted">Try another destination or brand.</p>
+              <p className="font-display text-display-md font-medium text-prime-ink">{t('properties.emptyTitle')}</p>
+              <p className="mx-auto mt-4 max-w-md text-[15px] font-light text-prime-muted">{t('properties.emptyBody')}</p>
               <button type="button" onClick={() => setParams({}, { replace: true })} className="prime-btn-outline mt-8">
-                Show all properties
+                {t('properties.showAll')}
               </button>
             </div>
           )}

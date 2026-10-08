@@ -10,7 +10,7 @@ import { useLocale } from '../context/LocaleContext';
 import { useSite } from '../context/SiteContext';
 
 export default function ContactPage() {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   useSite();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
@@ -34,10 +34,10 @@ export default function ContactPage() {
   }
 
   const channels = [
-    { label: 'WhatsApp', value: t('contact.whatsappValue'), href: whatsappHref(`Hi ${brand.shortName} — I have a question.`), external: true },
+    { label: t('common.whatsapp'), value: t('contact.whatsappValue'), href: whatsappHref(`Hi ${brand.shortName} — I have a question.`), external: true },
     { label: t('contact.email'), value: brand.email, href: `mailto:${brand.email}` },
     { label: t('contact.phone'), value: brand.phoneDisplay, href: `tel:${brand.phone || brand.whatsapp}` },
-    { label: t('contact.office'), value: brand.address },
+    { label: t('contact.office'), value: term(brand.address) },
   ];
 
   return (

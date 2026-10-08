@@ -266,19 +266,19 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 
   .prime-btn {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none bg-prime-ink px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-sand transition duration-300 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-prime-ink px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-sand transition duration-300 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-gold {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none bg-brand-gold px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-brand-gold px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-outline {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none border border-prime-ink/25 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-300 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-prime-ink/25 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-300 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
   }
 
   .prime-btn-ghost {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-none border border-white/40 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-white/40 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
   }
 
   /* “Explore more” text link with a drawn line */

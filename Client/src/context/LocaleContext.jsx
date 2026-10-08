@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { isPreviewFrame, useSite } from './SiteContext';
+import { setActiveLocale, translateTerm } from '../i18n/terms';
 
 /** Built-in guest copy; the admin can override any key per language (Website › Pages & text) */
 export const defaultCopy = {
@@ -25,6 +27,88 @@ export const defaultCopy = {
     'home.scroll': 'Scroll',
     'home.introEyebrow': 'Prime Hospitality',
     'home.country': 'Egypt',
+    'home.discover': 'Discover',
+    'home.prevStays': 'Previous stays',
+    'home.moreStays': 'More stays',
+    'card.bedroom': '{count} bedroom',
+    'card.bedrooms': '{count} bedrooms',
+    'card.guests': '{count} guests',
+    'card.area': '{count} m²',
+    'card.from': 'From',
+    'card.perNight': '/ night',
+    'card.featured': 'Featured',
+    'card.save': 'Save {title} to wishlist',
+    'card.unsave': 'Remove {title} from wishlist',
+    'card.viewStay': 'View stay',
+    'search.sortRecommended': 'Recommended',
+    'search.sortPriceAsc': 'Price: low to high',
+    'search.sortPriceDesc': 'Price: high to low',
+    'search.sortBeds': 'Most bedrooms',
+    'search.concierge': 'Prime concierge',
+    'search.conciergeTitle': 'Not sure which home fits? We’ll match you in minutes.',
+    'search.conciergeMsg': 'Hi Prime — can you help me choose a stay?',
+    'search.askWhatsapp': 'Ask on WhatsApp',
+    'search.breadcrumb': 'Breadcrumb',
+    'search.home': 'Home',
+    'search.stays': 'Stays',
+    'search.staysIn': 'Stays in {name}',
+    'search.allStays': 'All stays',
+    'search.bookDirect': 'Book direct with Prime',
+    'search.searching': 'Searching…',
+    'search.countOne': '{count} stay available',
+    'search.countMany': '{count} stays available',
+    'search.allIn': 'All in {name}',
+    'search.allDestinations': 'All destinations',
+    'search.noProperties': 'No properties in this destination yet',
+    'search.layout': 'Layout',
+    'search.gridView': 'Grid view',
+    'search.listView': 'List view',
+    'search.sort': 'Sort',
+    'search.emptyTitle': 'No stays match these filters',
+    'search.emptyBody': 'Try another destination or dates — or clear the filters to see every stay.',
+    'search.clearFilters': 'Clear filters',
+    'search.showing': 'Showing {shown} of {total}',
+    'search.showMore': 'Show more stays',
+    'search.closeFilters': 'Close filters',
+    'filters.title': 'Filters',
+    'filters.property': 'Property',
+    'filters.anyProperty': 'Any property',
+    'filters.any': 'Any',
+    'filters.allTypes': 'All types',
+    'filters.allBrands': 'All brands',
+    'filters.showStays': 'Show stays',
+    'filters.guestsPlus': '{count}+ guests',
+    'filters.clearAll': 'Clear all',
+    'listing.notFoundBody': 'This stay could not be found.',
+    'listing.ratingOutOf': '{rating} out of 5',
+    'listing.perNightNote': 'per night · full total shown before you pay',
+    'listing.bookDirectNote': 'Book direct — your voucher is issued the moment you confirm.',
+    'listing.checkoutDayTitle': 'Checkout day — free for the next check-in',
+    'common.listSep': ', ',
+    'common.whatsapp': 'WhatsApp',
+    'common.loading': 'Loading',
+    'wishlist.eyebrow': 'Saved',
+    'wishlist.title': 'Your wishlist.',
+    'wishlist.lede': 'Homes you’re holding onto for the next trip — saved on this device.',
+    'wishlist.emptyTitle': 'No saved stays yet',
+    'wishlist.emptyBody': 'Explore the collection and tap the heart on the homes you love.',
+    'properties.title': 'Our properties',
+    'properties.lede': 'Every Prime Inn, Residence and Select address — chosen for its setting, finished to one standard.',
+    'properties.all': 'All',
+    'properties.emptyTitle': 'No properties match',
+    'properties.emptyBody': 'Try another destination or brand.',
+    'properties.showAll': 'Show all properties',
+    'a11y.toLight': 'Switch to light mode',
+    'a11y.toDark': 'Switch to dark mode',
+    'a11y.lightMode': 'Light mode',
+    'a11y.darkMode': 'Dark mode',
+    'a11y.dismiss': 'Dismiss announcement',
+    'a11y.primaryNav': 'Primary',
+    'a11y.backToTop': 'Back to top',
+    'a11y.chatWhatsapp': 'Chat on WhatsApp',
+    'a11y.switchLanguage': 'Switch to Arabic',
+    'a11y.showSlide': 'Show slide {n}',
+    'whatsapp.question': 'Hi Prime — I have a question.',
     'home.introTitle': 'The warmth of a private residence, the standards of a refined hotel.',
     'home.introBody':
       'We curate and run Prime Inn, Residence and Select stays across Egypt — each chosen for its setting, designed for comfort and cared for by our own team.',
@@ -438,6 +522,88 @@ export const defaultCopy = {
     'home.scroll': 'مرّر',
     'home.introEyebrow': 'برايم للضيافة',
     'home.country': 'مصر',
+    'home.discover': 'اكتشف',
+    'home.prevStays': 'الإقامات السابقة',
+    'home.moreStays': 'المزيد من الإقامات',
+    'card.bedroom': '{count} غرفة نوم',
+    'card.bedrooms': '{count} غرف نوم',
+    'card.guests': '{count} ضيوف',
+    'card.area': '{count} م²',
+    'card.from': 'من',
+    'card.perNight': '/ لليلة',
+    'card.featured': 'مميز',
+    'card.save': 'احفظ {title} في المفضلة',
+    'card.unsave': 'احذف {title} من المفضلة',
+    'card.viewStay': 'عرض الإقامة',
+    'search.sortRecommended': 'الأنسب',
+    'search.sortPriceAsc': 'السعر: من الأقل إلى الأعلى',
+    'search.sortPriceDesc': 'السعر: من الأعلى إلى الأقل',
+    'search.sortBeds': 'الأكثر غرفًا',
+    'search.concierge': 'كونسيرج برايم',
+    'search.conciergeTitle': 'لست متأكدًا أي إقامة تناسبك؟ نرشّح لك الأنسب في دقائق.',
+    'search.conciergeMsg': 'مرحبًا برايم — هل يمكنكم مساعدتي في اختيار إقامة؟',
+    'search.askWhatsapp': 'اسألنا على واتساب',
+    'search.breadcrumb': 'مسار التنقل',
+    'search.home': 'الرئيسية',
+    'search.stays': 'الإقامات',
+    'search.staysIn': 'إقامات في {name}',
+    'search.allStays': 'كل الإقامات',
+    'search.bookDirect': 'احجز مباشرة مع برايم',
+    'search.searching': 'جارٍ البحث…',
+    'search.countOne': 'إقامة واحدة متاحة',
+    'search.countMany': '{count} إقامات متاحة',
+    'search.allIn': 'الكل في {name}',
+    'search.allDestinations': 'كل الوجهات',
+    'search.noProperties': 'لا توجد عقارات في هذه الوجهة بعد',
+    'search.layout': 'طريقة العرض',
+    'search.gridView': 'عرض شبكي',
+    'search.listView': 'عرض قائمة',
+    'search.sort': 'ترتيب',
+    'search.emptyTitle': 'لا توجد إقامات تطابق هذه الفلاتر',
+    'search.emptyBody': 'جرّب وجهة أو تواريخ أخرى — أو امسح الفلاتر لعرض كل الإقامات.',
+    'search.clearFilters': 'مسح الفلاتر',
+    'search.showing': 'عرض {shown} من {total}',
+    'search.showMore': 'عرض المزيد من الإقامات',
+    'search.closeFilters': 'إغلاق الفلاتر',
+    'filters.title': 'الفلاتر',
+    'filters.property': 'العقار',
+    'filters.anyProperty': 'أي عقار',
+    'filters.any': 'الكل',
+    'filters.allTypes': 'كل الأنواع',
+    'filters.allBrands': 'كل العلامات',
+    'filters.showStays': 'عرض الإقامات',
+    'filters.guestsPlus': '{count}+ ضيوف',
+    'filters.clearAll': 'مسح الكل',
+    'listing.notFoundBody': 'تعذر العثور على هذه الإقامة.',
+    'listing.ratingOutOf': '{rating} من 5',
+    'listing.perNightNote': 'لليلة · يظهر الإجمالي الكامل قبل الدفع',
+    'listing.bookDirectNote': 'احجز مباشرة — تصدر قسيمتك فور التأكيد.',
+    'listing.checkoutDayTitle': 'يوم مغادرة — متاح لتسجيل الوصول التالي',
+    'common.listSep': '، ',
+    'common.whatsapp': 'واتساب',
+    'common.loading': 'جارٍ التحميل',
+    'wishlist.eyebrow': 'المحفوظات',
+    'wishlist.title': 'قائمة المفضلة.',
+    'wishlist.lede': 'الإقامات التي تحتفظ بها لرحلتك القادمة — محفوظة على هذا الجهاز.',
+    'wishlist.emptyTitle': 'لا توجد إقامات محفوظة بعد',
+    'wishlist.emptyBody': 'تصفح المجموعة واضغط على القلب في الإقامات التي تعجبك.',
+    'properties.title': 'عقاراتنا',
+    'properties.lede': 'كل عناوين برايم إن وريزيدنس وسيلكت — مختارة لموقعها، ومجهزة بمعيار واحد.',
+    'properties.all': 'الكل',
+    'properties.emptyTitle': 'لا توجد عقارات مطابقة',
+    'properties.emptyBody': 'جرّب وجهة أو علامة أخرى.',
+    'properties.showAll': 'عرض كل العقارات',
+    'a11y.toLight': 'التبديل إلى الوضع الفاتح',
+    'a11y.toDark': 'التبديل إلى الوضع الداكن',
+    'a11y.lightMode': 'الوضع الفاتح',
+    'a11y.darkMode': 'الوضع الداكن',
+    'a11y.dismiss': 'إخفاء الإعلان',
+    'a11y.primaryNav': 'القائمة الرئيسية',
+    'a11y.backToTop': 'العودة للأعلى',
+    'a11y.chatWhatsapp': 'تواصل عبر واتساب',
+    'a11y.switchLanguage': 'التبديل إلى الإنجليزية',
+    'a11y.showSlide': 'عرض الشريحة {n}',
+    'whatsapp.question': 'مرحبًا برايم — لدي سؤال.',
     'home.introTitle': 'دفء المسكن الخاص، بمعايير الفندق الراقي.',
     'home.introBody':
       'نختار وندير إقامات برايم إن وريزيدنس وسيلكت في أنحاء مصر — كل إقامة مختارة لموقعها، مصممة لراحتك، ويعتني بها فريقنا.',
@@ -832,14 +998,37 @@ const copy = defaultCopy;
 
 const LocaleContext = createContext(null);
 
+const STORAGE_KEY = 'prime_locale';
+
+function initialLocale() {
+  if (isPreviewFrame()) return new URLSearchParams(window.location.search).get('lang') === 'ar' ? 'ar' : 'en';
+  try {
+    return localStorage.getItem(STORAGE_KEY) === 'ar' ? 'ar' : 'en';
+  } catch {
+    return 'en';
+  }
+}
+
 export function LocaleProvider({ children }) {
-  const [locale, setLocale] = useState(() => (isPreviewFrame() && new URLSearchParams(window.location.search).get('lang') === 'ar' ? 'ar' : 'en'));
+  const [chosen, setLocale] = useState(initialLocale);
+  // The admin is English-only; the guest's language choice is kept for when they return to the site
+  const admin = useLocation().pathname.startsWith('/admin');
+  const locale = admin ? 'en' : chosen;
+  setActiveLocale(locale);
 
   useEffect(() => {
-    if (!isPreviewFrame()) return;
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
   }, [locale]);
+
+  useEffect(() => {
+    if (isPreviewFrame()) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, chosen);
+    } catch {
+      /* private mode */
+    }
+  }, [chosen]);
 
   const overrides = useSite().site.copy;
 
@@ -854,19 +1043,17 @@ export function LocaleProvider({ children }) {
   }, [locale, overrides]);
 
   const toggleLocale = useCallback(() => {
-    setLocale((prev) => {
-      const next = prev === 'en' ? 'ar' : 'en';
-      document.documentElement.lang = next;
-      document.documentElement.dir = next === 'ar' ? 'rtl' : 'ltr';
-      return next;
-    });
+    setLocale((prev) => (prev === 'en' ? 'ar' : 'en'));
   }, []);
+
+  /** Place, property, unit-type and amenity names that come from Kwentra / the CMS in English */
+  const term = useCallback((value) => (locale === 'ar' ? translateTerm(value) : value), [locale]);
 
   const localeTag = locale === 'ar' ? 'ar-EG' : 'en-US';
 
   const value = useMemo(
-    () => ({ locale, localeTag, setLocale, toggleLocale, t }),
-    [locale, localeTag, toggleLocale, t]
+    () => ({ locale, localeTag, setLocale, toggleLocale, t, term }),
+    [locale, localeTag, toggleLocale, t, term]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

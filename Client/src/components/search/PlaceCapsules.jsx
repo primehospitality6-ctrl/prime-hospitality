@@ -1,4 +1,5 @@
 import { ArrowLeft, SlidersHorizontal } from 'lucide-react';
+import { useLocale } from '../../context/LocaleContext';
 import { cn } from '../../utils/cn';
 
 /**
@@ -16,6 +17,7 @@ export default function PlaceCapsules({
   onBack,
   className,
 }) {
+  const { t, term } = useLocale();
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] rtl:[mask-image:linear-gradient(to_left,#000_calc(100%-2rem),transparent)] [&::-webkit-scrollbar]:hidden">
@@ -60,7 +62,7 @@ export default function PlaceCapsules({
                   : 'border-prime-line bg-prime-surface text-prime-ink hover:border-prime-ink/40'
               )}
             >
-              {place.name}
+              {term(place.name)}
               {place.count != null ? (
                 <span className={cn('ms-1.5 text-xs', active ? 'text-white/60' : 'text-prime-muted')}>
                   {place.count}
@@ -79,7 +81,7 @@ export default function PlaceCapsules({
         className="mb-1 flex shrink-0 items-center gap-2 rounded-full border border-prime-line bg-prime-surface px-4 py-2 text-sm font-medium text-prime-ink transition hover:border-prime-ink/40 md:hidden"
       >
         <SlidersHorizontal size={14} strokeWidth={1.8} />
-        Filters
+        {t('filters.title')}
       </button>
     </div>
   );

@@ -29,6 +29,10 @@
           if (t !== 'dark' && t !== 'light') t = 'light';
           if (t === 'dark') document.documentElement.classList.add('dark');
           document.documentElement.style.colorScheme = t;
+          if (localStorage.getItem('prime_locale') === 'ar' && location.pathname.indexOf('/admin') !== 0) {
+            document.documentElement.lang = 'ar';
+            document.documentElement.dir = 'rtl';
+          }
         } catch (e) {}
       })();
     </script>

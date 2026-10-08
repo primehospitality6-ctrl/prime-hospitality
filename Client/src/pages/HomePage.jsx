@@ -135,7 +135,7 @@ function Hero() {
                     key={src}
                     type="button"
                     onClick={() => goTo(i)}
-                    aria-label={`Show slide ${i + 1}`}
+                    aria-label={t('a11y.showSlide', { n: i + 1 })}
                     aria-current={i === index}
                     className="group px-1.5 py-5"
                   >
@@ -265,7 +265,7 @@ function FeaturedCarousel() {
               <button
                 type="button"
                 onClick={() => scrollBy(-1)}
-                aria-label="Previous stays"
+                aria-label={t('home.prevStays')}
                 className="grid h-12 w-12 place-items-center border border-prime-line transition hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
               >
                 <ArrowLeft size={18} strokeWidth={1.4} className="rtl:rotate-180" />
@@ -273,7 +273,7 @@ function FeaturedCarousel() {
               <button
                 type="button"
                 onClick={() => scrollBy(1)}
-                aria-label="More stays"
+                aria-label={t('home.moreStays')}
                 className="grid h-12 w-12 place-items-center border border-prime-line transition hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
               >
                 <ArrowRight size={18} strokeWidth={1.4} className="rtl:rotate-180" />

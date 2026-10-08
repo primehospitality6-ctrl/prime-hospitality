@@ -114,7 +114,7 @@ function CountrySelect({ id, value, onChange, error, placeholder }) {
 /* ─── Step 1 · Stay ─── */
 
 export function StayStep({ stay, setStay, errors, listing, config, blockedDates, checkoutDates, dailyPrices, heading }) {
-  const { t, localeTag } = useLocale();
+  const { t, term, localeTag } = useLocale();
   const maxGuests = listing.maxGuests || 8;
   const range = useMemo(
     () => ({ start: isoToLocalDate(stay.arrivalDate), end: isoToLocalDate(stay.departureDate) }),
@@ -194,7 +194,7 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
             />
           </div>
           <p className={cn('mt-2 text-[11px]', errors.adults ? 'font-medium text-red-600' : 'text-prime-muted')}>
-            {errors.adults ? t(errors.adults, { count: maxGuests }) : t('bm.sleepsUpTo', { count: maxGuests, type: listing.unitType || '' })}
+            {errors.adults ? t(errors.adults, { count: maxGuests }) : t('bm.sleepsUpTo', { count: maxGuests, type: term(listing.unitType) || '' })}
           </p>
         </div>
 
@@ -529,7 +529,7 @@ function ReviewGroup({ title, onEdit, rows }) {
 }
 
 export function ReviewStep({ listing, stay, guest, plan, planName, price, config, goTo, agreed, setAgreed, error, heading }) {
-  const { t, localeTag } = useLocale();
+  const { t, term, localeTag } = useLocale();
   const none = <span className="text-prime-muted">—</span>;
   const others = guest.otherGuestNames.map((n) => n.trim()).filter(Boolean);
   const country = (code) => (code ? `${countryName(code, localeTag)} (${code})` : none);
@@ -569,9 +569,9 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
           title={t('bm.groupRoom')}
           onEdit={() => goTo('rate')}
           rows={[
-            { label: t('bm.destination'), value: listing.destination || listing.region || none },
-            { label: t('bm.property'), value: listing.compound || none },
-            { label: t('bm.roomType'), value: listing.unitType || listing.propertyType || none },
+            { label: t('bm.destination'), value: term(listing.destination || listing.region) || none },
+            { label: t('bm.property'), value: term(listing.compound) || none },
+            { label: t('bm.roomType'), value: term(listing.unitType || listing.propertyType) || none },
             { label: t('bm.ratePlan'), value: plan ? planName(plan) : none },
             { label: t('bm.rateAmount'), value: formatMoney(price?.rateAmount, listing.currency) },
             { label: t('bm.rateCurrency'), value: listing.currency || 'EGP' },

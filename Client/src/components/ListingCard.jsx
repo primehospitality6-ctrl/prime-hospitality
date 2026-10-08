@@ -4,21 +4,23 @@ import { Heart, Star } from 'lucide-react';
 import Img from './ui/Img';
 import { formatMoney, subBrand } from '../theme/brand';
 import { useWishlist } from '../context/WishlistContext';
+import { useLocale } from '../context/LocaleContext';
 import { cn } from '../utils/cn';
 
 const GRID_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
 
-function specsOf(listing) {
+function specsOf(listing, t) {
   return [
-    listing.bedrooms != null && `${listing.bedrooms} ${listing.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`,
-    listing.maxGuests && `${listing.maxGuests} guests`,
-    listing.areaSqm && `${listing.areaSqm} m²`,
+    listing.bedrooms != null && t(listing.bedrooms === 1 ? 'card.bedroom' : 'card.bedrooms', { count: listing.bedrooms }),
+    listing.maxGuests && t('card.guests', { count: listing.maxGuests }),
+    listing.areaSqm && t('card.area', { count: listing.areaSqm }),
   ].filter(Boolean);
 }
 
-function metaOf(listing) {
+function metaOf(listing, term) {
   return [listing.unitType || listing.propertyType, listing.compound, listing.destination || listing.region]
     .filter(Boolean)
+    .map(term)
     .join(' · ');
 }
 
@@ -56,25 +58,28 @@ function CardMedia({ listing, href, sizes, priority, className }) {
 
 /** "Prime Residence" chip in the sub-brand's colour */
 function BrandChip({ name }) {
+  const { term } = useLocale();
   const sb = subBrand(name);
   return (
     <span
       className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white"
       style={{ backgroundColor: sb?.color || '#231F20' }}
     >
-      Prime {sb?.name || name}
+      {term(`Prime ${sb?.name || name}`)}
     </span>
   );
 }
 
 function FeaturedChip() {
+  const { t } = useLocale();
   return (
-    <span className="bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-gold">Featured</span>
+    <span className="bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-gold">{t('card.featured')}</span>
   );
 }
 
 function SaveButton({ listing, className }) {
   const { has, toggle } = useWishlist();
+  const { t, term } = useLocale();
   const loved = has(listing.id);
   return (
     <button
@@ -86,7 +91,7 @@ function SaveButton({ listing, className }) {
         className
       )}
       aria-pressed={loved}
-      aria-label={loved ? `Remove ${listing.title} from wishlist` : `Save ${listing.title} to wishlist`}
+      aria-label={t(loved ? 'card.unsave' : 'card.save', { title: term(listing.title) })}
     >
       <Heart size={16} strokeWidth={1.6} fill={loved ? 'currentColor' : 'none'} />
     </button>
@@ -105,14 +110,15 @@ function Rating({ listing }) {
 }
 
 function Price({ listing }) {
+  const { t } = useLocale();
   if (!Number(listing.pricePerNight)) {
-    return <p className="prime-label">Price on request</p>;
+    return <p className="prime-label">{t('listing.priceOnRequest')}</p>;
   }
   return (
     <p className="text-[14px] text-prime-ink">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-prime-muted">From </span>
+      <span className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('card.from')} </span>
       <span className="font-semibold tabular-nums">{formatMoney(listing.pricePerNight, listing.currency)}</span>
-      <span className="text-[12.5px] font-light text-prime-muted"> / night</span>
+      <span className="text-[12.5px] font-light text-prime-muted"> {t('card.perNight')}</span>
     </p>
   );
 }
@@ -144,8 +150,9 @@ export function ListingCardSkeleton({ className, row = false }) {
 
 /** Wide horizontal layout for the list view on the stays page */
 export function ListingRow({ listing, priority = false }) {
+  const { t, term } = useLocale();
   const href = `/listings/${listing.slug}`;
-  const specs = specsOf(listing);
+  const specs = specsOf(listing, t);
   const amenities = (listing.amenities || []).slice(0, 4);
   return (
     <article className="group grid min-w-0 grid-cols-1 gap-6 border-t border-prime-line pt-8 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-10 lg:gap-14">
@@ -162,12 +169,12 @@ export function ListingRow({ listing, priority = false }) {
 
       <div className="flex min-w-0 flex-col md:py-2">
         <div className="flex items-start justify-between gap-4">
-          <p className="prime-label min-w-0 truncate">{metaOf(listing)}</p>
+          <p className="prime-label min-w-0 truncate">{metaOf(listing, term)}</p>
           <Rating listing={listing} />
         </div>
         <h3 className="mt-3 font-display text-[1.75rem] font-light leading-[1.12] tracking-[-0.025em] text-prime-ink text-balance md:text-[2.1rem]">
           <Link to={href} className="transition-colors hover:text-prime-gold">
-            {listing.title}
+            {term(listing.title)}
           </Link>
         </h3>
         {specs.length ? (
@@ -186,7 +193,7 @@ export function ListingRow({ listing, priority = false }) {
           <ul className="mt-5 flex flex-wrap gap-2">
             {amenities.map((a) => (
               <li key={a} className="border border-prime-line px-3 py-1 text-[11.5px] font-medium text-prime-muted">
-                {a}
+                {term(a)}
               </li>
             ))}
           </ul>
@@ -194,7 +201,7 @@ export function ListingRow({ listing, priority = false }) {
         <div className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-prime-line pt-5 md:mt-8">
           <Price listing={listing} />
           <Link to={href} className="prime-link">
-            View stay
+            {t('card.viewStay')}
           </Link>
         </div>
       </div>
@@ -203,8 +210,9 @@ export function ListingRow({ listing, priority = false }) {
 }
 
 export default function ListingCard({ listing, priority = false, featured = false, sizes = GRID_SIZES, className }) {
+  const { t, term } = useLocale();
   const href = `/listings/${listing.slug}`;
-  const specs = specsOf(listing);
+  const specs = specsOf(listing, t);
 
   return (
     <article className={cn('group relative flex min-w-0 flex-col', className)}>
@@ -222,7 +230,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
 
       <div className="flex flex-1 flex-col pt-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="prime-label min-w-0 truncate">{metaOf(listing)}</p>
+          <p className="prime-label min-w-0 truncate">{metaOf(listing, term)}</p>
           <Rating listing={listing} />
         </div>
         <h3
@@ -232,7 +240,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
           )}
         >
           <Link to={href} className="prime-tap bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat transition-[background-size] duration-500 ease-prime group-hover:bg-[length:100%_1px]">
-            {listing.title}
+            {term(listing.title)}
           </Link>
         </h3>
         {specs.length ? <p className="mt-2 text-[13px] font-light text-prime-muted">{specs.join('  ·  ')}</p> : null}

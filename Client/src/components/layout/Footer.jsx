@@ -42,7 +42,7 @@ const SOCIAL = [
 ];
 
 export default function Footer() {
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   useSite();
   const social = SOCIAL.filter(([key]) => brand.social[key] && brand.social[key] !== '#');
 
@@ -73,7 +73,7 @@ export default function Footer() {
           <div>
             <img src={brand.logoLight} alt={brand.name} width="640" height="228" loading="lazy" className="h-10 w-auto" />
             <address className="mt-9 space-y-2.5 text-[13.5px] font-light not-italic leading-relaxed text-white/60">
-              <p>{brand.address}</p>
+              <p>{term(brand.address)}</p>
               <a href={`tel:${brand.phone || brand.whatsapp}`} className="prime-tap flex gap-2 transition hover:text-white">
                 <span className="text-prime-gold-soft">m.</span>
                 <span dir="ltr">{brand.phoneDisplay}</span>
@@ -121,7 +121,7 @@ export default function Footer() {
             <button
               type="button"
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              aria-label="Back to top"
+              aria-label={t('a11y.backToTop')}
               className="ms-3 grid h-10 w-10 place-items-center border border-white/15 text-white/70 transition hover:border-white hover:bg-white hover:text-brand-black"
             >
               <ArrowUp size={16} strokeWidth={1.5} />

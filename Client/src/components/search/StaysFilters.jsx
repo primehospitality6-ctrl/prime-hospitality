@@ -91,7 +91,7 @@ export function findDestination(destinations, value) {
 
 /** Horizontal filter bar for the stays page — Destination › Property › Unit type, plus brand / dates / guests */
 export default function StaysFiltersBar({ filters, destinations, unitTypes, brands, onChange, onClear }) {
-  const { localeTag } = useLocale();
+  const { localeTag, t, term } = useLocale();
   const rootRef = useRef(null);
   const [openMenu, setOpenMenu] = useState(null);
 
@@ -99,11 +99,11 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
   const destination = findDestination(destinations, filters.destination);
   const propertyGroups = destination ? [destination] : destinations;
 
-  const propertyLabel = properties.find((p) => p.id === filters.compound)?.name || 'Any property';
-  const guestsLabel = filters.guests ? `${filters.guests}+` : 'Any';
+  const propertyLabel = term(properties.find((p) => p.id === filters.compound)?.name) || t('filters.anyProperty');
+  const guestsLabel = filters.guests ? `${filters.guests}+` : t('filters.any');
   const datesLabel =
     filters.checkIn || filters.checkOut
-      ? `${formatStayDate(filters.checkIn, 'Arrive', localeTag)} – ${formatStayDate(filters.checkOut, 'Depart', localeTag)}`
+      ? `${formatStayDate(filters.checkIn, t('home.arrive'), localeTag)} – ${formatStayDate(filters.checkOut, t('home.depart'), localeTag)}`
       : '';
 
   const activeCount = [
@@ -137,23 +137,23 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
       <div className="overflow-visible border border-prime-line bg-prime-surface">
         <div className="grid divide-y divide-prime-line md:grid-cols-2 md:divide-x md:divide-y-0 lg:grid-cols-[1fr_1.2fr_1.25fr_0.85fr_0.85fr_0.7fr_auto] rtl:md:divide-x-reverse">
           <Dropdown
-            label="Destination"
+            label={t('home.destination')}
             icon={MapPin}
-            valueLabel={destination?.name || 'All destinations'}
+            valueLabel={term(destination?.name) || t('search.allDestinations')}
             open={openMenu === 'destination'}
             onToggle={() => toggle('destination')}
           >
             <MenuItem
               active={!filters.destination}
-              title="All destinations"
+              title={t('search.allDestinations')}
               onClick={() => pick({ destination: '', compound: '' })}
             />
             {destinations.map((d) => (
               <MenuItem
                 key={d.id}
                 active={destination?.id === d.id}
-                title={d.name}
-                subtitle={`${d.projectCount ?? d.projects?.length ?? 0} properties`}
+                title={term(d.name)}
+                subtitle={t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 })}
                 onClick={() => {
                   const keep = (d.projects || []).some((p) => p.id === filters.compound) ? filters.compound : '';
                   pick({ destination: d.id, compound: keep });
@@ -163,23 +163,23 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
           </Dropdown>
 
           <Dropdown
-            label="Property"
+            label={t('filters.property')}
             icon={Building2}
             valueLabel={propertyLabel}
             open={openMenu === 'compound'}
             onToggle={() => toggle('compound')}
             panelClassName="min-w-[280px]"
           >
-            <MenuItem active={!filters.compound} title="Any property" onClick={() => pick({ compound: '' })} />
+            <MenuItem active={!filters.compound} title={t('filters.anyProperty')} onClick={() => pick({ compound: '' })} />
             {propertyGroups.map((group) => (
               <div key={group.id}>
-                {!destination && <MenuGroup title={group.name} />}
+                {!destination && <MenuGroup title={term(group.name)} />}
                 {(group.projects || []).map((p) => (
                   <MenuItem
                     key={p.id}
                     active={filters.compound === p.id}
-                    title={p.name}
-                    subtitle={[p.brand && `Prime ${p.brand}`, p.city].filter(Boolean).join(' · ')}
+                    title={term(p.name)}
+                    subtitle={[p.brand && `Prime ${p.brand}`, p.city].filter(Boolean).map(term).join(' · ')}
                     onClick={() => pick({ compound: p.id, destination: group.id })}
                   />
                 ))}
@@ -188,7 +188,7 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
           </Dropdown>
 
           <div className="min-w-0 px-3 py-2.5 sm:px-4">
-            <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">Dates</p>
+            <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">{t('common.dates')}</p>
             <DateRangePicker
               checkin={filters.checkIn || ''}
               checkout={filters.checkOut || ''}
@@ -200,40 +200,40 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
           </div>
 
           <Dropdown
-            label="Unit type"
+            label={t('listing.specUnitType')}
             icon={BedDouble}
-            valueLabel={filters.unitType || 'All types'}
+            valueLabel={term(filters.unitType) || t('filters.allTypes')}
             open={openMenu === 'unitType'}
             onToggle={() => toggle('unitType')}
             panelClassName="min-w-[180px]"
           >
-            <MenuItem active={!filters.unitType} title="All types" onClick={() => pick({ unitType: '' })} />
+            <MenuItem active={!filters.unitType} title={t('filters.allTypes')} onClick={() => pick({ unitType: '' })} />
             {unitTypes.map((type) => (
               <MenuItem
                 key={type}
                 active={filters.unitType === type}
-                title={type}
+                title={term(type)}
                 onClick={() => pick({ unitType: type })}
               />
             ))}
           </Dropdown>
 
           <Dropdown
-            label="Brand"
+            label={t('listing.specBrand')}
             icon={Gem}
-            valueLabel={filters.brand ? `Prime ${filters.brand}` : 'All brands'}
+            valueLabel={filters.brand ? term(`Prime ${filters.brand}`) : t('filters.allBrands')}
             open={openMenu === 'brand'}
             onToggle={() => toggle('brand')}
             panelClassName="min-w-[180px]"
           >
-            <MenuItem active={!filters.brand} title="All brands" onClick={() => pick({ brand: '' })} />
+            <MenuItem active={!filters.brand} title={t('filters.allBrands')} onClick={() => pick({ brand: '' })} />
             {brands.map((b) => (
-              <MenuItem key={b} active={filters.brand === b} title={`Prime ${b}`} onClick={() => pick({ brand: b })} />
+              <MenuItem key={b} active={filters.brand === b} title={term(`Prime ${b}`)} onClick={() => pick({ brand: b })} />
             ))}
           </Dropdown>
 
           <Dropdown
-            label="Guests"
+            label={t('home.searchGuests')}
             icon={Users}
             valueLabel={guestsLabel}
             open={openMenu === 'guests'}
@@ -244,16 +244,16 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
               <button
                 type="button"
                 onClick={() => onChange({ guests: String(Math.max(0, Number(filters.guests || 0) - 1) || '') })}
-                aria-label="Fewer guests"
+                aria-label={t('booking.decreaseGuests')}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-prime-line text-lg transition hover:border-prime-ink"
               >
                 −
               </button>
-              <span className="font-display text-3xl font-medium text-prime-ink">{filters.guests || 'Any'}</span>
+              <span className="font-display text-3xl font-medium text-prime-ink">{filters.guests || t('filters.any')}</span>
               <button
                 type="button"
                 onClick={() => onChange({ guests: String(Math.min(12, Number(filters.guests || 0) + 1)) })}
-                aria-label="More guests"
+                aria-label={t('booking.increaseGuests')}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-prime-line text-lg transition hover:border-prime-ink"
               >
                 +
@@ -268,7 +268,7 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
                 onClick={onClear}
                 className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-muted transition hover:text-prime-ink"
               >
-                Clear
+                {t('common.clear')}
               </button>
             ) : null}
             <span className="hidden text-xs text-prime-muted xl:inline">{datesLabel || null}</span>
@@ -281,15 +281,16 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
 
 /** Mobile full sheet — kept for small screens */
 export function StaysFiltersSheet({ onClose, ...props }) {
+  const { t } = useLocale();
   return (
     <div className="flex h-full flex-col bg-prime-sand">
       <div className="flex items-center justify-between border-b border-prime-line px-5 py-4">
-        <p className="font-display text-3xl font-medium text-prime-ink">Filters</p>
+        <p className="font-display text-3xl font-medium text-prime-ink">{t('filters.title')}</p>
         <button
           type="button"
           onClick={onClose}
           className="grid h-10 w-10 place-items-center rounded-full border border-prime-line transition hover:border-prime-ink"
-          aria-label="Close"
+          aria-label={t('common.close')}
         >
           <X size={16} strokeWidth={1.5} />
         </button>
@@ -299,7 +300,7 @@ export function StaysFiltersSheet({ onClose, ...props }) {
       </div>
       <div className="border-t border-prime-line p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button type="button" onClick={onClose} className="prime-btn w-full">
-          Show stays
+          {t('filters.showStays')}
         </button>
       </div>
     </div>
@@ -307,21 +308,22 @@ export function StaysFiltersSheet({ onClose, ...props }) {
 }
 
 export function ActiveFilterPills({ filters, destinations, onRemove, onClear }) {
+  const { t, term } = useLocale();
   const properties = destinations.flatMap((d) => d.projects || []);
   const pills = [];
   if (filters.destination) {
-    pills.push({ key: 'destination', label: findDestination(destinations, filters.destination)?.name || filters.destination });
+    pills.push({ key: 'destination', label: term(findDestination(destinations, filters.destination)?.name || filters.destination) });
   }
   if (filters.compound) {
-    pills.push({ key: 'compound', label: properties.find((p) => p.id === filters.compound)?.name || filters.compound });
+    pills.push({ key: 'compound', label: term(properties.find((p) => p.id === filters.compound)?.name || filters.compound) });
   }
-  if (filters.unitType) pills.push({ key: 'unitType', label: filters.unitType });
-  if (filters.brand) pills.push({ key: 'brand', label: `Prime ${filters.brand}` });
-  if (filters.guests) pills.push({ key: 'guests', label: `${filters.guests}+ guests` });
+  if (filters.unitType) pills.push({ key: 'unitType', label: term(filters.unitType) });
+  if (filters.brand) pills.push({ key: 'brand', label: term(`Prime ${filters.brand}`) });
+  if (filters.guests) pills.push({ key: 'guests', label: t('filters.guestsPlus', { count: filters.guests }) });
   if (filters.checkIn || filters.checkOut) {
     pills.push({
       key: 'dates',
-      label: [filters.checkIn, filters.checkOut].filter(Boolean).join(' → ') || 'Dates',
+      label: [filters.checkIn, filters.checkOut].filter(Boolean).join(' → ') || t('common.dates'),
     });
   }
 
@@ -345,13 +347,14 @@ export function ActiveFilterPills({ filters, destinations, onRemove, onClear }) 
         onClick={onClear}
         className="ms-1 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-muted underline-offset-4 hover:text-prime-ink hover:underline"
       >
-        Clear all
+        {t('filters.clearAll')}
       </button>
     </div>
   );
 }
 
 export function MobileFilterButton({ count, onClick }) {
+  const { t } = useLocale();
   return (
     <button
       type="button"
@@ -359,7 +362,7 @@ export function MobileFilterButton({ count, onClick }) {
       className="inline-flex items-center gap-2 border border-prime-line bg-white px-4 py-2.5 text-sm font-medium text-prime-ink md:hidden"
     >
       <SlidersHorizontal size={15} />
-      Filters
+      {t('filters.title')}
       {count > 0 ? (
         <span className="flex h-5 min-w-5 items-center justify-center bg-prime-gold px-1.5 text-[11px] font-semibold text-prime-ink">
           {count}

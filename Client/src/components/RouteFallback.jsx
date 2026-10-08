@@ -1,8 +1,10 @@
 import { brand } from '../theme/brand';
+import { useLocale } from '../context/LocaleContext';
 
 export default function RouteFallback() {
+  const { t } = useLocale();
   return (
-    <div className="flex min-h-vh-100 items-center justify-center bg-prime-sand" role="status" aria-label="Loading">
+    <div className="flex min-h-vh-100 items-center justify-center bg-prime-sand" role="status" aria-label={t('common.loading')}>
       <img
         src={brand.logoDark}
         alt=""

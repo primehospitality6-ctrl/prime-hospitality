@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react';
 import { useLocale } from '../../context/LocaleContext';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const WEEKDAYS_AR = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
 
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const isSameDay = (a, b) =>
@@ -246,7 +247,7 @@ export default function DateRangePicker({
         </div>
 
         <div className="grid grid-cols-7 gap-1 text-center font-medium">
-          {WEEKDAYS.map((weekday) => (
+          {(localeTag.startsWith('ar') ? WEEKDAYS_AR : WEEKDAYS).map((weekday) => (
             <span
               key={weekday}
               className="text-[11px] font-semibold tracking-[0.14em] text-prime-muted/70"

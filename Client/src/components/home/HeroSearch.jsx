@@ -59,7 +59,7 @@ const valueCls = 'mt-2 block truncate text-[15px] font-normal leading-none track
 
 export default function HeroSearch() {
   const navigate = useNavigate();
-  const { t } = useLocale();
+  const { t, term } = useLocale();
   const projectBtnRef = useRef(null);
   const guestBtnRef = useRef(null);
   const projectMenuRef = useRef(null);
@@ -160,7 +160,7 @@ export default function HeroSearch() {
                 >
                   <span className="flex min-w-0 items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-gold-deep">
                     <MapPin size={12} aria-hidden />
-                    <span className="truncate">{d.name}</span>
+                    <span className="truncate">{term(d.name)}</span>
                   </span>
                   <span className="shrink-0 text-[11px] text-prime-muted">
                     {t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 })}
@@ -176,7 +176,7 @@ export default function HeroSearch() {
                       criteria.compoundId === option.id && 'bg-prime-mist'
                     )}
                   >
-                    <span className="block min-w-0 truncate text-[15px]">{option.name}</span>
+                    <span className="block min-w-0 truncate text-[15px]">{term(option.name)}</span>
                     {option.brand ? (
                       <span className="shrink-0 text-[11px] uppercase tracking-[0.16em] text-prime-muted">{option.brand}</span>
                     ) : null}
@@ -291,7 +291,7 @@ export default function HeroSearch() {
           <button
             type="submit"
             disabled={criteria.checkin && criteria.checkout ? !hasValidRange : false}
-            className="group inline-flex min-h-[3.5rem] w-full items-center justify-center gap-3 bg-prime-ink px-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-sand transition hover:bg-brand-gold disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[180px]"
+            className="group inline-flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-btn bg-prime-ink px-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-sand transition hover:bg-brand-gold disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[180px]"
           >
             {t('home.searchStays')}
             <ArrowRight size={15} strokeWidth={1.5} className="transition-transform group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1" />

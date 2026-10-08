@@ -24,6 +24,7 @@ function compactPrice(amount) {
 }
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const WEEKDAYS_AR = ['ن', 'ث', 'ر', 'خ', 'ج', 'س', 'ح'];
 
 /**
  * Listing check-in / check-out calendar — blocked nights + per-day prices.
@@ -276,7 +277,7 @@ export default function ListingDatePicker({
         {!inline && (
           <button
             type="button"
-            className="ms-auto bg-prime-ink px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-sand transition hover:opacity-90"
+            className="ms-auto rounded-btn bg-prime-ink px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-sand transition hover:opacity-90"
             onClick={() => onClose?.()}
           >
             {t('common.apply')}
@@ -318,6 +319,7 @@ function Month({
   allowPastDates = false,
   showMonthLabel = false,
 }) {
+  const { t } = useLocale();
   const y = month.getFullYear();
   const mo = month.getMonth();
   const first = new Date(y, mo, 1);
@@ -372,9 +374,9 @@ function Month({
         disabled={disabled}
         title={
           turnoverOpen
-            ? 'Checkout day — free for the next check-in'
+            ? t('listing.checkoutDayTitle')
             : blocked
-              ? 'Unavailable'
+              ? t('listing.legendBlocked')
               : price != null
                 ? String(price)
                 : undefined
@@ -438,7 +440,7 @@ function Month({
         </div>
       )}
       <div className="mb-1.5 grid grid-cols-7 gap-px">
-        {WEEKDAYS.map((day, i) => (
+        {(localeTag?.startsWith('ar') ? WEEKDAYS_AR : WEEKDAYS).map((day, i) => (
           <span
             key={`${day}-${i}`}
             className="py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-muted"

@@ -76,6 +76,9 @@ export default {
         brand: '0.32em',
         premium: '0.2em',
       },
+      borderRadius: {
+        btn: '0.625rem',
+      },
       fontSize: {
         'display-2xl': [
           'clamp(2.6rem, 7vw, 6.5rem)',

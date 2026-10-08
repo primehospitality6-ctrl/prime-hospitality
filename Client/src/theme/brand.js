@@ -1,3 +1,5 @@
+import { currencyLabel } from '../i18n/terms';
+
 export const brand = {
   id: 'prime',
   name: 'Prime Hospitality',
@@ -68,5 +70,5 @@ export function listingWhatsAppMessage(pathnameOrUrl) {
 
 export function formatMoney(amount, currency = 'EGP') {
   const n = Number(amount) || 0;
-  return `${n.toLocaleString('en-EG')} ${currency}`;
+  return `${n.toLocaleString('en-EG')} ${currencyLabel(currency)}`;
 }

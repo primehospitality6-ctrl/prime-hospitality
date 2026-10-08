@@ -8,6 +8,7 @@ import SectionIntro from '../ui/SectionIntro';
 import { cn } from '../../utils/cn';
 
 function DestinationTile({ destination, index, meta, lead }) {
+  const { t, term } = useLocale();
   return (
     <Link
       to={`/search?destination=${encodeURIComponent(destination.id)}`}
@@ -33,11 +34,11 @@ function DestinationTile({ destination, index, meta, lead }) {
             lead ? 'text-[2.3rem] md:text-[3.4rem]' : 'text-[1.9rem] md:text-[2.15rem]'
           )}
         >
-          {destination.name}
+          {term(destination.name)}
         </h3>
         {meta ? <p className="mt-3 text-[12px] font-light text-white/70">{meta}</p> : null}
         <span className="mt-5 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/90">
-          Discover
+          {t('home.discover')}
           <span className="h-px w-6 bg-prime-gold-soft transition-all duration-500 ease-prime group-hover:w-12" />
         </span>
       </div>

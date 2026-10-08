@@ -41,7 +41,7 @@ export function PopupCard({ popup, onClose, dir = 'ltr', preview = false }) {
   const btnCls = 'mt-6 inline-flex w-full items-center justify-center bg-prime-night px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-sand transition hover:bg-prime-ink';
   return (
     <div dir={dir} className="relative w-full max-w-md overflow-hidden bg-prime-surface text-prime-ink shadow-2xl">
-      <button type="button" onClick={onClose} aria-label="Close" className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center bg-white/85 text-prime-ink backdrop-blur transition hover:bg-white">
+      <button type="button" onClick={onClose} aria-label={dir === 'rtl' ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center bg-white/85 text-prime-ink backdrop-blur transition hover:bg-white">
         <X size={15} />
       </button>
       {popup.image ? <img src={popup.image} alt="" className="aspect-[16/9] w-full object-cover" /> : null}
