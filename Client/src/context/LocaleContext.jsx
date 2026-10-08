@@ -201,11 +201,6 @@ export const defaultCopy = {
     'listing.viewAll': 'View all',
     'listing.houseRules': 'House rules',
     'listing.guestRegulations': 'Guest regulations',
-    'listing.checkInAfter': 'Check-in after 3:00 PM',
-    'listing.checkOutBefore': 'Check-out before 12:00 PM',
-    'listing.noSmoking': 'No smoking indoors',
-    'listing.noParties': 'No parties or events',
-    'listing.guestsMax': 'Maximum {count} guests',
     'listing.specGuests': 'Guests',
     'listing.specBedrooms': 'Bedrooms',
     'listing.specBaths': 'Baths',
@@ -337,16 +332,6 @@ export const defaultCopy = {
     'listing.readMore': 'Read more',
     'listing.showLess': 'Show less',
     'listing.whatsappInquiry': 'WhatsApp inquiry',
-    'listing.reg0':
-      'Reservations are open to families. Single-gender groups are permitted for non-Arab guests only.',
-    'listing.reg1':
-      'Egyptian and Arab couples must present a valid marriage certificate at check-in.',
-    'listing.reg2':
-      'Visitors should be arranged with Prime in advance and follow compound security rules.',
-    'listing.reg3':
-      'Quiet hours are observed overnight — please respect neighbours and shared spaces.',
-    'listing.reg4':
-      'Damage beyond normal wear may be charged to the guest responsible for the stay.',
     'common.guest': 'Guest',
     'common.close': 'Close',
     'booking.drawerEyebrow': 'Book your stay',
@@ -695,11 +680,6 @@ export const defaultCopy = {
     'listing.viewAll': 'عرض الكل',
     'listing.houseRules': 'قواعد المنزل',
     'listing.guestRegulations': 'لائحة الضيوف',
-    'listing.checkInAfter': 'تسجيل الوصول بعد 3:00 م',
-    'listing.checkOutBefore': 'المغادرة قبل 12:00 م',
-    'listing.noSmoking': 'ممنوع التدخين داخل الوحدة',
-    'listing.noParties': 'ممنوع الحفلات أو المناسبات',
-    'listing.guestsMax': 'الحد الأقصى {count} ضيوف',
     'listing.specGuests': 'الضيوف',
     'listing.specBedrooms': 'غرف النوم',
     'listing.specBaths': 'الحمامات',
@@ -829,16 +809,6 @@ export const defaultCopy = {
     'listing.readMore': 'اقرأ المزيد',
     'listing.showLess': 'عرض أقل',
     'listing.whatsappInquiry': 'استفسار واتساب',
-    'listing.reg0':
-      'الحجوزات متاحة للعائلات. مجموعات الجنس الواحد مسموحة لغير العرب فقط.',
-    'listing.reg1':
-      'يجب على الأزواج المصريين والعرب تقديم شهادة زواج سارية عند الوصول.',
-    'listing.reg2':
-      'يجب ترتيب الزيارات مع برايم مسبقًا والالتزام بقواعد أمن الكومباوند.',
-    'listing.reg3':
-      'يُراعى الهدوء ليلًا — يرجى احترام الجيران والمساحات المشتركة.',
-    'listing.reg4':
-      'الأضرار التي تتجاوز الاستخدام العادي قد تُحمَّل على الضيف المسؤول عن الإقامة.',
     'common.guest': 'ضيف',
     'common.close': 'إغلاق',
     'booking.drawerEyebrow': 'احجز إقامتك',

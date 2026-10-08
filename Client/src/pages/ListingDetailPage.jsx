@@ -16,13 +16,13 @@ import { useWishlist } from '../context/WishlistContext';
 import { applySeo } from '../components/SeoManager';
 import { cn } from '../utils/cn';
 
-const GUEST_REGULATION_KEYS = [
-  'listing.reg0',
-  'listing.reg1',
-  'listing.reg2',
-  'listing.reg3',
-  'listing.reg4',
-];
+/** Rules from Business info; a rule with {guests} is skipped when the unit has no maximum set */
+function ruleTexts(rules, locale, maxGuests) {
+  return (rules || [])
+    .map((r) => (locale === 'ar' && r.ar) || r.en || r.ar || '')
+    .filter((text) => text && (maxGuests || !text.includes('{guests}')))
+    .map((text) => text.replace(/\{guests\}/g, maxGuests));
+}
 
 function localISO(d = new Date()) {
   const y = d.getFullYear();
@@ -128,7 +128,7 @@ export default function ListingDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { t, term, localeTag } = useLocale();
+  const { t, term, locale, localeTag } = useLocale();
   const { has, toggle } = useWishlist();
   const [listing, setListing] = useState(null);
   const [error, setError] = useState('');
@@ -263,6 +263,8 @@ export default function ListingDetailPage() {
   const ownFacilities = listing?.facilities || [];
   const facilities = ownFacilities.length ? ownFacilities : property?.facilities || [];
   const facilitiesHeading = ownFacilities.length ? t('listing.facilities') : t('listing.buildingFacilities');
+  const houseRules = ruleTexts(site.business?.houseRules, locale, listing?.maxGuests);
+  const guestRegulations = ruleTexts(site.business?.guestRegulations, locale, listing?.maxGuests);
 
   const crumbs = useMemo(() => {
     if (!listing) return [];
@@ -492,7 +494,7 @@ export default function ListingDetailPage() {
                   ? [['#location', t('listing.location')]]
                   : []),
                 ['#reviews', t('listing.reviews')],
-                ['#rules', t('listing.houseRules')],
+                ...(houseRules.length ? [['#rules', t('listing.houseRules')]] : []),
               ].map(([href, label]) => (
                 <a
                   key={href}
@@ -621,41 +623,35 @@ export default function ListingDetailPage() {
                 )}
               </section>
 
-              <section id="rules" className="mb-12 scroll-mt-40 border-b border-prime-line pb-12">
-                <h2 className="font-display text-[2rem] font-medium leading-tight text-prime-ink">
-                  {t('listing.houseRules')}
-                </h2>
-                <ul className="mt-5 space-y-2.5 p-0 text-sm">
-                  <li>
-                    <CheckRow>{t('listing.checkInAfter')}</CheckRow>
-                  </li>
-                  <li>
-                    <CheckRow>{t('listing.checkOutBefore')}</CheckRow>
-                  </li>
-                  <li>
-                    <CheckRow>{t('listing.noSmoking')}</CheckRow>
-                  </li>
-                  <li>
-                    <CheckRow>{t('listing.noParties')}</CheckRow>
-                  </li>
-                  <li>
-                    <CheckRow>{t('listing.guestsMax', { count: listing.maxGuests || 8 })}</CheckRow>
-                  </li>
-                </ul>
-              </section>
+              {houseRules.length ? (
+                <section id="rules" className="mb-12 scroll-mt-40 border-b border-prime-line pb-12">
+                  <h2 className="font-display text-[2rem] font-medium leading-tight text-prime-ink">
+                    {t('listing.houseRules')}
+                  </h2>
+                  <ul className="mt-5 space-y-2.5 p-0 text-sm">
+                    {houseRules.map((rule, i) => (
+                      <li key={i}>
+                        <CheckRow>{rule}</CheckRow>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
 
-              <section className="mb-4 pb-4">
-                <h2 className="font-display text-[2rem] font-medium leading-tight text-prime-ink">
-                  {t('listing.guestRegulations')}
-                </h2>
-                <ul className="mt-5 space-y-3 p-0 text-sm">
-                  {GUEST_REGULATION_KEYS.map((key) => (
-                    <li key={key}>
-                      <CheckRow>{t(key)}</CheckRow>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              {guestRegulations.length ? (
+                <section className="mb-4 pb-4">
+                  <h2 className="font-display text-[2rem] font-medium leading-tight text-prime-ink">
+                    {t('listing.guestRegulations')}
+                  </h2>
+                  <ul className="mt-5 space-y-3 p-0 text-sm">
+                    {guestRegulations.map((rule, i) => (
+                      <li key={i}>
+                        <CheckRow>{rule}</CheckRow>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </div>
 
             <aside className="hidden h-fit bg-prime-surface p-8 shadow-premium lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">

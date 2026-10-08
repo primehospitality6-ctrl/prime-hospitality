@@ -54,6 +54,45 @@ function localized(value, max) {
   return Object.fromEntries(LOCALES.map((l) => [l, str(src[l], max)]));
 }
 
+/** {guests} is replaced with the unit's maximum guests on each stay page */
+const DEFAULT_HOUSE_RULES = [
+  { en: 'Check-in after 3:00 PM', ar: 'تسجيل الوصول بعد 3:00 م' },
+  { en: 'Check-out before 12:00 PM', ar: 'المغادرة قبل 12:00 م' },
+  { en: 'No smoking indoors', ar: 'ممنوع التدخين داخل الوحدة' },
+  { en: 'No parties or events', ar: 'ممنوع الحفلات أو المناسبات' },
+  { en: 'Maximum {guests} guests', ar: 'الحد الأقصى {guests} ضيوف' },
+];
+
+const DEFAULT_GUEST_REGULATIONS = [
+  {
+    en: 'Reservations are open to families. Single-gender groups are permitted for non-Arab guests only.',
+    ar: 'الحجوزات متاحة للعائلات. مجموعات الجنس الواحد مسموحة لغير العرب فقط.',
+  },
+  {
+    en: 'Egyptian and Arab couples must present a valid marriage certificate at check-in.',
+    ar: 'يجب على الأزواج المصريين والعرب تقديم شهادة زواج سارية عند الوصول.',
+  },
+  {
+    en: 'Visitors should be arranged with Prime in advance and follow compound security rules.',
+    ar: 'يجب ترتيب الزيارات مع برايم مسبقًا والالتزام بقواعد أمن الكومباوند.',
+  },
+  {
+    en: 'Quiet hours are observed overnight — please respect neighbours and shared spaces.',
+    ar: 'يُراعى الهدوء ليلًا — يرجى احترام الجيران والمساحات المشتركة.',
+  },
+  {
+    en: 'Damage beyond normal wear may be charged to the guest responsible for the stay.',
+    ar: 'الأضرار التي تتجاوز الاستخدام العادي قد تُحمَّل على الضيف المسؤول عن الإقامة.',
+  },
+];
+
+function ruleList(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((r) => localized(r, 400))
+    .filter((r) => r.en || r.ar)
+    .slice(0, 30);
+}
+
 function defaultSite() {
   return {
     business: {
@@ -68,6 +107,8 @@ function defaultSite() {
       facebook: '',
       tiktok: '',
       linkedin: '',
+      houseRules: DEFAULT_HOUSE_RULES,
+      guestRegulations: DEFAULT_GUEST_REGULATIONS,
     },
     announcement: {
       enabled: false,
@@ -134,6 +175,8 @@ const sanitizers = {
       facebook: link(v.facebook),
       tiktok: link(v.tiktok),
       linkedin: link(v.linkedin),
+      houseRules: ruleList(v.houseRules),
+      guestRegulations: ruleList(v.guestRegulations),
     };
   },
 
