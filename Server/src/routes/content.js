@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { getContent, getSlideshow, getSettings, getSite } = require('../lib/cmsStore');
-const { BRANDS, UNIT_TYPES } = require('../data/inventory');
+const { UNIT_TYPES } = require('../data/inventory');
 const { publicSite } = require('../lib/siteContent');
 const defaults = require('../data/mock');
 
@@ -20,8 +20,8 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 router.get(
   '/meta',
   wrap(async (_req, res) => {
-    const { propertyTypes } = await getContent();
-    res.json({ propertyTypes: propertyTypes || [], unitTypes: UNIT_TYPES, brands: BRANDS });
+    const [{ propertyTypes }, site] = await Promise.all([getContent(), getSite()]);
+    res.json({ propertyTypes: propertyTypes || [], unitTypes: UNIT_TYPES, brands: site.brands.items.map((b) => b.name) });
   })
 );
 

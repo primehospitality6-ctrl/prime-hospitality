@@ -115,11 +115,19 @@ function slugify(text) {
     .replace(/^-+|-+$/g, '');
 }
 
+/** Brand names from the CMS (Admin › Brands); the built-in three until the site content is first read */
+let brandNames = BRANDS;
+
+function setBrandNames(names) {
+  brandNames = [...names].sort((a, b) => b.length - a.length);
+}
+
 /** "Prime Select Gleem" → "Select" */
 function brandFromName(name) {
-  const match = String(name || '').match(/^Prime\s+(Inn|Residence|Select)\b/i);
-  if (!match) return '';
-  return BRANDS.find((b) => b.toLowerCase() === match[1].toLowerCase()) || '';
+  const full = String(name || '').trim();
+  const rest = full.replace(/^Prime\s+/i, '').toLowerCase();
+  if (rest === full.toLowerCase()) return '';
+  return brandNames.find((b) => rest === b.toLowerCase() || rest.startsWith(`${b.toLowerCase()} `)) || '';
 }
 
 function sortUnitTypes(list) {
@@ -248,6 +256,7 @@ module.exports = {
   UNIT_TYPE_SPECS,
   INVENTORY,
   brandFromName,
+  setBrandNames,
   buildInventory,
   slugify,
 };

@@ -14,6 +14,7 @@ import StaysFiltersBar, {
 } from '../components/search/StaysFilters';
 import api from '../api/client';
 import { useLocale } from '../context/LocaleContext';
+import { useBrands } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
 const SORT_OPTIONS = [
@@ -56,7 +57,8 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
   const [destinations, setDestinations] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
-  const [brands, setBrands] = useState([]);
+  const brandItems = useBrands();
+  const brands = useMemo(() => brandItems.map((b) => b.name), [brandItems]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
@@ -107,7 +109,6 @@ export default function SearchPage() {
         if (cancelled) return;
         setDestinations(dRes.items || []);
         setUnitTypes(mRes.unitTypes || []);
-        setBrands(mRes.brands || []);
       })
       .catch(() => {});
     return () => {

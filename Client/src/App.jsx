@@ -59,6 +59,7 @@ const MarketingTrackingPage = lazy(() => import('./pages/admin/marketing/Marketi
 const MarketingCampaignsPage = lazy(() => import('./pages/admin/marketing/MarketingCampaignsPage'));
 const AdminSyncPage = lazy(() => import('./pages/admin/AdminSyncPage'));
 const AdminHomepagePage = lazy(() => import('./pages/admin/AdminHomepagePage'));
+const AdminBrandsPage = lazy(() => import('./pages/admin/AdminBrandsPage'));
 const AdminPagesPage = lazy(() => import('./pages/admin/AdminPagesPage'));
 const AdminContentListsPage = lazy(() => import('./pages/admin/AdminContentListsPage'));
 const AdminBusinessPage = lazy(() => import('./pages/admin/AdminBusinessPage'));
@@ -106,6 +107,7 @@ export default function App() {
                       <Route path="sync" element={<AdminSyncPage />} />
                       <Route path="bookings" element={<AdminBookingsPage />} />
                       <Route path="homepage" element={<AdminHomepagePage />} />
+                      <Route path="brands" element={<AdminBrandsPage />} />
                       <Route path="pages" element={<AdminPagesPage />} />
                       <Route path="content" element={<AdminContentListsPage />} />
                       <Route path="marketing" element={<MarketingOverviewPage />} />

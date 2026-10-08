@@ -5,6 +5,7 @@ const { isDatabaseConfigured } = require('../config/database');
 const json = require('./jsonCms');
 const pg = require('./postgresCms');
 const { withCompleteness, isLive } = require('./unitCompleteness');
+const { setBrandNames } = require('../data/inventory');
 
 // Development only: an unreachable database falls back to the local JSON store instead of failing every request
 let databaseUnavailable = false;
@@ -34,6 +35,19 @@ async function getDashboard(...args) {
   return dashboard;
 }
 
+function rememberBrands(site) {
+  setBrandNames((site?.brands?.items || []).map((b) => b.name));
+  return site;
+}
+
+async function getSite(...args) {
+  return rememberBrands(await backend().getSite(...args));
+}
+
+async function saveSite(...args) {
+  return rememberBrands(await backend().saveSite(...args));
+}
+
 function usingDatabase() {
   return isDatabaseConfigured() && !databaseUnavailable;
 }
@@ -49,6 +63,11 @@ function connectionHint(err) {
 }
 
 async function ensureReady() {
+  await prepareStore();
+  await getSite().catch(() => {});
+}
+
+async function prepareStore() {
   if (isDatabaseConfigured()) {
     try {
       if (process.env.DATABASE_AUTO_MIGRATE !== 'false') await pg.applySchema();
@@ -90,8 +109,8 @@ module.exports = {
   getSettings: (...args) => backend().getSettings(...args),
   getContent: (...args) => backend().getContent(...args),
   saveContent: (...args) => backend().saveContent(...args),
-  getSite: (...args) => backend().getSite(...args),
-  saveSite: (...args) => backend().saveSite(...args),
+  getSite,
+  saveSite,
   findUnit: async (...args) => decorate(await backend().findUnit(...args)),
   findCompound: (...args) => backend().findCompound(...args),
   findDestination: (...args) => backend().findDestination(...args),

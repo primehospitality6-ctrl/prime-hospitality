@@ -33,9 +33,10 @@ const SECTION_INFO = {
   },
   brands: {
     name: 'Brands',
-    about: 'Prime Inn, Residence and Select.',
+    about: 'A colour card for each Prime brand.',
     icon: Award,
     keys: ['home.brandsEyebrow', 'home.brandsTitle'],
+    link: ['/admin/brands', 'Manage brands'],
   },
   featured: {
     name: 'Featured stays',

@@ -4,8 +4,7 @@ import { Building2, Pencil, Plus } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, MoveButtons, reorderList } from '../../components/admin/AdminUi';
 import { Badge, ConfirmDialog, Drawer, EmptyState, Field, SearchInput, StatusChips, Toggle, useToast } from '../../components/admin/kit';
-
-const BRANDS = ['Inn', 'Residence', 'Select'];
+import { useBrands } from '../../context/SiteContext';
 
 const DETAIL_FIELDS = [
   ['address', 'Address', 'e.g. Building No.176, South 90th St, New Cairo'],
@@ -58,6 +57,7 @@ const STATUS = {
 
 function PropertyEditor({ open, property, destinations, unitCount, defaults, onClose, onSaved, onDelete }) {
   const toast = useToast();
+  const brands = useBrands();
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -146,11 +146,14 @@ function PropertyEditor({ open, property, destinations, unitCount, defaults, onC
           <Field label="Brand">
             <select className="prime-input" value={form.brand || ''} onChange={(e) => set({ brand: e.target.value })}>
               <option value="">From name</option>
-              {BRANDS.map((b) => (
-                <option key={b} value={b}>
-                  Prime {b}
+              {brands.map((b) => (
+                <option key={b.name} value={b.name}>
+                  Prime {b.name}
                 </option>
               ))}
+              {form.brand && !brands.some((b) => b.name === form.brand) ? (
+                <option value={form.brand}>Prime {form.brand} (removed brand)</option>
+              ) : null}
             </select>
           </Field>
           <Field label="City / area">

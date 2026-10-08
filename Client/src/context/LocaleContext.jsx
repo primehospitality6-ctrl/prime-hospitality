@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { isPreviewFrame, useSite } from './SiteContext';
+import { findBrand, isPreviewFrame, useSite } from './SiteContext';
 import { setActiveLocale, translateTerm } from '../i18n/terms';
 
 /** Built-in guest copy; the admin can override any key per language (Website › Pages & text) */
@@ -117,10 +117,7 @@ export const defaultCopy = {
     'home.statProperties': 'Properties',
     'home.statUnitTypes': 'Unit types',
     'home.brandsEyebrow': 'The collection',
-    'home.brandsTitle': 'Three ways to stay Prime.',
-    'home.brandInn': 'Smart, design-led stays for short city trips and business travel.',
-    'home.brandResidence': 'Serviced apartments with room to live — made for longer stays.',
-    'home.brandSelect': 'Our most distinctive homes, hand-picked and fully serviced.',
+    'home.brandsTitle': 'Choose how you stay Prime.',
     'home.explore': 'Explore',
     'home.featuredTitle': 'Stays worth returning to.',
     'home.trustBody': 'Quiet luxury, considered design and a team that looks after every detail of your stay.',
@@ -597,10 +594,7 @@ export const defaultCopy = {
     'home.statProperties': 'عقارات',
     'home.statUnitTypes': 'أنواع وحدات',
     'home.brandsEyebrow': 'المجموعة',
-    'home.brandsTitle': 'ثلاث طرق للإقامة مع برايم.',
-    'home.brandInn': 'إقامات عملية بتصميم أنيق للرحلات القصيرة ورحلات العمل.',
-    'home.brandResidence': 'شقق مخدومة بمساحة للعيش — مثالية للإقامات الطويلة.',
-    'home.brandSelect': 'أكثر منازلنا تميزًا، مختارة بعناية ومخدومة بالكامل.',
+    'home.brandsTitle': 'اختر طريقتك للإقامة مع برايم.',
     'home.explore': 'استكشف',
     'home.featuredTitle': 'إقامات تستحق العودة.',
     'home.trustBody': 'فخامة هادئة، تصميم مدروس، وفريق يهتم بكل تفاصيل إقامتك.',
@@ -1000,7 +994,9 @@ export function LocaleProvider({ children }) {
     }
   }, [chosen]);
 
-  const overrides = useSite().site.copy;
+  const { site } = useSite();
+  const overrides = site.copy;
+  const brandItems = site.brands?.items;
 
   const t = useCallback((key, vars) => {
     let str = overrides?.[locale]?.[key] || copy[locale]?.[key] || overrides?.en?.[key] || copy.en[key] || key;
@@ -1017,7 +1013,15 @@ export function LocaleProvider({ children }) {
   }, []);
 
   /** Place, property, unit-type and amenity names that come from Kwentra / the CMS in English */
-  const term = useCallback((value) => (locale === 'ar' ? translateTerm(value) : value), [locale]);
+  const term = useCallback(
+    (value) => {
+      if (locale !== 'ar') return value;
+      const cms = findBrand(brandItems, value);
+      if (cms?.nameAr) return /^prime\s/i.test(String(value).trim()) ? `برايم ${cms.nameAr}` : cms.nameAr;
+      return translateTerm(value);
+    },
+    [locale, brandItems]
+  );
 
   const localeTag = locale === 'ar' ? 'ar-EG' : 'en-US';
 

@@ -17,6 +17,7 @@ import {
   Megaphone,
   Menu,
   MessageSquareText,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
   PanelTop,
@@ -54,6 +55,7 @@ const NAV_SECTIONS = [
     label: 'Website',
     items: [
       { to: '/admin/homepage', label: 'Homepage', icon: LayoutTemplate },
+      { to: '/admin/brands', label: 'Brands', icon: Palette },
       { to: '/admin/slideshow', label: 'Hero slideshow', icon: ImageIcon },
       { to: '/admin/pages', label: 'Pages & text', icon: FileText },
       { to: '/admin/content', label: 'FAQs & lists', icon: ListChecks },

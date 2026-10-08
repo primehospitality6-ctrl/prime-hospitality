@@ -5,6 +5,7 @@ import Img from './ui/Img';
 import { formatMoney, subBrand } from '../theme/brand';
 import { useWishlist } from '../context/WishlistContext';
 import { useLocale } from '../context/LocaleContext';
+import { findBrand, useBrands } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
 const GRID_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
@@ -59,13 +60,14 @@ function CardMedia({ listing, href, sizes, priority, className }) {
 /** "Prime Residence" chip in the sub-brand's colour */
 function BrandChip({ name }) {
   const { term } = useLocale();
+  const cms = findBrand(useBrands(), name);
   const sb = subBrand(name);
   return (
     <span
       className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white"
-      style={{ backgroundColor: sb?.color || '#231F20' }}
+      style={{ backgroundColor: cms?.color || sb?.color || '#231F20' }}
     >
-      {term(`Prime ${sb?.name || name}`)}
+      {term(`Prime ${cms?.name || sb?.name || name}`)}
     </span>
   );
 }

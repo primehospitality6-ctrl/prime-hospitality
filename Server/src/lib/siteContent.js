@@ -12,7 +12,8 @@ const TONES = ['night', 'gold', 'sand'];
 const POPUP_TRIGGERS = ['delay', 'scroll'];
 const POPUP_PAGES = ['all', 'home', 'listings', 'search'];
 const POPUP_FREQUENCIES = [0, 1, 7, 30];
-const SECTIONS = ['business', 'announcement', 'popup', 'home', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+const SECTIONS = ['business', 'brands', 'announcement', 'popup', 'home', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+const MAX_BRANDS = 12;
 /** Admin-only sections, left out of the public site document */
 const PRIVATE_SECTIONS = ['campaigns'];
 
@@ -86,6 +87,40 @@ const DEFAULT_GUEST_REGULATIONS = [
   },
 ];
 
+/** Sub-brands in the brand guidelines' colours; with no photo the site uses one of the brand's properties */
+const DEFAULT_BRANDS = [
+  {
+    name: 'Inn',
+    nameAr: 'إن',
+    color: '#00671B',
+    image: '',
+    text: {
+      en: 'Smart, design-led stays for short city trips and business travel.',
+      ar: 'إقامات عملية بتصميم أنيق للرحلات القصيرة ورحلات العمل.',
+    },
+  },
+  {
+    name: 'Residence',
+    nameAr: 'ريزيدنس',
+    color: '#58595B',
+    image: '',
+    text: {
+      en: 'Serviced apartments with room to live — made for longer stays.',
+      ar: 'شقق مخدومة بمساحة للعيش — مثالية للإقامات الطويلة.',
+    },
+  },
+  {
+    name: 'Select',
+    nameAr: 'سيلكت',
+    color: '#8C2433',
+    image: '',
+    text: {
+      en: 'Our most distinctive homes, hand-picked and fully serviced.',
+      ar: 'أكثر منازلنا تميزًا، مختارة بعناية ومخدومة بالكامل.',
+    },
+  },
+];
+
 function ruleList(value) {
   return (Array.isArray(value) ? value : [])
     .map((r) => localized(r, 400))
@@ -110,6 +145,7 @@ function defaultSite() {
       houseRules: DEFAULT_HOUSE_RULES,
       guestRegulations: DEFAULT_GUEST_REGULATIONS,
     },
+    brands: { items: DEFAULT_BRANDS },
     announcement: {
       enabled: false,
       text: { en: '', ar: '' },
@@ -178,6 +214,26 @@ const sanitizers = {
       houseRules: ruleList(v.houseRules),
       guestRegulations: ruleList(v.guestRegulations),
     };
+  },
+
+  brands(v = {}) {
+    const seen = new Set();
+    const items = [];
+    for (const b of Array.isArray(v.items) ? v.items : []) {
+      const name = str(b?.name, 40).replace(/^prime\s+/i, '');
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      const color = str(b?.color, 7);
+      items.push({
+        name,
+        nameAr: str(b?.nameAr, 40),
+        color: /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : '#231F20',
+        image: link(b?.image),
+        text: localized(b?.text, 300),
+      });
+    }
+    return { items: items.slice(0, MAX_BRANDS) };
   },
 
   announcement(v = {}) {

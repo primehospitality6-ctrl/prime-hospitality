@@ -6,6 +6,7 @@ export const HOME_SECTIONS = ['intro', 'properties', 'brands', 'featured', 'trus
 
 export const DEFAULT_SITE = {
   business: {},
+  brands: { items: [] },
   announcement: { enabled: false, text: {}, linkLabel: {}, href: '', startsAt: '', endsAt: '', tone: 'night' },
   popup: {
     enabled: false,
@@ -136,6 +137,17 @@ export function SiteProvider({ children }) {
 
 export function useSite() {
   return useContext(SiteContext);
+}
+
+/** Brands managed in Admin › Brands */
+export function useBrands() {
+  return useContext(SiteContext).site.brands?.items || [];
+}
+
+/** The CMS brand for a brand tag, written either "Select" or "Prime Select" */
+export function findBrand(items, name) {
+  const key = String(name || '').trim().replace(/^prime\s+/i, '').toLowerCase();
+  return (key && (items || []).find((b) => b.name.toLowerCase() === key)) || null;
 }
 
 /** The announcement to show right now, or null (disabled, empty, or outside its dates). */
