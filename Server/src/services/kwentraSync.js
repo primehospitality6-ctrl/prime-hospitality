@@ -4,11 +4,12 @@
  * Tenants: each property can carry its own Kwentra tenant ID; units use their property's tenant,
  * falling back to KWENTRA_TENANT_ID for single-hotel setups.
  *
- * PULL (persisted into the CMS store by syncFromKwentra — page views never wait on the PMS):
+ * PULL (every minute — page views never wait on the PMS for this):
  *  - Room types → website unit types (name, description, capacity), rooms → unit numbers
+ *  - Availability (rooms/availability) for the next 12 months, kept in memory
  *  - Destinations / properties only when Kwentra provides those APIs (KWENTRA_PATH_DESTINATIONS / _PROJECTS)
  * LIVE:
- *  - Availability (rooms/availability) and nightly prices (rate/v2/totalstay)
+ *  - Nightly prices (rate/v2/totalstay), and availability when the minute snapshot does not cover the dates
  * PUSH:
  *  - Reservations (individualreservation/v2) with a vacant room of the booked type
  *  - Payment confirmation as a billing note (+ KWENTRA_PATH_PAYMENT when Kwentra provides one)
@@ -198,8 +199,11 @@ function normalizeRoom(raw = {}) {
     roomTypeId: typeId != null ? String(typeId) : '',
     number: String(raw.number ?? raw.room_number ?? raw.name ?? '').trim(),
     floor: nameOf(firstOf(raw.floor, raw.floor_name, raw.floor_number)),
+    bedType: nameOf(firstOf(raw.bed_type, raw.bedding, raw.bedType)) || '',
   };
 }
+
+const roomIdOf = (unit) => String(unit?.kwentraRoomId || '').trim();
 
 function groupRooms(rawRooms) {
   const byType = new Map();
@@ -447,6 +451,139 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
 const isLinked = (listing) => Boolean(kwentra.isConfigured() && listing?.kwentraRoomTypeId);
 
 /**
+ * Nightly prices for [arrival, departure). A quote that runs past the dates Kwentra has rates for
+ * comes back with no nightly breakdown, so a chunk that returns nothing is split until the nights
+ * that do have a price are found.
+ */
+async function collectNightPrices(listing, arrival, departure, ctx, depth = 0) {
+  const span = Math.round((Date.parse(`${departure}T00:00:00Z`) - Date.parse(`${arrival}T00:00:00Z`)) / 86400000);
+  if (span <= 0) return { prices: {}, rate: null };
+  let prices = {};
+  let rate = null;
+  try {
+    const rates = await roomTypeRates(listing, { arrivalDate: arrival, departureDate: departure, ...ctx });
+    rate = pickRate(rates, 'FLEX');
+    if (rate) prices = nightsToPrices(arrival, rate.nights);
+  } catch (err) {
+    console.warn('[kwentra] rates lookup failed:', err.message);
+  }
+  if (Object.keys(prices).length || span <= 1 || depth >= 6) return { prices, rate };
+  const mid = addDays(arrival, Math.ceil(span / 2));
+  const left = await collectNightPrices(listing, arrival, mid, ctx, depth + 1);
+  const right = await collectNightPrices(listing, mid, departure, ctx, depth + 1);
+  return { prices: { ...left.prices, ...right.prices }, rate: left.rate || right.rate };
+}
+
+/**
+ * Blocked nights for a linked unit. The minute sync's 12-month snapshot is used while it is fresh;
+ * a failed live read falls back to the last snapshot that still covers the dates.
+ */
+async function blockedForListing(listing, from, to, tenantId) {
+  const roomId = roomIdOf(listing);
+  const key = roomId ? `room:${tenantId}|${roomId}` : snapshotKey(tenantId, listing.kwentraRoomTypeId);
+  const snap = availabilitySnapshots.get(key);
+  const covers = (s) => Boolean(s && from >= s.from && to <= s.to);
+  const fresh = (s) => Boolean(s && Date.now() - s.at < AVAILABILITY_FRESH_MS);
+  if (covers(snap) && fresh(snap)) {
+    return { blocked: nightsInside(snap.blocked, from, to), checkoutDates: [] };
+  }
+  // A physical room keeps its own nights. The room-type total only says the category still has
+  // some room free, which is not this room's calendar.
+  if (roomId) {
+    if (covers(snap)) return { blocked: nightsInside(snap.blocked, from, to), checkoutDates: [] };
+    return { blocked: [], checkoutDates: [] };
+  }
+  try {
+    const avail = await kwentra.getAvailability(listing.kwentraRoomTypeId, { from, to, tenantId, fresh: true });
+    rememberAvailability(tenantId, listing.kwentraRoomTypeId, {
+      from,
+      to,
+      blocked: avail.blocked,
+      checkoutDates: avail.checkoutDates || [],
+    });
+    return { blocked: avail.blocked, checkoutDates: avail.checkoutDates || [] };
+  } catch (err) {
+    if (covers(snap)) return { blocked: nightsInside(snap.blocked, from, to), checkoutDates: [] };
+    throw err;
+  }
+}
+
+/** Blocked nights only — the guest calendar reads this, so it does not wait on price quotes. */
+async function blockedNights(listingOrSlug, { from, to } = {}) {
+  const listing = typeof listingOrSlug === 'object' && listingOrSlug ? listingOrSlug : await findUnit(listingOrSlug);
+  if (!listing) {
+    const err = new Error('Listing not found');
+    err.status = 404;
+    throw err;
+  }
+  const { resolveWindow, buildAvailability } = require('../lib/mockCalendar');
+  const window = resolveWindow({ from, to });
+  if (!isLinked(listing)) {
+    const { blocked, checkout_dates } = buildAvailability(listing, window.from, window.to);
+    return { source: 'mock', blocked, checkoutDates: checkout_dates };
+  }
+  const tenantId = await tenantForUnit(listing);
+  const avail = await blockedForListing(listing, window.from, window.to, tenantId);
+  return { source: 'kwentra', blocked: avail.blocked, checkoutDates: avail.checkoutDates };
+}
+
+/** Nights asked room by room. Past this, a night is blocked only when the whole room type is sold out. */
+const ROOM_SCAN_NIGHTS = 92;
+
+/**
+ * Blocked nights for every physical room. Each night is one Kwentra call: the rooms that are
+ * not free that night are blocked. The rest of the year uses the room-type calendar.
+ */
+async function refreshAvailabilitySnapshots(report, fail) {
+  const from = localToday();
+  const to = addCalendarMonths(from, AVAILABILITY_MONTHS);
+  const scanTo = addDays(from, ROOM_SCAN_NIGHTS);
+  const compounds = await listCmsCompounds();
+  let refreshed = 0;
+  for (const target of tenantTargets(compounds)) {
+    let rawRooms;
+    try {
+      rawRooms = await kwentra.listRooms({ tenantId: target.tenantId });
+    } catch (err) {
+      fail(`availability — tenant ${target.tenantId}`, err);
+      continue;
+    }
+    const rooms = rawRooms.map(normalizeRoom).filter((r) => r.id);
+    const blocked = new Map(rooms.map((r) => [r.id, new Set()]));
+    for (let day = from; day < scanTo; day = addDays(day, 1)) {
+      try {
+        const vacant = await kwentra.listRooms({ tenantId: target.tenantId, from: day, to: day, vacantOnly: true });
+        const free = new Set(vacant.map((r) => String(r.id)));
+        for (const room of rooms) if (!free.has(room.id)) blocked.get(room.id).add(day);
+      } catch (err) {
+        fail(`availability ${day}`, err);
+      }
+    }
+    for (const typeId of new Set(rooms.map((r) => r.roomTypeId).filter(Boolean))) {
+      try {
+        const avail = await kwentra.getAvailability(typeId, { from, to, tenantId: target.tenantId, fresh: true });
+        for (const date of avail.blocked || []) {
+          if (date < scanTo) continue;
+          for (const room of rooms) if (room.roomTypeId === typeId) blocked.get(room.id).add(date);
+        }
+      } catch (err) {
+        fail(`availability type ${typeId}`, err);
+      }
+    }
+    for (const room of rooms) {
+      rememberAvailability(
+        target.tenantId,
+        room.roomTypeId,
+        { from, to, blocked: [...blocked.get(room.id)].sort(), checkoutDates: [] },
+        { force: true, key: `room:${target.tenantId}|${room.id}` }
+      );
+      refreshed += 1;
+    }
+  }
+  report.availability = { units: refreshed, refreshed, from, to };
+}
+
+/**
  * Calendar for a unit: Kwentra availability + nightly prices when the unit is linked to a room type,
  * the mock calendar otherwise.
  */
@@ -463,16 +600,19 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
 
   if (isLinked(listing)) {
     const tenantId = await tenantForUnit(listing);
-    const avail = await kwentra.getAvailability(roomTypeId, { from: window.from, to: window.to, tenantId });
-    let prices = {};
+    const avail = await blockedForListing(listing, window.from, window.to, tenantId);
+    // Quotes longer than about 45 nights, and any quote that runs past Kwentra's rate calendar,
+    // come back without nightly prices. Ask in two-week pieces and split a piece that comes back empty.
+    const prices = {};
     let rate = null;
-    const priceTo = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
-    try {
-      const rates = await roomTypeRates(listing, { arrivalDate: window.from, departureDate: priceTo, adults, children, tenantId });
-      rate = pickRate(rates, 'FLEX');
-      if (rate) prices = nightsToPrices(window.from, rate.nights);
-    } catch (err) {
-      console.warn('[kwentra] rates lookup failed:', err.message);
+    let cursor = window.from;
+    const priceEnd = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
+    while (cursor < priceEnd) {
+      const departure = addDays(cursor, 14) < priceEnd ? addDays(cursor, 14) : priceEnd;
+      const piece = await collectNightPrices(listing, cursor, departure, { adults, children, tenantId });
+      Object.assign(prices, piece.prices);
+      rate = rate || piece.rate;
+      cursor = departure;
     }
     return {
       source: 'kwentra',
@@ -598,12 +738,14 @@ function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelI
   };
 }
 
-/** First room of the type that is vacant for the whole stay */
-async function findVacantRoom({ tenantId, roomTypeId, arrivalDate, departureDate }) {
+/** The booked room, or the first room of the type, that is vacant for the whole stay */
+async function findVacantRoom({ tenantId, roomTypeId, roomId, arrivalDate, departureDate }) {
   const rooms = (
     await kwentra.listRooms({ tenantId, roomTypeId, from: arrivalDate, to: addDays(departureDate, -1), vacantOnly: true })
   ).map(normalizeRoom);
-  const room = rooms.find((r) => r.id && (!r.roomTypeId || r.roomTypeId === String(roomTypeId)));
+  const room = roomId
+    ? rooms.find((r) => r.id === String(roomId))
+    : rooms.find((r) => r.id && (!r.roomTypeId || r.roomTypeId === String(roomTypeId)));
   if (!room) return null;
   return { ...room, ref: process.env.KWENTRA_ROOM_REF === 'number' ? room.number : room.id };
 }
@@ -621,9 +763,22 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
   const tenantId = await tenantForUnit(listing);
   const path = kwentra.pathFor('reservations');
   try {
-    const room = await findVacantRoom({ tenantId, roomTypeId, arrivalDate: booking.arrivalDate, departureDate: booking.departureDate });
+    const room = await findVacantRoom({
+      tenantId,
+      roomTypeId,
+      roomId: roomIdOf(listing),
+      arrivalDate: booking.arrivalDate,
+      departureDate: booking.departureDate,
+    });
     if (!room) {
-      return { pushed: false, conflict: true, path, error: 'No vacant room of this type in Kwentra for those dates' };
+      return {
+        pushed: false,
+        conflict: true,
+        path,
+        error: roomIdOf(listing)
+          ? 'This room is blocked in Kwentra for those dates'
+          : 'No vacant room of this type in Kwentra for those dates',
+      };
     }
     const offered =
       rates ||
@@ -735,8 +890,8 @@ async function pushPaidBooking(booking, payment = {}) {
     const created = await pushReservation({ booking, listing, guestProfileId: profileId, ratePlan: plan, hold: false });
     if (!created.pushed) {
       const why = created.conflict ? 'no room of this type is free in Kwentra any more' : `Kwentra refused the reservation (${created.error || created.reason})`;
-      return {
-        pushed: false,
+    return {
+      pushed: false,
         profileId,
         errors: [created.error || created.reason],
         issue: `Guest paid but ${why}. Book it by hand in Kwentra or refund the guest.`,
@@ -889,6 +1044,41 @@ function pick(obj, keys) {
 
 const syncState = { running: false, last: null, timer: null, debounce: null, pending: false, lastTrigger: null };
 
+/** Last Kwentra availability read per tenant + room type. The minute sync fills a 12-month window. */
+const availabilitySnapshots = new Map();
+const AVAILABILITY_MONTHS = 12;
+const AVAILABILITY_FRESH_MS = 3 * 60_000;
+
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addCalendarMonths(iso, n) {
+  const [y, m, day] = iso.split('-').map(Number);
+  const d = new Date(y, m - 1, day);
+  d.setMonth(d.getMonth() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function snapshotKey(tenantId, roomTypeId) {
+  return `${tenantId}|${roomTypeId}`;
+}
+
+function rememberAvailability(tenantId, roomTypeId, snap, { force = false, key = snapshotKey(tenantId, roomTypeId) } = {}) {
+  const prev = availabilitySnapshots.get(key);
+  if (!force && prev) {
+    const prevSpan = Date.parse(prev.to) - Date.parse(prev.from);
+    const nextSpan = Date.parse(snap.to) - Date.parse(snap.from);
+    if (prevSpan > nextSpan && Date.now() - prev.at < AVAILABILITY_FRESH_MS) return;
+  }
+  availabilitySnapshots.set(key, { ...snap, at: Date.now() });
+}
+
+function nightsInside(blocked, from, to) {
+  return (blocked || []).filter((d) => d >= from && d < to);
+}
+
 async function syncDestinationsAndProperties(report, fail) {
   const [destRes, projRes] = await Promise.allSettled([pullDestinations(), pullProjects()]);
   const kwDestinations = destRes.status === 'fulfilled' ? destRes.value.items : (fail('destinations', destRes.reason), []);
@@ -951,7 +1141,74 @@ async function syncDestinationsAndProperties(report, fail) {
   }
 }
 
-/** Room types + rooms of one tenant → unit types of the properties that use that tenant */
+function uniqueSlug(slugs, base) {
+  let slug = base || 'room';
+  for (let n = 2; slugs.has(slug); n += 1) slug = `${base}-${n}`;
+  slugs.add(slug);
+  return slug;
+}
+
+/** One guest listing per physical room, copying photos and details from the room-type listing. */
+async function ensureRoomUnit({ room, type, template, home, units, slugs, report }) {
+  const title = `${type.title} · ${room.number}`;
+  const existing = units.find((u) => roomIdOf(u) === room.id);
+  const inherit = (key) => {
+    const fromTemplate = template?.[key];
+    if (Array.isArray(fromTemplate) ? fromTemplate.length : fromTemplate) return fromTemplate;
+    return type[key];
+  };
+  if (!existing) {
+    const created = await createUnit({
+      title,
+      slug: uniqueSlug(slugs, slugify(`${type.title} ${room.number}`) || `room-${room.id}`),
+      compoundId: template?.compoundId || home?.id || '',
+      propertyType: inherit('propertyType') || type.title,
+      bedrooms: inherit('bedrooms') || 1,
+      bathrooms: inherit('bathrooms') || 1,
+      maxGuests: inherit('maxGuests') || 2,
+      areaSqm: inherit('areaSqm') || 0,
+      pricePerNight: inherit('pricePerNight') || 0,
+      currency: template?.currency || type.currency || 'EGP',
+      description: inherit('description') || `${type.title}, room ${room.number}.`,
+      amenities: inherit('amenities')?.length ? inherit('amenities') : ['Wi-Fi'],
+      images: template?.images || [],
+      driveFolderUrl: template?.driveFolderUrl || '',
+      kwentraRoomTypeId: type.kwentraRoomTypeId,
+      kwentraRoomId: room.id,
+      unitNumbers: [room.number],
+      floor: room.floor || '',
+      bedType: room.bedType || template?.bedType || '',
+      published: true,
+    });
+    units.push(created);
+    report.units.created += 1;
+    return;
+  }
+  const patch = {};
+  if (!existing.compoundId && (template?.compoundId || home?.id)) patch.compoundId = template?.compoundId || home.id;
+  if (!existing.images?.length && template?.images?.length) patch.images = template.images;
+  if (!existing.driveFolderUrl && template?.driveFolderUrl) patch.driveFolderUrl = template.driveFolderUrl;
+  if (!existing.description) patch.description = inherit('description') || existing.description;
+  if (!existing.pricePerNight && inherit('pricePerNight')) patch.pricePerNight = inherit('pricePerNight');
+  if (!existing.areaSqm && inherit('areaSqm')) patch.areaSqm = inherit('areaSqm');
+  if (!existing.bedrooms && inherit('bedrooms')) patch.bedrooms = inherit('bedrooms');
+  if (!existing.bathrooms && inherit('bathrooms')) patch.bathrooms = inherit('bathrooms');
+  if (!existing.maxGuests && inherit('maxGuests')) patch.maxGuests = inherit('maxGuests');
+  if (!existing.amenities?.length && inherit('amenities')?.length) patch.amenities = inherit('amenities');
+  if (!existing.propertyType) patch.propertyType = inherit('propertyType') || type.title;
+  if (existing.title === type.title || !existing.title) patch.title = title;
+  if (!existing.unitNumbers?.length) patch.unitNumbers = [room.number];
+  if (!existing.kwentraRoomTypeId) patch.kwentraRoomTypeId = type.kwentraRoomTypeId;
+  if (Object.keys(patch).length) {
+    const saved = await updateUnit(existing.id, patch);
+    if (saved) Object.assign(existing, saved);
+    report.units.updated += 1;
+  } else {
+    report.units.unchanged += 1;
+  }
+}
+
+/** Room types + physical rooms of one tenant → one website listing per room */
 async function syncTenant(target, compounds, report, fail) {
   const label = target.compounds.length ? target.compounds.map((c) => c.name).join(', ') : `tenant ${target.tenantId || '(default)'}`;
   let types;
@@ -961,12 +1218,13 @@ async function syncTenant(target, compounds, report, fail) {
     fail(`unit types — ${label}`, err);
     return;
   }
-  let roomsByType = new Map();
+  let rawRooms = [];
   try {
-    roomsByType = groupRooms(await kwentra.listRooms({ tenantId: target.tenantId }));
+    rawRooms = (await kwentra.listRooms({ tenantId: target.tenantId })).map(normalizeRoom).filter((r) => r.id && r.number);
   } catch (err) {
     fail(`rooms — ${label}`, err);
   }
+  const roomsByType = groupRooms(rawRooms);
 
   const tenantOf = new Map(compounds.map((c) => [c.id, String(c.kwentraTenantId || '').trim()]));
   const ownIds = new Set(target.compounds.map((c) => c.id));
@@ -980,46 +1238,50 @@ async function syncTenant(target, compounds, report, fail) {
   report.tenants.push({ tenantId: target.tenantId, properties: target.compounds.map((c) => c.name), roomTypes: types.length });
 
   for (const t of types) {
-    const rooms = roomsByType.get(t.kwentraRoomTypeId);
+    const grouped = roomsByType.get(t.kwentraRoomTypeId);
+    const typeRooms = rawRooms.filter((r) => r.roomTypeId === t.kwentraRoomTypeId);
     const incoming = { ...t };
-    if (rooms) {
-      incoming.unitNumbers = rooms.unitNumbers;
-      incoming.roomCount = rooms.unitNumbers.length;
-      if (!incoming.floor && rooms.floors.size) incoming.floor = [...rooms.floors].join(', ');
+    if (grouped) {
+      incoming.unitNumbers = grouped.unitNumbers;
+      incoming.roomCount = grouped.unitNumbers.length;
+      if (!incoming.floor && grouped.floors.size) incoming.floor = [...grouped.floors].join(', ');
     }
-    const found =
-      units.find((u) => u.kwentraRoomTypeId && String(u.kwentraRoomTypeId) === t.kwentraRoomTypeId) ||
-      (home && units.find((u) => !u.kwentraRoomTypeId && u.compoundId === home.id && norm(u.title) === norm(t.title)));
+    let template =
+      units.find((u) => !roomIdOf(u) && u.kwentraRoomTypeId && String(u.kwentraRoomTypeId) === t.kwentraRoomTypeId) ||
+      (home && units.find((u) => !roomIdOf(u) && !u.kwentraRoomTypeId && u.compoundId === home.id && norm(u.title) === norm(t.title)));
 
-    if (!found) {
+    if (!template) {
       const fields = pick(incoming, UNIT_PMS_FIELDS);
-      const base = slugify(`${home?.name || ''} ${t.title}`) || `room-type-${t.kwentraRoomTypeId}`;
-      let slug = base;
-      for (let n = 2; slugs.has(slug); n += 1) slug = `${base}-${n}`;
-      slugs.add(slug);
-      await createUnit({
+      template = await createUnit({
         ...fields,
-        slug,
+        slug: uniqueSlug(slugs, slugify(`${home?.name || ''} ${t.title}`) || `room-type-${t.kwentraRoomTypeId}`),
         compoundId: home?.id || '',
-        // Each unit needs its own Drive gallery; the completeness check keeps it hidden until then
         images: [],
         driveFolderUrl: '',
         kwentraRoomTypeId: t.kwentraRoomTypeId,
         kwentraSnapshot: fields,
-        published: true,
+        // The category stays hidden once its rooms are listed on their own.
+        published: typeRooms.length === 0,
       });
+      units.push(template);
       report.units.created += 1;
-      continue;
+    } else {
+      const patch = mergeFromPms(template, incoming, UNIT_PMS_FIELDS);
+      if (!template.kwentraRoomTypeId) patch.kwentraRoomTypeId = t.kwentraRoomTypeId;
+      if (!template.compoundId && home) patch.compoundId = home.id;
+      if (typeRooms.length && template.published !== false) patch.published = false;
+      if (Object.keys(patch).length) {
+        const saved = await updateUnit(template.id, patch);
+        if (saved) template = saved;
+        else Object.assign(template, patch);
+        report.units.updated += 1;
+      } else {
+        report.units.unchanged += 1;
+      }
     }
 
-    const patch = mergeFromPms(found, incoming, UNIT_PMS_FIELDS);
-    if (!found.kwentraRoomTypeId) patch.kwentraRoomTypeId = t.kwentraRoomTypeId;
-    if (!found.compoundId && home) patch.compoundId = home.id;
-    if (Object.keys(patch).length) {
-      await updateUnit(found.id, patch);
-      report.units.updated += 1;
-    } else {
-      report.units.unchanged += 1;
+    for (const room of typeRooms) {
+      await ensureRoomUnit({ room, type: t, template, home, units, slugs, report });
     }
   }
 }
@@ -1054,6 +1316,7 @@ async function syncFromKwentra() {
     for (const target of tenantTargets(compounds)) {
       await syncTenant(target, compounds, report, fail);
     }
+    await refreshAvailabilitySnapshots(report, fail);
 
     const incomplete = (await listCmsUnits()).filter((u) => u.kwentraRoomTypeId && !u.completeness.complete);
     report.incomplete = {
@@ -1069,7 +1332,7 @@ async function syncFromKwentra() {
     syncState.last = report;
     syncState.running = false;
     console.log(
-      `[kwentra-sync] ${report.ok ? 'done' : 'failed'} — ${report.tenants.length} tenant(s), units +${report.units.created} ~${report.units.updated}, ${report.incomplete.count} incomplete (hidden)${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
+      `[kwentra-sync] ${report.ok ? 'done' : 'failed'} — ${report.tenants.length} tenant(s), units +${report.units.created} ~${report.units.updated}, availability ${report.availability?.refreshed ?? 0}/${report.availability?.units ?? 0}, ${report.incomplete.count} incomplete (hidden)${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
     );
     if (syncState.pending) {
       syncState.pending = false;
@@ -1100,9 +1363,7 @@ function requestSync(reason = 'manual', { delayMs = 3_000 } = {}) {
 }
 
 function syncMinutes() {
-  const raw = String(process.env.KWENTRA_SYNC_MINUTES ?? '').trim();
-  const n = raw === '' ? 5 : Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : 5;
+  return 1;
 }
 
 async function syncStatus() {
@@ -1148,7 +1409,7 @@ async function syncStatus() {
   };
 }
 
-/** Sync once at boot, then every KWENTRA_SYNC_MINUTES (0 = only manual syncs). */
+/** Sync units and availability once at boot, then every minute. */
 function startAutoSync() {
   if (!kwentra.isConfigured() || syncState.timer) return;
   const run = () => syncFromKwentra().catch((err) => console.warn('[kwentra-sync]', err.message));
@@ -1168,6 +1429,7 @@ module.exports = {
   pullRooms,
   pullUnitsMerged,
   pullAvailability,
+  blockedNights,
   pullDestinations,
   pullProjects,
   pullDestinationsTree,

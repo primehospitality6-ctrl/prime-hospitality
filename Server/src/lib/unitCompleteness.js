@@ -14,8 +14,7 @@ const isStudio = (u) => /studio/i.test(`${u.propertyType || ''} ${u.unitType || 
 const REQUIRED = [
   { key: 'title', label: 'Title', ok: (u) => filled(u.title) },
   { key: 'compoundId', label: 'Property', ok: (u) => filled(u.compoundId) },
-  { key: 'driveFolderUrl', label: 'Google Drive photos folder', ok: (u) => Boolean(extractFolderId(u.driveFolderUrl)) },
-  { key: 'images', label: 'Photos (load them from the Drive folder)', ok: (u) => nonEmptyList(u.images) },
+  { key: 'images', label: 'Photos', ok: (u) => nonEmptyList(u.images) || Boolean(extractFolderId(u.driveFolderUrl)) },
   { key: 'description', label: 'Description', ok: (u) => filled(u.description) },
   { key: 'propertyType', label: 'Property type', ok: (u) => filled(u.propertyType) },
   {

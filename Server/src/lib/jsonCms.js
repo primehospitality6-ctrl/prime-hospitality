@@ -562,6 +562,7 @@ async function updateUnit(idOrSlug, body) {
       'searchOrder',
       'driveFolderUrl',
       'kwentraRoomTypeId',
+      'kwentraRoomId',
     ];
     for (const key of scalar) {
       if (body[key] !== undefined) found[key] = body[key];

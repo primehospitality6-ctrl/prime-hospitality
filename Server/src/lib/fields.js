@@ -10,7 +10,7 @@ const COMPOUND_FIELDS = {
 };
 
 const UNIT_FIELDS = {
-  text: ['floor', 'bedType'],
+  text: ['floor', 'bedType', 'kwentraRoomId'],
   num: ['roomCount'],
   list: ['unitNumbers'],
   json: ['kwentraSnapshot'],

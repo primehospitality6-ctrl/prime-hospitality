@@ -239,6 +239,12 @@ async function kwentraFetch(path, options = {}) {
         authBlocked = { status: err.status, message: err.message, until: Date.now() + AUTH_PAUSE_MS };
         console.warn(`[kwentra] login refused (${err.status} ${err.message}) — pausing Kwentra calls for 15 minutes`);
       }
+      const network = !err.status && (err.name === 'TypeError' || err.name === 'AbortError');
+      if (network && attempt < 2) {
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+      if (network && err.cause?.code) err.message = `${err.message} (${err.cause.code})`;
       if (err.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) throw err;
       const retryAfter = Number(err.retryAfter);
       await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : 2000 * 2 ** attempt);

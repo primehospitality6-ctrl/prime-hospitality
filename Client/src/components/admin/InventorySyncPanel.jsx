@@ -63,9 +63,9 @@ function KwentraCard({ onChanged }) {
         <div>
           <h2 className="font-display text-lg font-bold">Kwentra PMS</h2>
           <p className="mt-1 max-w-xl text-sm text-prime-muted">
-            Room types you add or edit in Kwentra appear on the website automatically as unit types (name, description,
-            capacity, room numbers). Availability and prices are read live from Kwentra, and website bookings are created
-            there. Photos, featured and published stay controlled here.
+            Room types and availability refresh from Kwentra every minute on their own. You do not need to click Sync
+            now. Prices are read when a guest opens a calendar, and website bookings are created in Kwentra. Photos,
+            featured and published stay controlled here.
           </p>
         </div>
         <span
@@ -136,10 +136,9 @@ function KwentraCard({ onChanged }) {
       {status?.configured ? (
         <div className="mt-4 space-y-1 text-sm text-prime-muted">
           <p>
-            Instant: Kwentra notifies the website on every inventory change.{' '}
-            {status.autoSyncMinutes
-              ? `Backup check every ${status.autoSyncMinutes} minute${status.autoSyncMinutes === 1 ? '' : 's'}.`
-              : 'Backup check is off.'}
+            Units and availability sync every minute
+            {status.autoSyncMinutes ? ` (every ${status.autoSyncMinutes} minute${status.autoSyncMinutes === 1 ? '' : 's'})` : ''}.
+            Kwentra can also notify the website the moment inventory changes.
           </p>
           <p>
             {last ? `Last sync ${formatTime(last.finishedAt)}` : 'No sync yet since the API started'}

@@ -1,7 +1,8 @@
 const { Router } = require('express');
 const { getPublicUnits, findUnit, findCompound } = require('../lib/cmsStore');
-const { resolveWindow, buildAvailability, buildPricing } = require('../lib/mockCalendar');
-const { publicProperty } = require('../services/kwentraSync');
+const { resolveWindow, buildPricing } = require('../lib/mockCalendar');
+const sync = require('../services/kwentraSync');
+const { publicProperty } = sync;
 
 const router = Router();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -84,14 +85,21 @@ router.get(
       return res.status(404).json({ error: 'Listing not found' });
     }
     const { from, to } = resolveWindow(req.query);
-    const { blocked, checkout_dates } = buildAvailability(item, from, to);
+    let avail;
+    try {
+      avail = await sync.blockedNights(item, { from, to });
+    } catch (err) {
+      console.warn('[availability]', item.slug, err.message);
+      avail = { source: 'kwentra-unreachable', blocked: [], checkoutDates: [] };
+    }
     res.json({
       id: item.id,
       slug: item.slug,
+      source: avail.source,
       from,
       to,
-      blocked,
-      checkout_dates,
+      blocked: (avail.blocked || []).map((b) => (typeof b === 'string' ? { date: b } : b)),
+      checkout_dates: avail.checkoutDates || [],
     });
   })
 );
@@ -104,14 +112,22 @@ router.get(
       return res.status(404).json({ error: 'Listing not found' });
     }
     const { from, to } = resolveWindow(req.query);
-    const { prices, rows, currency } = buildPricing(item, from, to);
+    let avail;
+    try {
+      avail = await sync.pullAvailability(item, { from, to });
+    } catch (err) {
+      console.warn('[pricing]', item.slug, err.message);
+      avail = { source: 'kwentra-unreachable', prices: {}, currency: item.currency || 'EGP' };
+    }
+    const { rows } = buildPricing(item, from, to);
     res.json({
       id: item.id,
       slug: item.slug,
+      source: avail.source,
       from,
       to,
-      currency,
-      prices,
+      currency: avail.currency || item.currency || 'EGP',
+      prices: avail.prices || {},
       rows,
     });
   })
