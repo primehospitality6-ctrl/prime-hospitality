@@ -838,6 +838,49 @@ function buildReservationPayload({ booking, roomTypeId, roomId, rateId, channelI
   };
 }
 
+/**
+ * Other guests are profiles on the reservation (other_names). Special requests are a reservation note.
+ * Remarks is a single line and is not where Kwentra shows either of these.
+ */
+async function sendReservationExtras(reservationId, booking, tenantId) {
+  const extras = { otherGuests: 0, note: false, errors: [] };
+  if (reservationId == null || reservationId === '') return extras;
+
+  const names = (booking?.otherGuestNames || []).map((name) => String(name).trim()).filter(Boolean);
+  const ids = [];
+  for (const name of names) {
+    try {
+      const profile = await kwentra.createGuestProfile({ name }, { tenantId });
+      const profileId = profile?.id;
+      if (profileId != null && profileId !== '') ids.push(Number(profileId));
+    } catch (err) {
+      extras.errors.push(`other guest: ${err.message}`);
+      console.warn('[kwentra] other guest was not added:', err.message);
+    }
+  }
+  if (ids.length) {
+    try {
+      await kwentra.updateReservationFields(reservationId, { other_names: ids }, { tenantId });
+      extras.otherGuests = ids.length;
+    } catch (err) {
+      extras.errors.push(`other guests: ${err.message}`);
+      console.warn('[kwentra] other guest names were not saved on the reservation:', err.message);
+    }
+  }
+
+  const note = String(booking?.notes || '').trim();
+  if (note) {
+    try {
+      await kwentra.addReservationNote(reservationId, note, { type: 'external', tenantId });
+      extras.note = true;
+    } catch (err) {
+      extras.errors.push(`note: ${err.message}`);
+      console.warn('[kwentra] special request was not saved:', err.message);
+    }
+  }
+  return extras;
+}
+
 /** The booked room, or the first room of the type, that is vacant for the whole stay */
 async function findVacantRoom({ tenantId, roomTypeId, roomId, arrivalDate, departureDate }) {
   const rooms = (
@@ -906,7 +949,16 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
     });
     const { id } = await kwentra.createReservation(payload, { tenantId });
     kwentra.clearLiveCache(tenantId);
-    return { pushed: true, path, tenantId, reservationId: id != null ? String(id) : null, room: room.number, rateId: rate?.rateId || null };
+    const extras = await sendReservationExtras(id, booking, tenantId);
+    return {
+      pushed: true,
+      path,
+      tenantId,
+      reservationId: id != null ? String(id) : null,
+      room: room.number,
+      rateId: rate?.rateId || null,
+      extras,
+    };
   } catch (err) {
     return { pushed: false, conflict: isConflict(err), path, status: err.status, error: err.message };
   }
