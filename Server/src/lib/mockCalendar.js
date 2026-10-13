@@ -105,7 +105,9 @@ function buildAnchoredAvailability(listing, from, to) {
 }
 
 /**
- * Per-night guest prices for [from, to). Weekends slightly higher; blocked nights still priced.
+ * Per-night guest prices for [from, to) when Kwentra is not connected.
+ * The amount is the listing's nightly rate itself. Rounding to the nearest 100
+ * turned a 211 EGP rate into 200 on the unit page.
  */
 function buildPricing(listing, from, to) {
   const base = Number(listing.pricePerNight) || 10000;
@@ -113,13 +115,9 @@ function buildPricing(listing, from, to) {
   const prices = {};
   const rows = [];
 
-  eachNight(from, to, (iso, date) => {
-    const dow = date.getDay();
-    const weekend = dow === 5 || dow === 6; // Fri / Sat
-    const bump = weekend ? 1.12 + ((hashSeed(iso + listing.id) % 8) / 100) : 1;
-    const price = Math.round((base * bump) / 100) * 100;
-    prices[iso] = price;
-    rows.push({ date: iso, price, currency, source: 'mock' });
+  eachNight(from, to, (iso) => {
+    prices[iso] = base;
+    rows.push({ date: iso, price: base, currency, source: 'mock' });
   });
 
   return { prices, rows, currency };
