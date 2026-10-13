@@ -152,8 +152,8 @@ function KwentraCard({ onChanged }) {
           <p className={labelCls}>Webhook for Kwentra</p>
           <p className="break-all font-mono text-xs">{webhookUrl}</p>
           <p className="mt-1 text-xs text-prime-muted">
-            Each property&apos;s Kwentra admin registers this URL in Kwentra under Settings › Integrations › Webhooks, for
-            availability, rates and reservations
+            Give this URL to Kwentra. They POST availability, rates, reservations, and room changes here, and the
+            website pulls the new rooms and blocked nights immediately instead of waiting for the minute sync.
             {status.webhook.url ? '' : ' (set PUBLIC_API_URL in Server/.env to show the real address)'}.{' '}
             {status.webhook.auth === 'basic'
               ? 'Authentication: Basic auth with KWENTRA_WEBHOOK_USERNAME / KWENTRA_WEBHOOK_PASSWORD from Server/.env.'

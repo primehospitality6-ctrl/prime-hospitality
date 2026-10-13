@@ -146,9 +146,11 @@ async function applyReservationEvent(body, tenantId = null) {
 /**
  * Kwentra webhooks — POST JSON envelope { event_id, tenant_id, data_type, event_time, data }:
  *   reservation  → data: [{ reservation, postings, accommodation }] — cancellations update website bookings
- *   availability → data: { tenant_id, inventory_counts: [...] }    — drop that tenant's cached availability
- *   rates        → data: { tenant_id, rates: [...] }               — drop cached rates and rate lookups
- * Availability and prices are always read live from Kwentra, so the cache refresh is all that is needed.
+ *   availability → data: { tenant_id, inventory_counts: [...] }    — refresh that tenant's blocked nights
+ *   rates        → data: { tenant_id, rates: [...] }               — drop cached rates, then sync
+ *   room / room type / inventory                                   — sync units immediately
+ * Every accepted event queues one sync. Bursts collapse into a single pull, so the site does not
+ * wait for the minute timer.
  */
 router.post('/kwentra', async (req, res, next) => {
   try {
@@ -161,25 +163,22 @@ router.post('/kwentra', async (req, res, next) => {
     const tenantId = body.tenant_id ?? body.data?.tenant_id ?? null;
     if (alreadySeen(body.event_id)) return res.json({ received: true, duplicate: true });
     console.log('[webhook/kwentra]', type, `tenant ${tenantId ?? '?'}`, body.event_id || '');
+    rememberEvent(body.event_id);
 
+    let reservations;
     if (/reserv/.test(type)) {
       kwentra.clearLiveCache(tenantId ?? undefined);
       const items = Array.isArray(body.data) ? body.data : [body.data || body];
-      const results = [];
-      for (const item of items) results.push(await applyReservationEvent(item || {}, tenantId));
-      rememberEvent(body.event_id);
-      return res.json({ received: true, type, reservations: results });
-    }
-    rememberEvent(body.event_id);
-    if (/avail/.test(type)) {
+      reservations = [];
+      for (const item of items) reservations.push(await applyReservationEvent(item || {}, tenantId));
+    } else if (/avail|room|inventor/.test(type)) {
       kwentra.clearLiveCache(tenantId ?? undefined);
-      return res.json({ received: true, type });
-    }
-    if (/rate/.test(type)) {
+    } else if (/rate/.test(type)) {
       kwentra.clearLookupCache();
-      return res.json({ received: true, type });
     }
-    res.json({ received: true, type, sync: sync.requestSync(`kwentra webhook: ${type}`) });
+
+    const queued = sync.requestSync(`kwentra webhook: ${type}`);
+    res.json({ received: true, type, tenant_id: tenantId, sync: queued, reservations });
   } catch (err) {
     next(err);
   }
