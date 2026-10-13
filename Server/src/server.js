@@ -10,7 +10,6 @@ bootApp()
     const server = http.createServer(app);
     server.listen(port, () => {
       console.log(`[prime] API listening on :${port}`);
-      require('./services/kwentraSync').startAutoSync();
     });
   })
   .catch((err) => {

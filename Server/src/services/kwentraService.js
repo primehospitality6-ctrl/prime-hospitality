@@ -599,6 +599,61 @@ async function webRateIds(tenantId) {
   }
 }
 
+function money(value) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+/** One rate-detail row: a date range, the room types it covers, and the occupancy columns. */
+function normalizeRateDetail(row = {}) {
+  const roomTypeIds = (row.room_types || [])
+    .map((t) => (t && typeof t === 'object' ? t.id : t))
+    .filter((id) => id != null && id !== '')
+    .map(String);
+  const adultAt = (n) =>
+    money(n === 1 ? (row.rate_for_1_adult ?? row._1_adults) : (row[`_${n}_adults`] ?? row[`rate_for_${n}_adults`]));
+  return {
+    roomTypeIds,
+    start: row.start_date || '',
+    end: row.end_date || '',
+    adults: [1, 2, 3, 4, 5, 6].map(adultAt),
+    children: [1, 2, 3].map((n) => money(row[`child_range_${n}`]) ?? 0),
+  };
+}
+
+/**
+ * Website rate definitions for a tenant, from GET /api/reservation/rate/v2/{id}/.
+ * Order is the web=true rate first, then the rates on the website channel.
+ * Each row is the grid Kwentra shows: dates, room type, 1–6 adults, three child ranges.
+ */
+async function rateDefinitions(tenantId) {
+  const tenant = String(tenantId || getTenantId());
+  return cached(`rate-grid:${tenant}`, async () => {
+    const [webIds, channel] = await Promise.all([webRateIds(tenant), websiteChannel(tenant)]);
+    const ids = [];
+    for (const id of [...webIds, ...(channel.rateIds || [])]) {
+      const key = String(id || '');
+      if (key && !ids.includes(key)) ids.push(key);
+    }
+    const definitions = [];
+    for (const id of ids) {
+      const data = await kwentraFetch(`/api/reservation/rate/v2/${id}/`, { tenantId: tenant });
+      const rate = data?.rate && data.rate.rate_details ? data.rate : data;
+      if (rate?.id == null) continue;
+      definitions.push({
+        rateId: String(rate.id),
+        rateCode: rate.code || '',
+        onWeb: webIds.includes(String(rate.id)),
+        onChannel: (channel.rateIds || []).includes(String(rate.id)),
+        rows: (rate.rate_details || [])
+          .map(normalizeRateDetail)
+          .filter((row) => row.roomTypeIds.length && row.start && row.end),
+      });
+    }
+    return definitions;
+  });
+}
+
 /** Markets or sources of a tenant → [{id, code, description}] */
 async function listLookup(key, { tenantId } = {}) {
   return listAll(pathFor(key), {
@@ -1050,6 +1105,7 @@ module.exports = {
   websiteChannel,
   websiteChannelId,
   webRateIds,
+  rateDefinitions,
   listDepartments,
   listLookup,
   websiteMarketSource,

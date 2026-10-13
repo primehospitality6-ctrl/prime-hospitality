@@ -4,14 +4,14 @@
  * Tenants: each property can carry its own Kwentra tenant ID; units use their property's tenant,
  * falling back to KWENTRA_TENANT_ID for single-hotel setups.
  *
- * PULL (every minute — page views never wait on the PMS for this):
- *  - Room types → website unit types (name, description, capacity), rooms → unit numbers
- *  - Availability (rooms/availability) for the next 12 months, kept in memory
- *  - Destinations / properties only when Kwentra provides those APIs (KWENTRA_PATH_DESTINATIONS / _PROJECTS)
+ * PULL (only when Kwentra POSTs the webhook — there is no timer):
+ *  - Room and room-type notices → units
+ *  - Availability notices → blocked nights
+ *  - Reservation notices → the matching website booking
  * LIVE:
- *  - Nightly prices (rate/v2/totalstay), and availability when the minute snapshot does not cover the dates
+ *  - Nightly prices from the rate definition grid (date range + occupancy). Total-stay is only a fallback.
  * PUSH:
- *  - Reservations (individualreservation/v2) with a vacant room of the booked type
+ *  - Reservations (individualreservation/v2) when a guest books on the website
  *  - Payment confirmation as a billing note (+ KWENTRA_PATH_PAYMENT when Kwentra provides one)
  *
  * Photos, featured, published and ordering always stay website-only.
@@ -410,6 +410,99 @@ const nightsToPrices = (arrivalDate, nights = []) =>
       .filter(([, amount]) => amount > 0)
   );
 
+/** 1 adult uses the first column; 6 or more uses the last column ("6 or More"). */
+function adultAmount(row, adults) {
+  const count = Math.min(6, Math.max(1, Number(adults) || 1));
+  const amount = Number(row?.adults?.[count - 1]);
+  return amount > 0 ? amount : 0;
+}
+
+/** The row that covers this night. A later start date is the more specific override. */
+function coveringRow(rows, roomTypeId, date) {
+  const id = String(roomTypeId || '');
+  const hits = (rows || []).filter((row) => row.roomTypeIds.includes(id) && row.start <= date && date <= row.end);
+  hits.sort((a, b) => b.start.localeCompare(a.start) || a.end.localeCompare(b.end));
+  return hits[0] || null;
+}
+
+/**
+ * The row of the rate the website sells for this night.
+ * The web rate is tried first, then the other rates on the website channel.
+ */
+function rateRowForNight(definitions, roomTypeId, date) {
+  for (const definition of definitions || []) {
+    const row = coveringRow(definition.rows, roomTypeId, date);
+    if (!row) continue;
+    return { row, rateId: definition.rateId, rateCode: definition.rateCode };
+  }
+  return null;
+}
+
+/**
+ * Adult column plus one child-range-1 amount per child.
+ * The site asks for a child count (ages 0–12), and child range 1 is that child price on the rate grid.
+ */
+function guestAmount(row, adults, children) {
+  const adult = adultAmount(row, adults);
+  if (!(adult > 0)) return 0;
+  const eachChild = Number(row?.children?.[0]) || 0;
+  return adult + Math.max(0, Number(children) || 0) * eachChild;
+}
+
+/**
+ * Card price: the 2-adult amount of the row covering today.
+ * When nothing covers today, the latest row still defined for that room type —
+ * so a leftover placeholder is not what the listing shows.
+ */
+function cardAmount(definitions, roomTypeId, adults, today) {
+  const current = rateRowForNight(definitions, roomTypeId, today);
+  if (current) {
+    const amount = guestAmount(current.row, adults, 0);
+    if (amount > 0) return amount;
+  }
+  for (const definition of definitions || []) {
+    let best = null;
+    for (const row of definition.rows || []) {
+      if (!row.roomTypeIds.includes(String(roomTypeId))) continue;
+      const amount = adultAmount(row, adults);
+      if (!(amount > 0)) continue;
+      if (!best || row.end > best.end || (row.end === best.end && row.start > best.start)) {
+        best = { end: row.end, start: row.start, amount };
+      }
+    }
+    if (best) return best.amount;
+  }
+  return 0;
+}
+
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Prices for [arrival, departure) from Kwentra's rate grid.
+ * A night with no row is left out — it is not given a made-up amount.
+ */
+async function pricesFromRateGrid(listing, arrival, departure, { adults = 2, children = 0, tenantId } = {}) {
+  const roomTypeId = String(listing?.kwentraRoomTypeId || '');
+  if (!roomTypeId || !arrival || !departure || arrival >= departure) return { prices: {}, occupancy: {}, rate: null };
+  const definitions = await kwentra.rateDefinitions(tenantId);
+  const prices = {};
+  const occupancy = {};
+  let rate = null;
+  for (let date = arrival; date < departure; date = addDays(date, 1)) {
+    const hit = rateRowForNight(definitions, roomTypeId, date);
+    if (!hit) continue;
+    occupancy[date] = { adults: hit.row.adults, children: hit.row.children };
+    const amount = guestAmount(hit.row, adults, children);
+    if (!amount) continue;
+    prices[date] = amount;
+    if (!rate) rate = { rateId: hit.rateId, rateCode: hit.rateCode, quote: amount, nights: [] };
+  }
+  return { prices, occupancy, rate };
+}
+
 function defaultChildAges(children) {
   const age = Number(process.env.KWENTRA_DEFAULT_CHILD_AGE || 8);
   return Array.from({ length: Math.max(0, Number(children) || 0) }, () => age);
@@ -534,13 +627,14 @@ const ROOM_SCAN_NIGHTS = 92;
  * Blocked nights for every physical room. Each night is one Kwentra call: the rooms that are
  * not free that night are blocked. The rest of the year uses the room-type calendar.
  */
-async function refreshAvailabilitySnapshots(report, fail) {
+async function refreshAvailabilitySnapshots(report, fail, onlyTenant = null) {
   const from = localToday();
   const to = addCalendarMonths(from, AVAILABILITY_MONTHS);
   const scanTo = addDays(from, ROOM_SCAN_NIGHTS);
   const compounds = await listCmsCompounds();
   let refreshed = 0;
   for (const target of tenantTargets(compounds)) {
+    if (onlyTenant && String(target.tenantId) !== String(onlyTenant)) continue;
     let rawRooms;
     try {
       rawRooms = await kwentra.listRooms({ tenantId: target.tenantId });
@@ -601,18 +695,23 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
   if (isLinked(listing)) {
     const tenantId = await tenantForUnit(listing);
     const avail = await blockedForListing(listing, window.from, window.to, tenantId);
-    // Quotes longer than about 45 nights, and any quote that runs past Kwentra's rate calendar,
-    // come back without nightly prices. Ask in two-week pieces and split a piece that comes back empty.
-    const prices = {};
+    // The rate definition (date range + adults) is the price. Total-stay is only used when that grid can't be read.
+    let prices = {};
+    let occupancy = {};
     let rate = null;
-    let cursor = window.from;
-    const priceEnd = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
-    while (cursor < priceEnd) {
-      const departure = addDays(cursor, 14) < priceEnd ? addDays(cursor, 14) : priceEnd;
-      const piece = await collectNightPrices(listing, cursor, departure, { adults, children, tenantId });
-      Object.assign(prices, piece.prices);
-      rate = rate || piece.rate;
-      cursor = departure;
+    try {
+      ({ prices, occupancy, rate } = await pricesFromRateGrid(listing, window.from, window.to, { adults, children, tenantId }));
+    } catch (err) {
+      console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
+      let cursor = window.from;
+      const priceEnd = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
+      while (cursor < priceEnd) {
+        const departure = addDays(cursor, 14) < priceEnd ? addDays(cursor, 14) : priceEnd;
+        const piece = await collectNightPrices(listing, cursor, departure, { adults, children, tenantId });
+        Object.assign(prices, piece.prices);
+        rate = rate || piece.rate;
+        cursor = departure;
+      }
     }
     return {
       source: 'kwentra',
@@ -622,6 +721,7 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
       blocked: avail.blocked,
       checkoutDates: avail.checkoutDates,
       prices,
+      occupancy,
       rate: rate ? { id: rate.rateId, code: rate.rateCode } : null,
       currency: listing.currency || process.env.KWENTRA_CURRENCY || 'EGP',
     };
@@ -1334,36 +1434,163 @@ async function syncFromKwentra() {
     console.log(
       `[kwentra-sync] ${report.ok ? 'done' : 'failed'} — ${report.tenants.length} tenant(s), units +${report.units.created} ~${report.units.updated}, availability ${report.availability?.refreshed ?? 0}/${report.availability?.units ?? 0}, ${report.incomplete.count} incomplete (hidden)${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
     );
-    if (syncState.pending) {
-      syncState.pending = false;
-      requestSync('queued during previous sync');
-    }
   }
   return report;
 }
 
-/**
- * Ask for a sync soon (Kwentra webhook, admin actions). Bursts of events collapse into one run;
- * events that arrive mid-sync schedule exactly one follow-up run.
- */
-function requestSync(reason = 'manual', { delayMs = 3_000 } = {}) {
-  if (!kwentra.isConfigured()) return { queued: false, reason: 'not_configured' };
-  syncState.lastTrigger = { reason, at: new Date().toISOString() };
-  if (syncState.running) {
-    syncState.pending = true;
-    return { queued: true, when: 'after current sync' };
-  }
-  clearTimeout(syncState.debounce);
-  syncState.debounce = setTimeout(() => {
-    syncState.debounce = null;
-    syncFromKwentra().catch((err) => console.warn('[kwentra-sync]', err.message));
-  }, delayMs);
-  syncState.debounce.unref?.();
-  return { queued: true, when: `in ${Math.round(delayMs / 1000)}s` };
+const webhookJobs = { units: null, availability: null };
+
+/** Bursts of the same notice collapse into one pull. This is not a timer. */
+function queueWebhook(kind, tenantId, fn) {
+  const key = kind;
+  const slot = webhookJobs[key] || { tenants: new Set(), timer: null, running: false };
+  webhookJobs[key] = slot;
+  slot.tenants.add(tenantId ? String(tenantId) : '*');
+  if (slot.running) return { queued: true, when: 'after the current pull' };
+  clearTimeout(slot.timer);
+  slot.timer = setTimeout(() => {
+    slot.timer = null;
+    slot.running = true;
+    const tenants = [...slot.tenants];
+    slot.tenants.clear();
+    fn(tenants)
+      .catch((err) => console.warn('[kwentra-webhook]', kind, err.message))
+      .finally(() => {
+        slot.running = false;
+        if (slot.tenants.size) queueWebhook(kind, null, fn);
+      });
+  }, 1000);
+  slot.timer.unref?.();
+  return { queued: true, when: 'in 1s' };
 }
 
-function syncMinutes() {
-  return 1;
+async function pullUnitsFromWebhook(tenants) {
+  if (!kwentra.isConfigured()) return;
+  syncState.running = true;
+  const compounds = await listCmsCompounds();
+  const wanted = new Set(tenants.filter((id) => id && id !== '*'));
+  const targets = tenantTargets(compounds).filter((t) => !wanted.size || wanted.has(String(t.tenantId)));
+  const report = {
+    ok: true,
+    kind: 'units',
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    tenants: [],
+    units: { created: 0, updated: 0, unchanged: 0 },
+    errors: [],
+  };
+  const fail = (kind, err) => {
+    report.errors.push({ kind, message: err.message });
+    report.ok = false;
+  };
+  try {
+    for (const target of targets) await syncTenant(target, compounds, report, fail);
+    await applyDefinedRates(wanted.size === 1 ? [...wanted][0] : null);
+  } finally {
+    report.finishedAt = new Date().toISOString();
+    syncState.running = false;
+    syncState.last = report;
+    syncState.lastTrigger = { reason: 'webhook: units', at: report.finishedAt };
+    console.log(
+      `[kwentra-webhook] units — ${report.tenants.length} tenant(s), +${report.units.created} ~${report.units.updated}${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
+    );
+  }
+}
+
+async function pullAvailabilityFromWebhook(tenants) {
+  if (!kwentra.isConfigured()) return;
+  syncState.running = true;
+  const report = { ok: true, kind: 'availability', errors: [], startedAt: new Date().toISOString() };
+  const fail = (kind, err) => {
+    report.errors.push({ kind, message: err.message });
+    report.ok = false;
+  };
+  const ids = tenants.filter((id) => id && id !== '*');
+  try {
+    if (!ids.length) await refreshAvailabilitySnapshots(report, fail);
+    else for (const id of ids) await refreshAvailabilitySnapshots(report, fail, id);
+  } finally {
+    report.finishedAt = new Date().toISOString();
+    syncState.running = false;
+    syncState.last = report;
+    syncState.lastTrigger = { reason: 'webhook: availability', at: report.finishedAt };
+    console.log(
+      `[kwentra-webhook] availability ${report.availability?.refreshed ?? 0}/${report.availability?.units ?? 0}${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
+    );
+  }
+}
+
+/**
+ * Write the rate-grid amount onto each linked unit's card price.
+ * Two adults is the price the listing shows, matching the calendar default.
+ */
+async function applyDefinedRates(onlyTenant = null) {
+  if (!kwentra.isConfigured()) return { updated: 0 };
+  const compounds = await listCmsCompounds();
+  const units = await listCmsUnits();
+  const targets = tenantTargets(compounds).filter((t) => !onlyTenant || String(t.tenantId) === String(onlyTenant));
+  const today = localToday();
+  let updated = 0;
+  for (const target of targets) {
+    let definitions;
+    try {
+      definitions = await kwentra.rateDefinitions(target.tenantId);
+    } catch (err) {
+      console.warn('[kwentra] rate grid failed:', err.message);
+      continue;
+    }
+    const compoundIds = new Set(target.compounds.map((c) => c.id));
+    for (const unit of units) {
+      if (!unit.kwentraRoomTypeId || !compoundIds.has(unit.compoundId)) continue;
+      const amount = cardAmount(definitions, unit.kwentraRoomTypeId, 2, today);
+      if (!(amount > 0) || Number(unit.pricePerNight) === amount) continue;
+      await updateUnit(unit.id, { pricePerNight: amount });
+      updated += 1;
+    }
+  }
+  return { updated };
+}
+
+async function pullRatesFromWebhook(tenants) {
+  if (!kwentra.isConfigured()) return;
+  syncState.running = true;
+  const ids = tenants.filter((id) => id && id !== '*');
+  const report = { ok: true, kind: 'rates', errors: [], startedAt: new Date().toISOString(), rates: { updated: 0 } };
+  try {
+    const result = await applyDefinedRates(ids.length === 1 ? ids[0] : null);
+    report.rates = result;
+  } catch (err) {
+    report.ok = false;
+    report.errors.push({ kind: 'rates', message: err.message });
+  } finally {
+    report.finishedAt = new Date().toISOString();
+    syncState.running = false;
+    syncState.last = report;
+    syncState.lastTrigger = { reason: 'webhook: rates', at: report.finishedAt };
+    console.log(`[kwentra-webhook] rates — ${report.rates?.updated ?? 0} card price(s) updated`);
+  }
+}
+
+/**
+ * What a Kwentra webhook should do. Reservation notices are pulled by the route (one GET).
+ * Room notices pull units. Availability notices pull blocked nights.
+ * Rate notices rebuild card prices from the rate definition.
+ */
+function onKwentraWebhook({ type, tenantId } = {}) {
+  syncState.lastTrigger = { reason: `webhook: ${type}`, at: new Date().toISOString() };
+  if (/avail/.test(type)) {
+    kwentra.clearLiveCache(tenantId ?? undefined);
+    return { action: 'availability', ...queueWebhook('availability', tenantId, pullAvailabilityFromWebhook) };
+  }
+  if (/room|unit|inventor/.test(type)) {
+    return { action: 'units', ...queueWebhook('units', tenantId, pullUnitsFromWebhook) };
+  }
+  if (/rate/.test(type)) {
+    kwentra.clearLookupCache();
+    return { action: 'rates', ...queueWebhook('rates', tenantId, pullRatesFromWebhook) };
+  }
+  if (/reserv/.test(type)) return { action: 'reservation', queued: false };
+  return { action: 'ignored', queued: false };
 }
 
 async function syncStatus() {
@@ -1373,7 +1600,7 @@ async function syncStatus() {
   return {
     configured,
     running: syncState.running,
-    autoSyncMinutes: configured ? syncMinutes() : 0,
+    autoSyncMinutes: 0,
     last: syncState.last,
     lastTrigger: syncState.lastTrigger,
     loginPaused: kwentra.authStatus(),
@@ -1409,18 +1636,6 @@ async function syncStatus() {
   };
 }
 
-/** Sync units and availability once at boot, then every minute. */
-function startAutoSync() {
-  if (!kwentra.isConfigured() || syncState.timer) return;
-  const run = () => syncFromKwentra().catch((err) => console.warn('[kwentra-sync]', err.message));
-  setTimeout(run, 5_000).unref?.();
-  const minutes = syncMinutes();
-  if (minutes > 0) {
-    syncState.timer = setInterval(run, minutes * 60_000);
-    syncState.timer.unref?.();
-  }
-}
-
 module.exports = {
   tenantForUnit,
   tenantForBooking,
@@ -1430,6 +1645,8 @@ module.exports = {
   pullUnitsMerged,
   pullAvailability,
   blockedNights,
+  pricesFromRateGrid,
+  applyDefinedRates,
   pullDestinations,
   pullProjects,
   pullDestinationsTree,
@@ -1453,8 +1670,6 @@ module.exports = {
   normalizeProject,
   normalizeRoom,
   publicProperty,
-  syncFromKwentra,
-  requestSync,
   syncStatus,
-  startAutoSync,
+  onKwentraWebhook,
 };

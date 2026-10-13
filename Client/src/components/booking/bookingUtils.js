@@ -47,7 +47,7 @@ export function priceStay({ arrivalDate, departureDate, dailyPrices = {}, fallba
     const iso = cursor.toISOString().slice(0, 10);
     const base = Number(dailyPrices[iso] ?? fallbackNightly) || 0;
     baseTotal += base;
-    rateAmount += Math.round(base * factor);
+    rateAmount += Math.round(base * factor * 100) / 100;
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return {
@@ -55,8 +55,27 @@ export function priceStay({ arrivalDate, departureDate, dailyPrices = {}, fallba
     baseTotal,
     rateAmount,
     discount: baseTotal - rateAmount,
-    averageNightlyRate: nights ? Math.round(rateAmount / nights) : 0,
+    averageNightlyRate: nights ? Math.round((rateAmount / nights) * 100) / 100 : 0,
   };
+}
+
+/** One night from the rate grid: adult column, plus child range 1 for each child. */
+export function priceForOccupancy(cell, adults, children) {
+  if (cell == null || typeof cell !== 'object') return Number(cell) || 0;
+  const count = Math.min(6, Math.max(1, Number(adults) || 1));
+  const adult = Number(cell.adults?.[count - 1]) || 0;
+  if (!(adult > 0)) return 0;
+  const eachChild = Number(cell.children?.[0]) || 0;
+  return adult + Math.max(0, Number(children) || 0) * eachChild;
+}
+
+export function pricesForGuests(occupancy, adults, children) {
+  const prices = {};
+  for (const [date, cell] of Object.entries(occupancy || {})) {
+    const amount = priceForOccupancy(cell, adults, children);
+    if (amount > 0) prices[date] = amount;
+  }
+  return prices;
 }
 
 /** Error values are LocaleContext keys; server messages pass through t() unchanged */

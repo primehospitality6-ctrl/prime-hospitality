@@ -122,7 +122,8 @@ function priceStay({ arrivalDate, departureDate, nightlyPrices = {}, fallbackNig
   for (let i = 0; i < nights; i += 1) {
     const iso = cursor.toISOString().slice(0, 10);
     const base = Number(nightlyPrices[iso] ?? fallbackNightly) || 0;
-    nightly.push({ date: iso, base, rate: Math.round(base * factor) });
+    const rate = Math.round(base * factor * 100) / 100;
+    nightly.push({ date: iso, base, rate });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   const baseTotal = nightly.reduce((s, n) => s + n.base, 0);
@@ -132,7 +133,7 @@ function priceStay({ arrivalDate, departureDate, nightlyPrices = {}, fallbackNig
     baseTotal,
     rateAmount,
     discount: baseTotal - rateAmount,
-    averageNightlyRate: nights ? Math.round(rateAmount / nights) : 0,
+    averageNightlyRate: nights ? Math.round((rateAmount / nights) * 100) / 100 : 0,
     currency,
     nightly,
   };

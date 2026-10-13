@@ -114,7 +114,12 @@ router.get(
     const { from, to } = resolveWindow(req.query);
     let avail;
     try {
-      avail = await sync.pullAvailability(item, { from, to });
+      avail = await sync.pullAvailability(item, {
+        from,
+        to,
+        adults: Number(req.query.adults) || 2,
+        children: Number(req.query.children) || 0,
+      });
     } catch (err) {
       console.warn('[pricing]', item.slug, err.message);
       avail = { source: 'kwentra-unreachable', prices: {}, currency: item.currency || 'EGP' };
@@ -128,6 +133,7 @@ router.get(
       to,
       currency: avail.currency || item.currency || 'EGP',
       prices: avail.prices || {},
+      occupancy: avail.occupancy || {},
       rows,
     });
   })

@@ -119,29 +119,46 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
   if (sync.isLinked(listing)) {
     try {
       const tenantId = await sync.tenantForUnit(listing);
-      const [availability, offered] = await Promise.all([
-        kwentra.getAvailability(listing.kwentraRoomTypeId, { from: arrivalDate, to: departureDate, tenantId, fresh: freshAvailability }),
-        sync.roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId, fresh: strict }).catch((err) => {
+      let availability = { blocked: [], checkoutDates: [] };
+      try {
+        availability = await kwentra.getAvailability(listing.kwentraRoomTypeId, {
+          from: arrivalDate,
+          to: departureDate,
+          tenantId,
+          fresh: freshAvailability,
+        });
+      } catch (err) {
+        console.warn('[booking] Kwentra availability lookup failed:', err.message);
+        if (strict) {
+          const unavailable = new Error('We could not confirm availability right now — please try again in a minute');
+          unavailable.status = 503;
+          throw unavailable;
+        }
+      }
+      const offered = await sync
+        .roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId, fresh: strict })
+        .catch((err) => {
           console.warn('[kwentra] rates lookup failed:', err.message);
           return [];
-        }),
-      ]);
+        });
       rates = offered;
+      let grid = null;
+      try {
+        grid = await sync.pricesFromRateGrid(listing, arrivalDate, departureDate, { adults, children, tenantId });
+      } catch (err) {
+        console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
+      }
       const base = sync.pickRate(offered, 'FLEX');
       avail = {
         source: 'kwentra',
         blocked: availability.blocked,
         checkoutDates: availability.checkoutDates,
-        prices: base ? sync.nightsToPrices(arrivalDate, base.nights) : {},
+        prices: grid ? grid.prices : base ? sync.nightsToPrices(arrivalDate, base.nights) : {},
         currency: listing.currency || process.env.KWENTRA_CURRENCY || 'EGP',
       };
     } catch (err) {
-      console.warn('[booking] Kwentra availability lookup failed:', err.message);
-      if (strict) {
-        const unavailable = new Error('We could not confirm availability right now — please try again in a minute');
-        unavailable.status = 503;
-        throw unavailable;
-      }
+      if (strict || err.status) throw err;
+      console.warn('[booking] Kwentra stay lookup failed:', err.message);
     }
   }
   if (!avail) {
@@ -154,7 +171,9 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
     .map((b) => (typeof b === 'string' ? b : b?.date))
     .filter((d) => d && d >= arrivalDate && d < departureDate && !turnover.has(d));
   let prices = avail.prices || {};
-  if (!Object.keys(prices).length) prices = buildPricing(listing, arrivalDate, departureDate).prices;
+  if (!Object.keys(prices).length && avail.source !== 'kwentra') {
+    prices = buildPricing(listing, arrivalDate, departureDate).prices;
+  }
   return {
     source: avail.source,
     occupied,
@@ -175,7 +194,7 @@ function priceForPlan(plan, stay, listing, arrivalDate, departureDate) {
     arrivalDate,
     departureDate,
     nightlyPrices: mapped ? sync.nightsToPrices(arrivalDate, mapped.nights) : stay.prices,
-    fallbackNightly: listing.pricePerNight,
+    fallbackNightly: stay.source === 'kwentra' ? 0 : listing.pricePerNight,
     ratePlan: mapped ? { ...plan, adjustmentPct: 0 } : plan,
     currency: stay.currency,
   });
@@ -280,6 +299,9 @@ async function bookDirect(req, res, next) {
     }
 
     const quote = priceForPlan(value.ratePlan, stay, listing, value.arrivalDate, value.departureDate);
+    if (sync.isLinked(listing) && quote.nightly.some((night) => !(night.base > 0))) {
+      return res.status(409).json({ error: 'Kwentra has no rate for this room on those dates' });
+    }
 
     const voucherNumber = pms.formatVoucher(await nextVoucherSerial());
     const externalRef = `prime_${randomUUID()}`;

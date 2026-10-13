@@ -118,39 +118,61 @@ function rememberEvent(eventId) {
   if (seenEvents.size > 2000) seenEvents.delete(seenEvents.keys().next().value);
 }
 
-/** A reservation Kwentra cancelled (e.g. an unpaid hold that reached its hold date) → cancel the website booking */
-async function applyReservationEvent(body, tenantId = null) {
-  const r = body.reservation || body.data || body;
-  const id = String(r.id ?? r.reservation_id ?? body.reservation_id ?? '');
-  const state = String(r.state?.name || r.state || r.status || r.hold_status || '');
-  if (!id || !/cancel/i.test(state)) return { matched: false };
-  // Reservation ids are only unique within a tenant
+function websiteStatus(state) {
+  const name = String(state || '');
+  if (/cancel/i.test(name)) return 'cancelled';
+  if (/checked\s*out/i.test(name)) return 'checked_out';
+  if (/checked\s*in/i.test(name)) return 'checked_in';
+  if (/no\s*show/i.test(name)) return 'no_show';
+  if (/expected|confirm/i.test(name)) return 'confirmed';
+  return '';
+}
+
+/** Pull one reservation from Kwentra and update the website booking that points at it. */
+async function pullReservationEvent(body, tenantId = null) {
+  const hinted = body.reservation || (body.data && !Array.isArray(body.data) ? body.data : null) || body;
+  const id = String(hinted.id ?? hinted.reservation_id ?? body.reservation_id ?? '');
+  if (!id) return { matched: false, reason: 'no_id' };
+  let reservation = hinted;
+  if (kwentra.isConfigured()) {
+    try {
+      reservation = await kwentra.getReservation(id, { tenantId, includes: ['state.name'] });
+    } catch (err) {
+      console.warn('[webhook/kwentra] reservation pull failed:', err.message);
+    }
+  }
+  const state = reservation?.state?.name || reservation?.state || reservation?.status || hinted.state || '';
+  const status = websiteStatus(state);
   let booking = null;
-  for (const b of await listBookings()) {
-    if (String(b.kwentraReservationId || '') !== id) continue;
-    if (tenantId == null || String(await sync.tenantForBooking(b)) === String(tenantId)) {
-      booking = b;
+  for (const item of await listBookings()) {
+    if (String(item.kwentraReservationId || '') !== id) continue;
+    if (tenantId == null || String(await sync.tenantForBooking(item)) === String(tenantId)) {
+      booking = item;
       break;
     }
   }
-  if (!booking || booking.status === 'cancelled') return { matched: Boolean(booking) };
-  if (booking.paymentStatus === 'paid') {
-    // A paid booking is never cancelled silently — staff decide between rebooking and a refund
-    await updateBooking(booking.id, { kwentraIssue: `Kwentra cancelled reservation ${id} although the guest paid — rebook or refund.` });
-    return { matched: true, flagged: booking.id };
+  if (!booking) return { matched: false, pulled: true, reservationId: id, status };
+  const patch = {};
+  if (reservation?.arrival_date) patch.arrivalDate = String(reservation.arrival_date).slice(0, 10);
+  if (reservation?.departure_date) patch.departureDate = String(reservation.departure_date).slice(0, 10);
+  if (status === 'cancelled' && booking.paymentStatus === 'paid' && booking.status !== 'cancelled') {
+    patch.kwentraIssue = `Kwentra cancelled reservation ${id} although the guest paid — rebook or refund.`;
+  } else if (status && status !== booking.status) {
+    patch.status = status;
+    if (status !== 'cancelled') patch.kwentraIssue = '';
   }
-  await updateBooking(booking.id, { status: 'cancelled' });
-  return { matched: true, cancelled: booking.id };
+  if (!Object.keys(patch).length) return { matched: true, unchanged: booking.id, status };
+  await updateBooking(booking.id, patch);
+  return { matched: true, updated: booking.id, status: patch.status || booking.status };
 }
 
 /**
  * Kwentra webhooks — POST JSON envelope { event_id, tenant_id, data_type, event_time, data }:
- *   reservation  → data: [{ reservation, postings, accommodation }] — cancellations update website bookings
- *   availability → data: { tenant_id, inventory_counts: [...] }    — refresh that tenant's blocked nights
- *   rates        → data: { tenant_id, rates: [...] }               — drop cached rates, then sync
- *   room / room type / inventory                                   — sync units immediately
- * Every accepted event queues one sync. Bursts collapse into a single pull, so the site does not
- * wait for the minute timer.
+ *   reservation  → pull that reservation and update the website booking
+ *   availability → pull blocked nights for that tenant
+ *   room / room type / inventory → pull units for that tenant
+ *   rates → drop cached rate lookups
+ * Website bookings are pushed to Kwentra when the guest books. Nothing here runs on a timer.
  */
 router.post('/kwentra', async (req, res, next) => {
   try {
@@ -170,15 +192,11 @@ router.post('/kwentra', async (req, res, next) => {
       kwentra.clearLiveCache(tenantId ?? undefined);
       const items = Array.isArray(body.data) ? body.data : [body.data || body];
       reservations = [];
-      for (const item of items) reservations.push(await applyReservationEvent(item || {}, tenantId));
-    } else if (/avail|room|inventor/.test(type)) {
-      kwentra.clearLiveCache(tenantId ?? undefined);
-    } else if (/rate/.test(type)) {
-      kwentra.clearLookupCache();
+      for (const item of items) reservations.push(await pullReservationEvent(item || {}, tenantId));
     }
 
-    const queued = sync.requestSync(`kwentra webhook: ${type}`);
-    res.json({ received: true, type, tenant_id: tenantId, sync: queued, reservations });
+    const action = sync.onKwentraWebhook({ type, tenantId });
+    res.json({ received: true, type, tenant_id: tenantId, action, reservations });
   } catch (err) {
     next(err);
   }

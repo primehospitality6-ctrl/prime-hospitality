@@ -13,7 +13,6 @@ function formatTime(iso) {
 
 function KwentraCard({ onChanged }) {
   const [status, setStatus] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const lastFinished = useRef(null);
   const onChangedRef = useRef(onChanged);
@@ -40,21 +39,6 @@ function KwentraCard({ onChanged }) {
     };
   }, []);
 
-  async function syncNow() {
-    setBusy(true);
-    setError('');
-    try {
-      const report = await api.adminKwentraSync();
-      lastFinished.current = report?.finishedAt || lastFinished.current;
-      setStatus((s) => ({ ...s, last: report }));
-      onChanged?.();
-    } catch (err) {
-      setError(err.data?.message || err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const last = status?.last;
   const webhookUrl = status?.webhook ? status.webhook.url || `https://YOUR-API-DOMAIN${status.webhook.path}` : '';
   return (
@@ -63,9 +47,9 @@ function KwentraCard({ onChanged }) {
         <div>
           <h2 className="font-display text-lg font-bold">Kwentra PMS</h2>
           <p className="mt-1 max-w-xl text-sm text-prime-muted">
-            Room types and availability refresh from Kwentra every minute on their own. You do not need to click Sync
-            now. Prices are read when a guest opens a calendar, and website bookings are created in Kwentra. Photos,
-            featured and published stay controlled here.
+            Kwentra sends a webhook when rooms or reservations change. That notice pulls units, blocked nights, and
+            the reservation onto the website. A guest booking is pushed to Kwentra. There is no timer. Photos, featured
+            and published stay controlled here.
           </p>
         </div>
         <span
@@ -136,9 +120,7 @@ function KwentraCard({ onChanged }) {
       {status?.configured ? (
         <div className="mt-4 space-y-1 text-sm text-prime-muted">
           <p>
-            Units and availability sync every minute
-            {status.autoSyncMinutes ? ` (every ${status.autoSyncMinutes} minute${status.autoSyncMinutes === 1 ? '' : 's'})` : ''}.
-            Kwentra can also notify the website the moment inventory changes.
+            Nothing is polled. A Kwentra webhook is what pulls units and reservations.
           </p>
           <p>
             {last ? `Last sync ${formatTime(last.finishedAt)}` : 'No sync yet since the API started'}
@@ -152,8 +134,8 @@ function KwentraCard({ onChanged }) {
           <p className={labelCls}>Webhook for Kwentra</p>
           <p className="break-all font-mono text-xs">{webhookUrl}</p>
           <p className="mt-1 text-xs text-prime-muted">
-            Give this URL to Kwentra. They POST availability, rates, reservations, and room changes here, and the
-            website pulls the new rooms and blocked nights immediately instead of waiting for the minute sync.
+            Give this URL to Kwentra. They POST room changes, availability, and reservations here. Room notices pull
+            units, availability notices pull blocked nights, and reservation notices pull that reservation.
             {status.webhook.url ? '' : ' (set PUBLIC_API_URL in Server/.env to show the real address)'}.{' '}
             {status.webhook.auth === 'basic'
               ? 'Authentication: Basic auth with KWENTRA_WEBHOOK_USERNAME / KWENTRA_WEBHOOK_PASSWORD from Server/.env.'
@@ -224,10 +206,6 @@ function KwentraCard({ onChanged }) {
       ) : null}
 
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-
-      <button type="button" className="prime-btn mt-5" disabled={busy || !status?.configured} onClick={syncNow}>
-        {busy ? 'Syncing…' : 'Sync now'}
-      </button>
     </section>
   );
 }

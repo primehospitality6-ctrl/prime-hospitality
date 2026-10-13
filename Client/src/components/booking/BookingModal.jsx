@@ -15,6 +15,7 @@ import {
   cleanName,
   nightsBetween,
   priceStay,
+  pricesForGuests,
   validateGuest,
   validateRate,
   validateStay,
@@ -41,6 +42,7 @@ export default function BookingModal({
   blockedDates = [],
   checkoutDates = [],
   dailyPrices = {},
+  occupancy = {},
   initialCheckIn = '',
   initialCheckOut = '',
   initialAdults = 2,
@@ -75,6 +77,10 @@ export default function BookingModal({
 
   const nights = nightsBetween(stay.arrivalDate, stay.departureDate);
   const stayView = useMemo(() => ({ ...stay, nights }), [stay, nights]);
+  const calendarPrices = useMemo(
+    () => (Object.keys(occupancy || {}).length ? pricesForGuests(occupancy, stay.adults, stay.children) : dailyPrices),
+    [occupancy, stay.adults, stay.children, dailyPrices]
+  );
 
   // (Re)open: seed from the listing page, but resume an unpaid hold instead of creating a second one.
   useEffect(() => {
@@ -196,13 +202,13 @@ export default function BookingModal({
             : priceStay({
                 arrivalDate: stay.arrivalDate,
                 departureDate: stay.departureDate,
-                dailyPrices,
+                dailyPrices: calendarPrices,
                 fallbackNightly: listing?.pricePerNight,
                 plan,
               }),
         };
       }),
-    [plans, nights, stay.arrivalDate, stay.departureDate, dailyPrices, listing, serverQuote, quoteKey]
+    [plans, nights, stay.arrivalDate, stay.departureDate, calendarPrices, listing, serverQuote, quoteKey]
   );
 
   // A shorter stay can make the chosen plan ineligible (e.g. weekly) — fall back to the first eligible one.
@@ -217,7 +223,7 @@ export default function BookingModal({
 
   const selected = quotes.find((q) => q.plan.code === ratePlanCode) || null;
   const plan = selected?.plan || null;
-  const price = selected?.price || (nights ? priceStay({ ...stay, dailyPrices, fallbackNightly: listing?.pricePerNight }) : null);
+  const price = selected?.price || (nights ? priceStay({ ...stay, dailyPrices: calendarPrices, fallbackNightly: listing?.pricePerNight }) : null);
 
   const localized = (key, fallback) => {
     const s = t(key);
@@ -418,7 +424,7 @@ export default function BookingModal({
                   config={config}
                   blockedDates={blockedDates}
                   checkoutDates={checkoutDates}
-                  dailyPrices={dailyPrices}
+                  dailyPrices={calendarPrices}
                   heading={heading}
                 />
               )}

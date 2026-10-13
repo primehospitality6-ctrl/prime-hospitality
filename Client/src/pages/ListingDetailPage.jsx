@@ -138,6 +138,7 @@ export default function ListingDetailPage() {
   const [blocked, setBlocked] = useState([]);
   const [checkoutDates, setCheckoutDates] = useState([]);
   const [dailyPrices, setDailyPrices] = useState({});
+  const [occupancy, setOccupancy] = useState({});
   const [similar, setSimilar] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [availabilityVersion, setAvailabilityVersion] = useState(0);
@@ -216,10 +217,16 @@ export default function ListingDetailPage() {
     api
       .getListingPricing(slug, { from, to })
       .then((data) => {
-        if (!cancelled) setDailyPrices(data.prices || {});
+        if (!cancelled) {
+          setDailyPrices(data.prices || {});
+          setOccupancy(data.occupancy || {});
+        }
       })
       .catch(() => {
-        if (!cancelled) setDailyPrices({});
+        if (!cancelled) {
+          setDailyPrices({});
+          setOccupancy({});
+        }
       });
 
     return () => {
@@ -732,6 +739,7 @@ export default function ListingDetailPage() {
         blockedDates={blocked}
         checkoutDates={checkoutDates}
         dailyPrices={dailyPrices}
+        occupancy={occupancy}
         initialCheckIn={seedCheckIn}
         initialCheckOut={seedCheckOut}
         initialAdults={seedAdults}

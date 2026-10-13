@@ -29,10 +29,10 @@ function buildChecks({ units, compounds, site, pixels, kwentra }) {
       text: !kwentra.configured
         ? 'Kwentra is not connected — inventory is managed by hand.'
         : kwentra.last && !kwentra.last.ok
-          ? 'The last Kwentra sync failed.'
+          ? 'The last Kwentra webhook pull failed.'
           : kwentra.last
-            ? `Kwentra synced ${new Date(kwentra.last.finishedAt).toLocaleString()}.`
-            : 'Kwentra connected; no sync since the API started.',
+            ? `Last Kwentra webhook ${new Date(kwentra.last.finishedAt).toLocaleString()}.`
+            : 'Kwentra connected. Units and reservations update when Kwentra sends a webhook.',
       to: '/admin/sync',
     },
     {
