@@ -17,13 +17,13 @@ export default function PartnerCta() {
           className="pointer-events-none absolute -bottom-[0.08em] end-[-0.04em] -z-10 text-[clamp(6rem,15vw,14rem)] text-white/[0.07]"
         />
         <Reveal className="max-w-xl">
-          <p className="prime-eyebrow mb-6 flex items-center gap-4 text-white/75">
-            <span className="h-px w-8 bg-prime-gold-soft" aria-hidden />
+          <p className="prime-eyebrow mb-7 flex items-center gap-4 text-white/70">
+            <span className="h-px w-10 bg-prime-gold-soft" aria-hidden />
             {t('home.partnersLabel')}
           </p>
           <h2 className="font-display text-display-xl font-extralight text-balance">{t('home.partnerCtaTitle')}</h2>
-          <p className="mt-7 max-w-lg text-[15px] font-light leading-[1.8] text-white/75 md:text-[17px]">{t('home.partnerCtaBody')}</p>
-          <Link to="/owners" className="prime-btn-ghost mt-10">
+          <p className="mt-8 max-w-lg text-[15px] font-light leading-[1.85] text-white/70 md:text-[16.5px]">{t('home.partnerCtaBody')}</p>
+          <Link to="/owners" className="prime-btn-ghost mt-12">
             {t('home.partnerCtaBtn')}
           </Link>
         </Reveal>

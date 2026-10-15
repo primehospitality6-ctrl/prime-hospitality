@@ -117,10 +117,10 @@ function Price({ listing }) {
     return <p className="prime-label">{t('listing.priceOnRequest')}</p>;
   }
   return (
-    <p className="text-[14px] text-prime-ink">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('card.from')} </span>
-      <span className="font-semibold tabular-nums">{formatMoney(listing.pricePerNight, listing.currency)}</span>
-      <span className="text-[12.5px] font-light text-prime-muted"> {t('card.perNight')}</span>
+    <p className="text-[13.5px] font-light text-prime-ink">
+      <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-prime-muted">{t('card.from')} </span>
+      <span className="font-medium tabular-nums tracking-tight">{formatMoney(listing.pricePerNight, listing.currency)}</span>
+      <span className="text-[12px] text-prime-muted"> {t('card.perNight')}</span>
     </p>
   );
 }
@@ -200,7 +200,7 @@ export function ListingRow({ listing, priority = false }) {
             ))}
           </ul>
         ) : null}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-prime-line pt-5 md:mt-8">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6 md:mt-10">
           <Price listing={listing} />
           <Link to={href} className="prime-link">
             {t('card.viewStay')}
@@ -218,10 +218,10 @@ export default function ListingCard({ listing, priority = false, featured = fals
 
   return (
     <article className={cn('group relative flex min-w-0 flex-col', className)}>
-      <div className={cn('relative overflow-hidden bg-prime-mist', featured ? 'aspect-[4/5] lg:aspect-[5/6]' : 'aspect-[4/5]')}>
+      <div className={cn('relative overflow-hidden bg-prime-mist', featured ? 'aspect-[3/4] lg:aspect-[4/5]' : 'aspect-[3/4]')}>
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3.5 md:p-4">
           <span className="flex flex-wrap gap-1.5">
             {featured ? <FeaturedChip /> : null}
             {listing.brand ? <BrandChip name={listing.brand} /> : null}
@@ -230,26 +230,24 @@ export default function ListingCard({ listing, priority = false, featured = fals
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col pt-5">
+      <div className="flex flex-1 flex-col pt-6">
         <div className="flex items-start justify-between gap-3">
           <p className="prime-label min-w-0 truncate">{metaOf(listing, term)}</p>
           <Rating listing={listing} />
         </div>
         <h3
           className={cn(
-            'mt-2.5 font-display leading-[1.2] tracking-[-0.02em] text-prime-ink text-balance',
-            featured ? 'text-[1.6rem] font-light md:text-[2rem]' : 'text-[1.15rem] font-normal'
+            'mt-3 font-display font-light leading-[1.18] tracking-[-0.025em] text-prime-ink text-balance',
+            featured ? 'text-[1.55rem] md:text-[1.9rem]' : 'text-[1.2rem] md:text-[1.35rem]'
           )}
         >
-          <Link to={href} className="prime-tap bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat transition-[background-size] duration-500 ease-prime group-hover:bg-[length:100%_1px]">
+          <Link to={href} className="prime-tap bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat transition-[background-size] duration-700 ease-prime group-hover:bg-[length:100%_1px]">
             {term(listing.title)}
           </Link>
         </h3>
-        {specs.length ? <p className="mt-2 text-[13px] font-light text-prime-muted">{specs.join('  ·  ')}</p> : null}
-        <div className="mt-auto pt-4">
-          <div className="flex items-baseline justify-between gap-3 border-t border-prime-line pt-4">
-            <Price listing={listing} />
-          </div>
+        {specs.length ? <p className="mt-2.5 text-[12.5px] font-light tracking-wide text-prime-muted">{specs.join('  ·  ')}</p> : null}
+        <div className="mt-auto pt-5">
+          <Price listing={listing} />
         </div>
       </div>
     </article>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import Header from '../components/layout/Header';
@@ -98,122 +98,83 @@ function Hero() {
 
       <Wordmark
         word="Hospitality"
-        className="prime-fade-in pointer-events-none absolute end-[-0.03em] top-[calc(var(--prime-header-h)+2rem)] -z-10 hidden text-[clamp(7rem,17vw,17rem)] text-white/[0.13] md:block"
+        className="prime-fade-in pointer-events-none absolute end-[-0.04em] top-[calc(var(--prime-header-h)+1.5rem)] -z-10 hidden text-[clamp(8rem,18vw,18rem)] text-white/[0.1] md:block"
       />
 
-      <div className="prime-container flex flex-1 flex-col justify-end pb-6 pt-32 md:pb-10">
+      <div className="prime-container flex flex-1 flex-col justify-end pb-8 pt-36 md:pb-12">
         <div className="max-w-4xl">
-          <p className="prime-fade-up flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-white/80">
-            <span className="h-px w-10 bg-prime-gold-soft" aria-hidden />
-            {t('home.introEyebrow')} · {t('home.country')}
+          <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.3em] text-white/75">
+            <span className="h-px w-12 bg-prime-gold-soft" aria-hidden />
+            {t('home.introEyebrow')}
           </p>
-          <h1 className="prime-fade-up mt-7 font-display text-display-2xl font-extralight" style={{ animationDelay: '100ms' }}>
+          <h1 className="prime-fade-up mt-8 font-display text-display-2xl font-extralight" style={{ animationDelay: '100ms' }}>
             <span className="block">{t('home.heroLine1')}</span>
             <span className="block text-prime-gold-soft">{t('home.heroLine2')}</span>
           </h1>
           <p
-            className="prime-fade-up mt-7 max-w-md text-[15px] font-light leading-relaxed text-white/80 md:text-[17px]"
+            className="prime-fade-up mt-8 max-w-md text-[15px] font-light leading-[1.8] text-white/70 md:text-[16.5px]"
             style={{ animationDelay: '200ms' }}
           >
             {t('home.heroSubtitle')}
           </p>
         </div>
 
-        <div className="prime-fade-up mt-10 md:mt-14" style={{ animationDelay: '320ms' }}>
+        <div className="prime-fade-up mt-12 md:mt-16" style={{ animationDelay: '320ms' }}>
           <HeroSearch />
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-6 md:mt-8">
-          {images.length > 1 ? (
-            <div className="flex items-center gap-4">
-              <span className="text-[11px] font-semibold tabular-nums tracking-[0.2em] text-white/80">
-                {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
-              </span>
-              <div className="flex gap-1.5">
-                {images.map((src, i) => (
-                  <button
-                    key={src}
-                    type="button"
-                    onClick={() => goTo(i)}
-                    aria-label={t('a11y.showSlide', { n: i + 1 })}
-                    aria-current={i === index}
-                    className="group px-1.5 py-5"
-                  >
-                    <span className="relative block h-px w-8 overflow-hidden bg-white/30 sm:w-12">
-                      {i === index ? (
-                        <span
-                          key={index}
-                          className="absolute inset-y-0 start-0 bg-white"
-                          style={{ animation: `primeProgress ${SLIDE_MS}ms linear both` }}
-                        />
-                      ) : null}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <span />
-          )}
-          <span className="hidden items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70 md:inline-flex">
-            {t('home.scroll')}
-            <span className="relative block h-8 w-px overflow-hidden bg-white/25">
-              <span className="absolute inset-x-0 top-0 h-1/2 animate-[primeScrollCue_2.2s_ease-in-out_infinite] bg-white" />
+        {images.length > 1 ? (
+          <div className="mt-8 flex items-center gap-5 md:mt-10">
+            <span className="text-[10.5px] font-medium tabular-nums tracking-[0.22em] text-white/70">
+              {String(index + 1).padStart(2, '0')} — {String(images.length).padStart(2, '0')}
             </span>
-          </span>
-        </div>
+            <div className="flex gap-1.5">
+              {images.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => goTo(i)}
+                  aria-label={t('a11y.showSlide', { n: i + 1 })}
+                  aria-current={i === index}
+                  className="group px-1.5 py-5"
+                >
+                  <span className="relative block h-px w-10 overflow-hidden bg-white/25 sm:w-14">
+                    {i === index ? (
+                      <span
+                        key={index}
+                        className="absolute inset-y-0 start-0 bg-white"
+                        style={{ animation: `primeProgress ${SLIDE_MS}ms linear both` }}
+                      />
+                    ) : null}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function Intro({ destinations }) {
+function Intro() {
   const { t } = useLocale();
-  const stats = useMemo(() => {
-    if (!destinations.length) return [];
-    const properties = destinations.reduce((n, d) => n + (d.projectCount ?? d.projects?.length ?? 0), 0);
-    const unitTypes = destinations.reduce((n, d) => n + (d.unitTypeCount || 0), 0);
-    return [
-      { value: destinations.length, label: t('home.statDestinations') },
-      { value: properties, label: t('home.statProperties') },
-      unitTypes ? { value: unitTypes, label: t('home.statUnitTypes') } : null,
-    ].filter(Boolean);
-  }, [destinations, t]);
 
   return (
     <section className="prime-section">
       <div className="prime-container">
-        <Reveal className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] md:gap-12">
-          <p className="prime-eyebrow flex items-center gap-4 text-prime-gold md:pt-3">
-            <span className="h-px w-8 bg-prime-gold" aria-hidden />
+        <Reveal className="mx-auto max-w-3xl text-center">
+          <p className="prime-eyebrow inline-flex items-center justify-center gap-4 text-prime-gold">
+            <span className="h-px w-10 bg-prime-gold" aria-hidden />
             {t('home.introEyebrow')}
+            <span className="h-px w-10 bg-prime-gold" aria-hidden />
           </p>
-          <div>
-            <h2 className="max-w-4xl font-display text-display-lg font-extralight text-prime-ink text-balance">{t('home.introTitle')}</h2>
-            <p className="prime-lede mt-8 max-w-2xl">{t('home.introBody')}</p>
-            <Link to="/about" className="prime-link mt-10">
-              {t('home.ourStory')}
-            </Link>
-          </div>
+          <h2 className="mt-8 font-display text-display-lg font-extralight text-prime-ink text-balance">{t('home.introTitle')}</h2>
+          <p className="prime-lede mx-auto mt-8 max-w-xl">{t('home.introBody')}</p>
+          <Link to="/about" className="prime-link mt-12 justify-center">
+            {t('home.ourStory')}
+          </Link>
         </Reveal>
-
-        {stats.length ? (
-          <Reveal
-            delay={150}
-            className="mt-16 grid border-t border-prime-ink md:mt-24 md:ms-[25%]"
-            style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
-          >
-            {stats.map((s, i) => (
-              <div key={s.label} className="border-e border-prime-line px-4 pt-6 first:ps-0 last:border-e-0 md:px-6 md:pt-8 md:first:ps-0">
-                <p className="prime-label">{String(i + 1).padStart(2, '0')}</p>
-                <p className="mt-5 font-display text-[3rem] font-extralight leading-none tracking-[-0.04em] text-prime-ink md:text-[5rem]">
-                  {s.value}
-                </p>
-                <p className="mt-3 text-[12px] font-medium text-prime-muted">{s.label}</p>
-              </div>
-            ))}
-          </Reveal>
-        ) : null}
       </div>
     </section>
   );
@@ -253,36 +214,36 @@ function FeaturedCarousel() {
   if (!loading && !featured.length) return null;
 
   return (
-    <section className="prime-section overflow-hidden border-t border-prime-line">
+    <section className="prime-section overflow-hidden">
       <div className="prime-container">
-        <div className="mb-12 flex flex-col gap-8 md:mb-16 md:flex-row md:items-end md:justify-between">
+        <div className="mb-14 flex flex-col gap-8 md:mb-20 md:flex-row md:items-end md:justify-between">
           <SectionIntro eyebrow={t('home.featured')} title={t('home.featuredTitle')} className="mb-0 md:mb-0" />
           <div className="flex items-center gap-6">
             <Link to="/search" className="prime-link">
               {t('home.viewAll')}
             </Link>
-            <div className="hidden gap-2 md:flex">
+            <div className="hidden gap-3 md:flex">
               <button
                 type="button"
                 onClick={() => scrollBy(-1)}
                 aria-label={t('home.prevStays')}
-                className="grid h-12 w-12 place-items-center border border-prime-line transition hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
+                className="grid h-11 w-11 place-items-center border border-prime-line/80 text-prime-ink transition duration-500 hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
               >
-                <ArrowLeft size={18} strokeWidth={1.4} className="rtl:rotate-180" />
+                <ArrowLeft size={16} strokeWidth={1.3} className="rtl:rotate-180" />
               </button>
               <button
                 type="button"
                 onClick={() => scrollBy(1)}
                 aria-label={t('home.moreStays')}
-                className="grid h-12 w-12 place-items-center border border-prime-line transition hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
+                className="grid h-11 w-11 place-items-center border border-prime-line/80 text-prime-ink transition duration-500 hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
               >
-                <ArrowRight size={18} strokeWidth={1.4} className="rtl:rotate-180" />
+                <ArrowRight size={16} strokeWidth={1.3} className="rtl:rotate-180" />
               </button>
             </div>
           </div>
         </div>
 
-        <div ref={trackRef} className="prime-scroll-x -mx-5 gap-5 px-5 scroll-px-5 sm:-mx-8 sm:gap-6 sm:px-8 sm:scroll-px-8 lg:-mx-12 lg:px-12 lg:scroll-px-12">
+        <div ref={trackRef} className="prime-scroll-x -mx-5 gap-6 px-5 scroll-px-5 sm:-mx-8 sm:gap-8 sm:px-8 sm:scroll-px-8 lg:-mx-12 lg:px-12 lg:scroll-px-12">
           {loading
             ? Array.from({ length: 4 }).map((_, i) => <ListingCardSkeleton key={i} className={CAROUSEL_CARD} />)
             : featured.map((u) => (
@@ -316,20 +277,6 @@ const SECTIONS = {
 
 export default function HomePage() {
   const { site } = useSite();
-  const [destinations, setDestinations] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getDestinations()
-      .then((res) => {
-        if (!cancelled) setDestinations(res.items || []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <div>
@@ -343,7 +290,7 @@ export default function HomePage() {
           const Section = SECTIONS[id];
           return Section ? (
             <div key={id} id={`home-${id}`}>
-              <Section destinations={destinations} />
+              <Section />
             </div>
           ) : null;
         })}

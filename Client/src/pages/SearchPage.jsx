@@ -4,7 +4,6 @@ import { ChevronDown, LayoutGrid, List } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ListingCard, { ListingCardSkeleton, ListingRow } from '../components/ListingCard';
-import Img from '../components/ui/Img';
 import { whatsappHref } from '../theme/brand';
 import PlaceCapsules from '../components/search/PlaceCapsules';
 import StaysFiltersBar, {
@@ -32,16 +31,19 @@ const shortName = (name = '') => name.replace(/^Prime\s+(Inn|Residence|Select)\s
 function ConciergeBand() {
   const { t } = useLocale();
   return (
-    <div className="col-span-full grid items-center gap-6 bg-brand-black px-7 py-10 text-white sm:px-10 md:grid-cols-[1fr_auto] md:gap-10 md:px-14 md:py-12">
-      <div>
-        <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-prime-gold-soft">{t('search.concierge')}</p>
-        <p className="mt-4 font-display text-[1.9rem] font-medium leading-tight md:text-[2.3rem]">{t('search.conciergeTitle')}</p>
+    <div className="col-span-full relative isolate overflow-hidden bg-brand-black px-8 py-14 text-white sm:px-12 md:grid md:grid-cols-[1.4fr_auto] md:items-end md:gap-16 md:px-16 md:py-20">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.18),transparent_55%)]" aria-hidden />
+      <div className="relative">
+        <p className="prime-eyebrow text-prime-gold-soft">{t('search.concierge')}</p>
+        <p className="mt-5 max-w-xl font-display text-[2rem] font-extralight leading-[1.15] tracking-[-0.03em] md:text-[2.6rem]">
+          {t('search.conciergeTitle')}
+        </p>
       </div>
       <a
         href={whatsappHref(t('search.conciergeMsg'))}
         target="_blank"
         rel="noreferrer"
-        className="prime-btn-gold justify-self-start md:justify-self-end"
+        className="prime-btn-gold relative mt-8 justify-self-start md:mt-0 md:justify-self-end"
       >
         {t('search.askWhatsapp')}
       </a>
@@ -196,7 +198,6 @@ export default function SearchPage() {
         ? term(`Prime ${filters.brand}`)
         : t('search.allStays');
 
-  const contextImage = property?.image || destination?.image;
   const contextText = property?.description || destination?.description;
   const pageItems = items.slice(0, shown);
 
@@ -211,8 +212,8 @@ export default function SearchPage() {
     <div className="min-h-screen bg-prime-sand">
       <Header />
       <main>
-        <section className="prime-container pb-8 pt-8 md:pb-12 md:pt-14">
-          <nav aria-label={t('search.breadcrumb')} className="mb-6 flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">
+        <section className="prime-container pb-10 pt-10 md:pb-14 md:pt-16">
+          <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-prime-muted">
             <Link to="/" className="transition hover:text-prime-ink">{t('search.home')}</Link>
             <span aria-hidden>/</span>
             {destination || property ? (
@@ -242,27 +243,20 @@ export default function SearchPage() {
             ) : null}
           </nav>
 
-          <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-12">
-            <div className="max-w-3xl">
-              <p className="prime-eyebrow text-prime-gold-deep">
-                {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
-              </p>
-              <h1 className="mt-4 font-display text-display-lg font-medium text-prime-ink text-balance">{heading}</h1>
-              {contextText ? <p className="prime-lede mt-4 max-w-2xl">{contextText}</p> : null}
-              <p className="mt-5 text-[13px] font-medium uppercase tracking-[0.22em] text-prime-muted" aria-live="polite">
-                {loading ? t('search.searching') : t(total === 1 ? 'search.countOne' : 'search.countMany', { count: total })}
-              </p>
-            </div>
-            {contextImage ? (
-              <div className="relative hidden aspect-[4/3] w-[300px] overflow-hidden bg-prime-mist md:block lg:w-[380px]">
-                <Img src={contextImage} alt="" priority sizes="380px" widths={[480, 768]} className="prime-fade-in h-full w-full object-cover" />
-              </div>
-            ) : null}
+          <div className="max-w-3xl">
+            <p className="prime-eyebrow text-prime-gold">
+              {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
+            </p>
+            <h1 className="mt-5 font-display text-display-lg font-extralight text-prime-ink text-balance">{heading}</h1>
+            {contextText ? <p className="prime-lede mt-6 max-w-xl">{contextText}</p> : null}
+            <p className="mt-6 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted" aria-live="polite">
+              {loading ? t('search.searching') : t(total === 1 ? 'search.countOne' : 'search.countMany', { count: total })}
+            </p>
           </div>
         </section>
 
-        <div className="sticky top-[var(--prime-header-h)] z-30 border-y border-prime-line bg-prime-sand/95 backdrop-blur-md">
-          <div className="prime-container space-y-3 py-3 md:py-4">
+        <div className="sticky top-[var(--prime-header-h)] z-30 border-b border-prime-line/80 bg-prime-sand/90 backdrop-blur-xl">
+          <div className="prime-container space-y-3 py-3.5 md:py-4">
             <div className="hidden md:block">
               <StaysFiltersBar
                 filters={filters}
@@ -355,7 +349,7 @@ export default function SearchPage() {
           <div
             className={cn(
               'grid grid-cols-1',
-              view === 'list' ? 'gap-y-10 md:gap-y-12' : 'gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8'
+              view === 'list' ? 'gap-y-12 md:gap-y-16' : 'gap-x-7 gap-y-16 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-20'
             )}
           >
             {loading &&

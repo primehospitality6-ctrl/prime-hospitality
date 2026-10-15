@@ -189,12 +189,12 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 
   .prime-eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.26em] text-prime-muted;
+    @apply text-[10.5px] font-medium uppercase tracking-[0.3em] text-prime-muted;
   }
 
   /* Small uppercase label (specs, indexes, meta) */
   .prime-label {
-    @apply text-[10.5px] font-semibold uppercase tracking-[0.2em] text-prime-muted;
+    @apply text-[10px] font-medium uppercase tracking-[0.22em] text-prime-muted;
   }
 
   /*
@@ -219,11 +219,11 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 
   .prime-lede {
-    @apply text-[15px] font-light leading-[1.75] text-prime-muted md:text-[17px];
+    @apply text-[15px] font-light leading-[1.8] text-prime-muted md:text-[16.5px] md:leading-[1.85];
   }
 
   .prime-section {
-    @apply py-20 md:py-28 lg:py-32;
+    @apply py-24 md:py-32 lg:py-40;
   }
 
   .prime-keyline {
@@ -266,24 +266,24 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 
   .prime-btn {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-prime-ink px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-sand transition duration-300 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-prime-ink px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-sand transition duration-500 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-gold {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-brand-gold px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-brand-gold px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white transition duration-500 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-outline {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-prime-ink/25 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-300 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-prime-ink/20 bg-transparent px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-ink transition duration-500 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
   }
 
   .prime-btn-ghost {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-white/40 bg-transparent px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition duration-300 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-white/35 bg-transparent px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white transition duration-500 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
   }
 
   /* “Explore more” text link with a drawn line */
   .prime-link {
-    @apply inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition-colors duration-300 hover:text-prime-gold;
+    @apply inline-flex items-center gap-3 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-ink transition-colors duration-500 hover:text-prime-gold;
   }
 
   .prime-link::after {

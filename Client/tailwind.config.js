@@ -81,25 +81,25 @@ export default {
       },
       fontSize: {
         'display-2xl': [
-          'clamp(2.6rem, 7vw, 6.5rem)',
-          { lineHeight: '0.98', letterSpacing: '-0.035em', fontWeight: '300' },
+          'clamp(2.85rem, 7.5vw, 7.25rem)',
+          { lineHeight: '0.95', letterSpacing: '-0.04em', fontWeight: '200' },
         ],
         'display-xl': [
-          'clamp(2.2rem, 5vw, 4.4rem)',
-          { lineHeight: '1.02', letterSpacing: '-0.03em', fontWeight: '300' },
+          'clamp(2.35rem, 5.4vw, 4.85rem)',
+          { lineHeight: '1.0', letterSpacing: '-0.035em', fontWeight: '200' },
         ],
         'display-lg': [
-          'clamp(1.9rem, 3.6vw, 3.2rem)',
-          { lineHeight: '1.08', letterSpacing: '-0.025em', fontWeight: '300' },
+          'clamp(2rem, 3.8vw, 3.5rem)',
+          { lineHeight: '1.06', letterSpacing: '-0.03em', fontWeight: '300' },
         ],
         'display-md': [
-          'clamp(1.45rem, 2.2vw, 2rem)',
-          { lineHeight: '1.15', letterSpacing: '-0.015em', fontWeight: '400' },
+          'clamp(1.5rem, 2.3vw, 2.15rem)',
+          { lineHeight: '1.14', letterSpacing: '-0.02em', fontWeight: '300' },
         ],
       },
       boxShadow: {
-        premium: '0 24px 60px rgba(35, 31, 32, 0.08)',
-        'premium-lg': '0 32px 80px rgba(35, 31, 32, 0.14)',
+        premium: '0 18px 48px rgba(35, 31, 32, 0.05)',
+        'premium-lg': '0 28px 72px rgba(35, 31, 32, 0.09)',
       },
       transitionTimingFunction: {
         prime: 'cubic-bezier(0.22, 1, 0.36, 1)',

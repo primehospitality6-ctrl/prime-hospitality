@@ -20,9 +20,9 @@ export default function SectionIntro({
   return (
     <Reveal
       className={cn(
-        'mb-12 md:mb-16',
+        'mb-14 md:mb-20',
         centered && 'mx-auto max-w-3xl text-center',
-        split && 'flex flex-col gap-6 md:flex-row md:items-end md:justify-between',
+        split && 'flex flex-col gap-8 md:flex-row md:items-end md:justify-between',
         className
       )}
     >
@@ -30,12 +30,12 @@ export default function SectionIntro({
         {eyebrow ? (
           <p
             className={cn(
-              'prime-eyebrow mb-6 flex items-center gap-4',
+              'prime-eyebrow mb-7 flex items-center gap-4',
               centered && 'justify-center',
               dark ? 'text-prime-gold-soft' : 'text-prime-gold'
             )}
           >
-            <span className={cn('h-px w-8', dark ? 'bg-prime-gold-soft' : 'bg-prime-gold')} aria-hidden />
+            <span className={cn('h-px w-10', dark ? 'bg-prime-gold-soft' : 'bg-prime-gold')} aria-hidden />
             {eyebrow}
           </p>
         ) : null}
@@ -47,9 +47,9 @@ export default function SectionIntro({
         {body ? (
           <p
             className={cn(
-              'mt-6 max-w-xl text-[15px] font-light leading-[1.8] md:text-[17px]',
+              'prime-lede mt-7 max-w-lg',
               centered && 'mx-auto',
-              dark ? 'text-white/70' : 'text-prime-muted'
+              dark && 'text-white/70'
             )}
           >
             {body}

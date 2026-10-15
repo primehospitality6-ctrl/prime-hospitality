@@ -43,10 +43,10 @@ export default function PartnersSection({ className }) {
   if (!partners.length) return null;
 
   return (
-    <section className={cn('border-y border-prime-line py-14 md:py-16', className)}>
-      <div className="prime-container flex flex-col items-center gap-10 lg:flex-row lg:gap-16">
+    <section className={cn('border-y border-prime-line/70 py-16 md:py-20', className)}>
+      <div className="prime-container flex flex-col items-center gap-12 lg:flex-row lg:gap-20">
         <p className="prime-eyebrow shrink-0 text-center lg:text-start">{t('home.partners')}</p>
-        <div className="flex flex-1 flex-wrap items-center justify-center gap-x-12 gap-y-8 lg:justify-between">
+        <div className="flex flex-1 flex-wrap items-center justify-center gap-x-14 gap-y-10 lg:justify-between">
           {partners.map((partner) => (
             <div key={partner.id || partner.name || partner} className="flex h-10 items-center justify-center">
               <PartnerLogo partner={typeof partner === 'string' ? { name: partner } : partner} />

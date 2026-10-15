@@ -13,33 +13,33 @@ function DestinationTile({ destination, index, meta, lead }) {
     <Link
       to={`/search?destination=${encodeURIComponent(destination.id)}`}
       className={cn(
-        'group relative block w-[78vw] flex-none snap-start overflow-hidden bg-brand-black sm:w-[46vw] md:w-auto',
-        lead ? 'aspect-[3/4] md:col-span-2 md:row-span-2 md:aspect-auto' : 'aspect-[3/4] md:aspect-[4/5]'
+        'group relative block w-[82vw] flex-none snap-start overflow-hidden bg-brand-black sm:w-[48vw] md:w-auto',
+        lead ? 'aspect-[3/4] md:col-span-2 md:row-span-2 md:min-h-[36rem] md:aspect-auto' : 'aspect-[3/4] md:aspect-[4/5]'
       )}
     >
       <Img
         src={destination.image}
         alt=""
         sizes={lead ? '(min-width: 768px) 60vw, 80vw' : '(min-width: 768px) 30vw, 80vw'}
-        className="absolute inset-0 h-full w-full object-cover opacity-90 transition duration-[1600ms] ease-prime group-hover:scale-[1.05] group-hover:opacity-100"
+        className="absolute inset-0 h-full w-full object-cover opacity-95 transition duration-[1800ms] ease-prime group-hover:scale-[1.04] group-hover:opacity-100"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-      <span className="absolute start-5 top-5 text-[11px] font-semibold tracking-[0.2em] text-white/75 md:start-7 md:top-7">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+      <span className="absolute start-5 top-5 text-[10.5px] font-medium tracking-[0.24em] text-white/65 md:start-8 md:top-8">
         {String(index + 1).padStart(2, '0')}
       </span>
-      <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-7">
+      <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-8 lg:p-10">
         <h3
           className={cn(
-            'font-display font-light leading-none tracking-[-0.03em]',
-            lead ? 'text-[2.3rem] md:text-[3.4rem]' : 'text-[1.9rem] md:text-[2.15rem]'
+            'font-display font-extralight leading-none tracking-[-0.035em]',
+            lead ? 'text-[2.5rem] md:text-[3.75rem]' : 'text-[2rem] md:text-[2.35rem]'
           )}
         >
           {term(destination.name)}
         </h3>
-        {meta ? <p className="mt-3 text-[12px] font-light text-white/70">{meta}</p> : null}
-        <span className="mt-5 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/90">
+        {meta ? <p className="mt-4 text-[12.5px] font-light text-white/65">{meta}</p> : null}
+        <span className="mt-6 inline-flex items-center gap-3 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white/90">
           {t('home.discover')}
-          <span className="h-px w-6 bg-prime-gold-soft transition-all duration-500 ease-prime group-hover:w-12" />
+          <span className="h-px w-8 bg-prime-gold-soft transition-all duration-700 ease-prime group-hover:w-14" />
         </span>
       </div>
     </Link>
@@ -85,7 +85,7 @@ export default function CompoundGrid({ limit, hideIntro = false, homeOnly = fals
             link={{ to: '/compounds', label: t('home.exploreCompounds') }}
           />
         ) : null}
-        <Reveal className="prime-scroll-x -mx-5 gap-3 px-5 sm:-mx-8 sm:px-8 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 lg:gap-5">
+        <Reveal className="prime-scroll-x -mx-5 gap-3 px-5 sm:-mx-8 sm:gap-4 sm:px-8 md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 lg:gap-4">
           {items.map((d, i) => (
             <DestinationTile
               key={d.id}

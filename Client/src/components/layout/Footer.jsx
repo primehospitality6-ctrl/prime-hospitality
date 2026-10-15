@@ -53,8 +53,8 @@ export default function Footer() {
         className="pointer-events-none absolute -bottom-[0.05em] end-[-0.03em] -z-10 text-[clamp(8rem,26vw,24rem)] text-white/[0.04]"
       />
 
-      <div className="prime-container pt-20 md:pt-28">
-        <div className="grid gap-10 border-b border-white/10 pb-16 md:pb-20 lg:grid-cols-[1.5fr_1fr] lg:items-end">
+      <div className="prime-container pt-24 md:pt-32">
+        <div className="grid gap-12 border-b border-white/10 pb-20 md:pb-24 lg:grid-cols-[1.5fr_1fr] lg:items-end">
           <h2 className="max-w-3xl font-display text-display-lg font-extralight text-balance">
             {t('footer.headline')} <em className="text-prime-gold-soft">{t('footer.headlineEm')}</em> {t('footer.headlineEnd')}
           </h2>

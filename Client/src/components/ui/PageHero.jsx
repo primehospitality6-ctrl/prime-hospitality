@@ -26,7 +26,7 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
 
   if (image) {
     return (
-      <section className={cn('relative isolate flex min-h-vh-72 items-end overflow-hidden bg-brand-black text-white md:min-h-vh-78', className)}>
+      <section className={cn('relative isolate flex min-h-vh-78 items-end overflow-hidden bg-brand-black text-white md:min-h-vh-100', className)}>
         <Img
           src={image}
           alt=""
@@ -36,20 +36,20 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
           fallbackWidth={1920}
           className="prime-kenburns absolute inset-0 -z-10 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/25 to-black/35" />
-        <div className={cn('prime-container pb-14 pt-32 md:pb-20', centered && 'text-center')}>
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
+        <div className={cn('prime-container pb-16 pt-36 md:pb-24', centered && 'text-center')}>
           <div className={cn('max-w-3xl', centered && 'mx-auto')}>
             {eyebrow ? (
               <Eyebrow light centered={centered}>
                 {eyebrow}
               </Eyebrow>
             ) : null}
-            <h1 className="prime-fade-up mt-6 font-display text-display-xl font-extralight text-balance" style={{ animationDelay: '80ms' }}>
+            <h1 className="prime-fade-up mt-7 font-display text-display-xl font-extralight text-balance" style={{ animationDelay: '80ms' }}>
               {title}
             </h1>
             {lede ? (
               <p
-                className={cn('prime-fade-up mt-6 max-w-xl text-[15px] font-light leading-relaxed text-white/80 md:text-[17px]', centered && 'mx-auto')}
+                className={cn('prime-fade-up mt-7 max-w-lg text-[15px] font-light leading-[1.8] text-white/75 md:text-[16.5px]', centered && 'mx-auto')}
                 style={{ animationDelay: '160ms' }}
               >
                 {lede}

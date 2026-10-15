@@ -33,12 +33,12 @@ function localISO(d = new Date()) {
 
 function Spec({ num, unit, label }) {
   return (
-    <div className="px-2 py-6 text-center">
-      <div className="font-display text-[2rem] font-medium leading-none text-prime-ink sm:text-[2.4rem]">
+    <div className="px-2 py-8 text-center">
+      <div className="font-display text-[2.1rem] font-extralight leading-none tracking-[-0.03em] text-prime-ink sm:text-[2.5rem]">
         {num}
         {unit ? <span className="ms-1 font-sans text-sm font-light text-prime-muted">{unit}</span> : null}
       </div>
-      <div className="mt-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-muted sm:tracking-[0.24em]">{label}</div>
+      <div className="mt-3 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-muted">{label}</div>
     </div>
   );
 }
@@ -390,24 +390,24 @@ export default function ListingDetailPage() {
             <span className="text-prime-ink">{term(listing.unitType || listing.title)}</span>
           </nav>
 
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-6 md:mb-10">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-6 md:mb-12">
             <div className="max-w-3xl">
-              <p className="prime-eyebrow text-prime-gold-deep">
+              <p className="prime-eyebrow text-prime-gold">
                 {[listing.brand && `Prime ${listing.brand}`, listing.destination || listing.region]
                   .filter(Boolean)
                   .map(term)
                   .join(' · ')}
               </p>
-              <h1 className="mt-4 font-display text-display-lg font-medium text-prime-ink text-balance">{term(listing.title)}</h1>
-              <p className="mt-4 text-[15px] font-light text-prime-muted">
-                <span className="font-normal text-prime-ink">{term(listing.unitType)}</span>
+              <h1 className="mt-5 font-display text-display-lg font-extralight text-prime-ink text-balance">{term(listing.title)}</h1>
+              <p className="mt-5 text-[14.5px] font-light tracking-wide text-prime-muted">
+                <span className="text-prime-ink">{term(listing.unitType)}</span>
                 {[listing.compound, listing.city].filter(Boolean).length
                   ? ` · ${[listing.compound, listing.city].filter(Boolean).map(term).join(t('common.listSep'))}`
                   : ''}
                 {reviewCount > 0 ? (
                   <>
                     {' · '}
-                    <span className="text-prime-gold-deep">★ {averageRating.toFixed(1)}</span>{' '}
+                    <span className="text-prime-gold">★ {averageRating.toFixed(1)}</span>{' '}
                     {t('listing.reviewCount', { count: reviewCount })}
                   </>
                 ) : null}
@@ -418,19 +418,19 @@ export default function ListingDetailPage() {
               onClick={() => toggle(listing.id)}
               aria-pressed={loved}
               className={cn(
-                'inline-flex min-h-[2.75rem] items-center gap-2.5 rounded-full border px-5 text-[11px] font-medium uppercase tracking-[0.2em] transition',
+                'inline-flex min-h-[2.75rem] items-center gap-2.5 border px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] transition duration-500',
                 loved
                   ? 'border-prime-gold bg-prime-gold/10 text-prime-gold-deep'
                   : 'border-prime-line text-prime-ink hover:border-prime-ink'
               )}
             >
-              <Heart size={15} strokeWidth={1.6} fill={loved ? 'currentColor' : 'none'} />
+              <Heart size={15} strokeWidth={1.5} fill={loved ? 'currentColor' : 'none'} />
               {loved ? t('listing.saved') : t('listing.save')}
             </button>
           </div>
 
-          <div className="relative mb-10 md:mb-14">
-            <div className="hidden gap-2 md:grid md:grid-cols-[2fr_1fr_1fr] md:grid-rows-[250px_250px] lg:grid-rows-[300px_300px]">
+          <div className="relative mb-12 md:mb-16">
+            <div className="hidden gap-1.5 md:grid md:grid-cols-[2.2fr_1fr_1fr] md:grid-rows-[280px_280px] lg:grid-rows-[340px_340px]">
               <button
                 type="button"
                 onClick={() => setLightbox(true)}
@@ -440,8 +440,8 @@ export default function ListingDetailPage() {
                   src={photos[0]}
                   alt={listing.title}
                   priority
-                  sizes="(min-width: 768px) 50vw, 100vw"
-                  className="absolute inset-0 h-full w-full object-cover transition duration-[1400ms] ease-prime group-hover:scale-[1.03]"
+                  sizes="(min-width: 768px) 55vw, 100vw"
+                  className="absolute inset-0 h-full w-full object-cover transition duration-[1600ms] ease-prime group-hover:scale-[1.03]"
                 />
               </button>
               {photos.slice(1, 5).map((src, i) => (
@@ -456,7 +456,7 @@ export default function ListingDetailPage() {
                     alt={t('listing.photoAlt', { title: listing.title, n: i + 2 })}
                     sizes="25vw"
                     widths={[400, 640, 900]}
-                    className="absolute inset-0 h-full w-full object-cover transition duration-[1400ms] ease-prime group-hover:scale-[1.05]"
+                    className="absolute inset-0 h-full w-full object-cover transition duration-[1600ms] ease-prime group-hover:scale-[1.04]"
                   />
                 </button>
               ))}
@@ -530,8 +530,8 @@ export default function ListingDetailPage() {
                 ) : null}
               </section>
 
-              <section id="about" className="mb-12 scroll-mt-40 border-b border-prime-line pb-12">
-                <h2 className="font-display text-[2rem] font-medium leading-tight text-prime-ink">
+              <section id="about" className="mb-14 scroll-mt-40 border-b border-prime-line pb-14">
+                <h2 className="font-display text-[2rem] font-extralight leading-tight tracking-[-0.02em] text-prime-ink">
                   {t('listing.description')}
                 </h2>
                 <div className="mt-5">
@@ -661,19 +661,19 @@ export default function ListingDetailPage() {
               ) : null}
             </div>
 
-            <aside className="hidden h-fit bg-prime-surface p-8 shadow-premium lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
-              <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-prime-muted">{t('listing.reservation')}</p>
+            <aside className="hidden h-fit border border-prime-line/80 bg-prime-sand p-9 lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
+              <p className="prime-label">{t('listing.reservation')}</p>
               {hasPrice ? (
                 <>
-                  <p className="mt-4 font-display text-[2.6rem] font-medium leading-none tabular-nums text-prime-ink">
+                  <p className="mt-5 font-display text-[2.75rem] font-extralight leading-none tracking-[-0.03em] tabular-nums text-prime-ink">
                     {formatMoney(displayFromPrice, listing.currency)}
                   </p>
-                  <p className="mt-2 text-[13px] font-light text-prime-muted">{t('listing.perNightNote')}</p>
+                  <p className="mt-3 text-[13px] font-light text-prime-muted">{t('listing.perNightNote')}</p>
                 </>
               ) : (
-                <p className="mt-4 font-display text-[2rem] font-medium leading-tight text-prime-ink">{t('listing.priceOnRequest')}</p>
+                <p className="mt-5 font-display text-[2rem] font-extralight leading-tight text-prime-ink">{t('listing.priceOnRequest')}</p>
               )}
-              <div className="my-7 h-px bg-prime-line" />
+              <div className="my-8 h-px bg-prime-line" />
               <div className="flex flex-col gap-3">
                 <button type="button" className="prime-btn w-full" onClick={() => setBookingOpen(true)}>
                   {t('listing.bookNow')}
@@ -682,7 +682,7 @@ export default function ListingDetailPage() {
                   {t('listing.whatsappInquiry')}
                 </a>
               </div>
-              <p className="mt-6 text-center text-[12px] font-light leading-relaxed text-prime-muted">
+              <p className="mt-7 text-center text-[12px] font-light leading-relaxed text-prime-muted">
                 {t('listing.bookDirectNote')}
               </p>
             </aside>
@@ -690,18 +690,18 @@ export default function ListingDetailPage() {
         </div>
 
         {similar.length > 0 && (
-          <section className="border-t border-prime-line bg-prime-mist/50 py-20 md:py-28">
+          <section className="border-t border-prime-line py-24 md:py-32">
             <div className="prime-container">
-              <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
+              <div className="mb-14 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <p className="prime-eyebrow text-prime-gold-deep">{term(listing.compound)}</p>
-                  <h2 className="mt-4 font-display text-display-md font-medium text-prime-ink">{t('listing.similarRent')}</h2>
+                  <p className="prime-eyebrow text-prime-gold">{term(listing.compound)}</p>
+                  <h2 className="mt-5 font-display text-display-md font-extralight text-prime-ink">{t('listing.similarRent')}</h2>
                 </div>
                 <Link to="/search" className="prime-link">
                   {t('listing.viewAll')}
                 </Link>
               </div>
-              <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
+              <div className="grid gap-x-8 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
                 {similar.map((item) => (
                   <ListingCard key={item.id} listing={item} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" />
                 ))}

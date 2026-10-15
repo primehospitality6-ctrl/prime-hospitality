@@ -65,7 +65,7 @@ function Total({ price, currency, tone = 'dark' }) {
           {price.discount > 0 && (
             <p className={cn('text-xs tabular-nums line-through', muted)}>{formatMoney(price.baseTotal, currency)}</p>
           )}
-          <p className="font-display text-[1.75rem] font-bold leading-none tabular-nums tracking-[-0.03em]">
+          <p className="font-display text-[1.85rem] font-extralight leading-none tabular-nums tracking-[-0.03em]">
             {formatMoney(price.rateAmount, currency)}
           </p>
         </div>

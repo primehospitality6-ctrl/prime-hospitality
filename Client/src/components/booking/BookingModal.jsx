@@ -343,32 +343,30 @@ export default function BookingModal({
         aria-modal="true"
         aria-labelledby="bm-title"
         tabIndex={-1}
-        className="relative flex h-dvh-100 w-full flex-col overflow-hidden bg-prime-surface shadow-premium-lg outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:h-dvh-modal sm:max-w-[44rem] sm:border sm:border-prime-line lg:max-w-[70rem] lg:flex-row"
+        className="relative flex h-dvh-100 w-full flex-col overflow-hidden bg-prime-sand shadow-premium-lg outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:h-dvh-modal sm:max-w-[46rem] sm:border sm:border-prime-line/70 lg:max-w-[72rem] lg:flex-row"
       >
         <SummaryPanel {...summaryProps} className="hidden w-[23rem] shrink-0 lg:flex" />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="shrink-0 border-b border-prime-line px-5 pb-4 pt-4 sm:px-8 sm:pt-5">
+          <header className="shrink-0 border-b border-prime-line/80 px-5 pb-5 pt-5 sm:px-8 sm:pt-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-muted">
-                  {t('bm.eyebrow')}
-                </p>
-                <h2 id="bm-title" className="mt-1 truncate font-display text-lg font-bold tracking-[-0.02em] text-prime-ink">
+                <p className="prime-label">{t('bm.eyebrow')}</p>
+                <h2 id="bm-title" className="mt-2 truncate font-display text-xl font-light tracking-[-0.025em] text-prime-ink">
                   {term(listing.title)}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={requestClose}
-                className="grid h-10 w-10 shrink-0 place-items-center border border-prime-line text-prime-ink transition hover:border-prime-gold"
+                className="grid h-10 w-10 shrink-0 place-items-center border border-prime-line text-prime-ink transition duration-500 hover:border-prime-ink"
                 aria-label={t('common.close')}
               >
-                <X size={18} strokeWidth={1.75} />
+                <X size={17} strokeWidth={1.5} />
               </button>
             </div>
 
-            <ol className="mt-4 flex items-center gap-1.5" aria-label={t('bm.progress')}>
+            <ol className="mt-5 flex items-center gap-1.5" aria-label={t('bm.progress')}>
               {STEPS.map((s, i) => {
                 const done = i < stepIndex || (s === 'pay' && result?.booking?.paymentStatus === 'paid');
                 const current = i === stepIndex;
@@ -384,18 +382,18 @@ export default function BookingModal({
                     >
                       <span
                         className={cn(
-                          'grid h-6 w-6 shrink-0 place-items-center border text-[11px] font-bold tabular-nums transition',
+                          'grid h-6 w-6 shrink-0 place-items-center border text-[10.5px] font-medium tabular-nums transition duration-500',
                           current && 'border-prime-ink bg-prime-ink text-prime-sand',
                           done && !current && 'border-prime-gold bg-prime-gold text-white',
                           !done && !current && 'border-prime-line text-prime-muted',
-                          clickable && 'group-hover:border-prime-gold-deep'
+                          clickable && 'group-hover:border-prime-gold'
                         )}
                       >
-                        {done && !current ? <Check size={12} strokeWidth={3} /> : i + 1}
+                        {done && !current ? <Check size={11} strokeWidth={2.5} /> : i + 1}
                       </span>
                       <span
                         className={cn(
-                          'hidden truncate text-[11px] font-semibold uppercase tracking-[0.16em] sm:inline',
+                          'hidden truncate text-[10.5px] font-medium uppercase tracking-[0.18em] sm:inline',
                           current ? 'text-prime-ink' : 'text-prime-muted'
                         )}
                       >
@@ -473,16 +471,14 @@ export default function BookingModal({
               {step === 'pay' && result && (
                 <section>
                   {heading}
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border border-prime-gold/40 bg-prime-gold/10 px-4 py-3">
+                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-prime-line px-5 py-4">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-gold-deep">
-                        {t('bm.voucher')}
-                      </p>
-                      <p className="mt-0.5 font-display text-lg font-bold tracking-[0.02em] text-prime-ink">
+                      <p className="prime-label text-prime-gold">{t('bm.voucher')}</p>
+                      <p className="mt-1.5 font-display text-xl font-light tracking-[0.04em] text-prime-ink">
                         {result.booking?.voucherNumber}
                       </p>
                     </div>
-                    <p className="text-[12px] text-prime-muted">{t('bm.heldNote')}</p>
+                    <p className="text-[12px] font-light text-prime-muted">{t('bm.heldNote')}</p>
                   </div>
                   <PaymentPanel
                     payment={result.payment}
