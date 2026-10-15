@@ -63,9 +63,9 @@ function KwentraCard({ onChanged }) {
         <div>
           <h2 className="font-display text-lg font-bold">Kwentra PMS</h2>
           <p className="mt-1 max-w-xl text-sm text-prime-muted">
-            Kwentra webhooks (and Sync now) pull units and blocked nights onto the website. Reservation notices also
-            refresh blocked nights. A guest booking is pushed to Kwentra. Photos, featured and published stay controlled
-            here.
+            Every reservation change syncs both ways immediately: website bookings push to Kwentra and block the
+            calendar at once; Kwentra reservation webhooks patch blocked nights on the site without waiting for a full
+            pull. Sync now still refreshes the full year. Photos, featured and published stay controlled here.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -148,7 +148,8 @@ function KwentraCard({ onChanged }) {
       {status?.configured ? (
         <div className="mt-4 space-y-1 text-sm text-prime-muted">
           <p>
-            Blocked nights warm on API boot, on Sync now, and when Kwentra sends availability or reservation webhooks.
+            Reservation changes patch blocked nights instantly both ways. Boot, Sync now, and availability webhooks
+            still warm the full year.
           </p>
           <p>
             {last ? `Last sync ${formatTime(last.finishedAt)}` : 'No sync yet since the API started'}

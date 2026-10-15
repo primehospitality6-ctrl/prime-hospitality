@@ -557,7 +557,7 @@ async function collectNightPrices(listing, arrival, departure, ctx, depth = 0) {
     const rates = await roomTypeRates(listing, { arrivalDate: arrival, departureDate: departure, ...ctx });
     rate = pickRate(rates, 'FLEX');
     if (rate) prices = nightsToPrices(arrival, rate.nights);
-  } catch (err) {
+    } catch (err) {
     console.warn('[kwentra] rates lookup failed:', err.message);
   }
   if (Object.keys(prices).length || span <= 1 || depth >= 6) return { prices, rate };
@@ -614,7 +614,6 @@ async function liveBlockedForRoom(listing, from, to, tenantId) {
 
   const list = [...blocked].sort();
   rememberAvailability(tenantId, roomTypeId, { from, to, blocked: list, checkoutDates: [] }, { force: true, key });
-  scheduleAvailabilityRefresh(tenantId);
   return { blocked: nightsInside(list, from, to), checkoutDates: [] };
 }
 
@@ -1026,9 +1025,25 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
     });
     const { id } = await kwentra.createReservation(payload, { tenantId });
     kwentra.clearLiveCache(tenantId);
-    const bookedRoomId = roomIdOf(listing);
-    if (bookedRoomId) availabilitySnapshots.delete(`room:${tenantId}|${bookedRoomId}`);
-    scheduleAvailabilityRefresh(tenantId);
+    // Instantly block the stay on the website calendar — don't wait for a full Kwentra pull.
+    const snapRoomId = String(room.id || roomIdOf(listing) || '');
+    if (snapRoomId) {
+      patchRoomStay({
+        tenantId,
+        roomId: snapRoomId,
+        roomTypeId,
+        arrivalDate: booking.arrivalDate,
+        departureDate: booking.departureDate,
+        block: true,
+      });
+      scheduleRoomWindowRefresh({
+        tenantId,
+        roomId: snapRoomId,
+        roomTypeId,
+        from: booking.arrivalDate,
+        to: booking.departureDate,
+      });
+    }
     const extras = await sendReservationExtras(id, booking, tenantId);
     return {
       pushed: true,
@@ -1311,6 +1326,180 @@ function nightsInside(blocked, from, to) {
   return (blocked || []).filter((d) => d >= from && d < to);
 }
 
+function nightsOfStay(arrival, departure) {
+  const nights = [];
+  if (!arrival || !departure || arrival >= departure) return nights;
+  for (let d = arrival; d < departure; d = addDays(d, 1)) nights.push(d);
+  return nights;
+}
+
+function roomIdFromReservation(reservation) {
+  for (const n of reservation?.room_nights || []) {
+    const rn = n?.room_number ?? n?.room ?? n?.room_id;
+    const id = rn && typeof rn === 'object' ? rn.id : rn;
+    if (id != null && String(id).trim() !== '') return String(id);
+  }
+  const direct = reservation?.room_id ?? reservation?.room?.id ?? reservation?.room;
+  if (direct != null && typeof direct !== 'object') return String(direct);
+  if (direct && typeof direct === 'object' && direct.id != null) return String(direct.id);
+  return '';
+}
+
+function roomTypeFromReservation(reservation) {
+  for (const n of reservation?.room_nights || []) {
+    const rt = n?.room_type ?? n?.actual_room_type;
+    const id = rt && typeof rt === 'object' ? rt.id : rt;
+    if (id != null && String(id).trim() !== '') return String(id);
+  }
+  const direct = reservation?.room_type_id ?? reservation?.room_type?.id;
+  return direct != null ? String(direct) : '';
+}
+
+function ensureRoomSnap(tenantId, roomId) {
+  const key = `room:${tenantId}|${roomId}`;
+  let snap = availabilitySnapshots.get(key);
+  if (!snap) {
+    const from = localToday();
+    const to = addCalendarMonths(from, AVAILABILITY_MONTHS);
+    snap = { from, to, blocked: [], checkoutDates: [], at: Date.now() };
+    availabilitySnapshots.set(key, snap);
+  }
+  return { key, snap };
+}
+
+/**
+ * Instantly block or free stay nights on a room calendar (website ↔ Kwentra).
+ * Guest calendars read this map, so a patch is visible on the next availability request.
+ */
+function patchRoomStay({ tenantId, roomId, roomTypeId, arrivalDate, departureDate, block }) {
+  if (!tenantId || !roomId || !arrivalDate || !departureDate) return { ok: false };
+  const { key, snap } = ensureRoomSnap(tenantId, roomId);
+  const set = new Set(snap.blocked || []);
+  if (arrivalDate < snap.from) snap.from = arrivalDate;
+  if (departureDate > snap.to) snap.to = departureDate;
+  for (const n of nightsOfStay(arrivalDate, departureDate)) {
+    if (block) set.add(n);
+    else set.delete(n);
+  }
+  snap.blocked = [...set].sort();
+  snap.at = Date.now();
+  snap.roomTypeId = roomTypeId || snap.roomTypeId || '';
+  availabilitySnapshots.set(key, snap);
+  return { ok: true, key, nights: nightsOfStay(arrivalDate, departureDate).length, block: Boolean(block) };
+}
+
+/** Re-check vacant status for one room over a short window (not a 92-day full tenant scan). */
+async function refreshRoomStayWindow(tenantId, roomId, roomTypeId, from, to) {
+  if (!tenantId || !roomId || !from || !to || from >= to) return;
+  const { snap } = ensureRoomSnap(tenantId, roomId);
+  const set = new Set(snap.blocked || []);
+  const today = localToday();
+  const scanFrom = from < today ? today : from;
+  for (let day = scanFrom; day < to; day = addDays(day, 1)) {
+    try {
+      const vacant = await kwentra.listRooms({
+        tenantId,
+        roomTypeId: roomTypeId || undefined,
+        from: day,
+        to: day,
+        vacantOnly: true,
+      });
+      const free = new Set(vacant.map((r) => String(r.id)));
+      if (free.has(String(roomId))) set.delete(day);
+      else set.add(day);
+    } catch (err) {
+      console.warn('[kwentra] room window refresh failed', day, err.message);
+    }
+  }
+  snap.blocked = [...set].sort();
+  snap.at = Date.now();
+  if (roomTypeId) snap.roomTypeId = roomTypeId;
+}
+
+const pendingRoomWindows = new Map();
+
+/** Queue a fast per-room vacant check for the stay window. Collapses bursts for the same room. */
+function scheduleRoomWindowRefresh({ tenantId, roomId, roomTypeId, from, to }) {
+  if (!tenantId || !roomId || !from || !to) return { queued: false };
+  const key = `${tenantId}|${roomId}`;
+  const prev = pendingRoomWindows.get(key);
+  if (prev) {
+    pendingRoomWindows.set(key, {
+      tenantId,
+      roomId,
+      roomTypeId: roomTypeId || prev.roomTypeId,
+      from: from < prev.from ? from : prev.from,
+      to: to > prev.to ? to : prev.to,
+    });
+  } else {
+    pendingRoomWindows.set(key, { tenantId, roomId, roomTypeId: roomTypeId || '', from, to });
+  }
+  return queueWebhook('room-avail', null, flushRoomWindowRefreshes, 0);
+}
+
+async function flushRoomWindowRefreshes() {
+  if (!kwentra.isConfigured()) return;
+  const jobs = [...pendingRoomWindows.values()];
+  pendingRoomWindows.clear();
+  for (const job of jobs) {
+    try {
+      await refreshRoomStayWindow(job.tenantId, job.roomId, job.roomTypeId, job.from, job.to);
+    } catch (err) {
+      console.warn('[kwentra] room-avail flush failed:', err.message);
+    }
+  }
+  if (jobs.length) {
+    syncState.lastTrigger = { reason: 'room-avail', at: new Date().toISOString() };
+    console.log(`[kwentra] room-avail — ${jobs.length} room window(s) refreshed`);
+  }
+}
+
+/**
+ * Apply a Kwentra reservation onto the website calendar immediately.
+ * Blocks on create/update; frees nights on cancel. Optionally frees a previous stay window.
+ */
+function syncReservationAvailability(reservation, tenantId, { previousArrival, previousDeparture } = {}) {
+  if (!reservation) return { ok: false, reason: 'missing' };
+  const tid = tenantId != null && tenantId !== '' ? tenantId : kwentra.getTenantId();
+  if (tid == null || tid === '') return { ok: false, reason: 'missing_tenant' };
+  const arrival = String(reservation.arrival_date || '').slice(0, 10);
+  const departure = String(reservation.departure_date || '').slice(0, 10);
+  const roomId = roomIdFromReservation(reservation);
+  const roomTypeId = roomTypeFromReservation(reservation);
+  const cancelled = kwentra.isCancelledReservation(reservation);
+  tenantId = tid;
+
+  if (roomId && previousArrival && previousDeparture && (previousArrival !== arrival || previousDeparture !== departure || cancelled)) {
+    patchRoomStay({
+      tenantId,
+      roomId,
+      roomTypeId,
+      arrivalDate: previousArrival,
+      departureDate: previousDeparture,
+      block: false,
+    });
+  }
+
+  if (!roomId || !arrival || !departure) {
+    if (tenantId) scheduleAvailabilityRefresh(tenantId);
+    return { ok: false, reason: roomId ? 'missing_dates' : 'missing_room', queuedFull: true };
+  }
+
+  const patched = patchRoomStay({
+    tenantId,
+    roomId,
+    roomTypeId,
+    arrivalDate: arrival,
+    departureDate: departure,
+    block: !cancelled,
+  });
+
+  const winFrom = previousArrival && previousArrival < arrival ? previousArrival : arrival;
+  const winTo = previousDeparture && previousDeparture > departure ? previousDeparture : departure;
+  scheduleRoomWindowRefresh({ tenantId, roomId, roomTypeId, from: winFrom, to: winTo });
+  return { ok: true, ...patched, cancelled };
+}
+
 async function syncDestinationsAndProperties(report, fail) {
   const [destRes, projRes] = await Promise.allSettled([pullDestinations(), pullProjects()]);
   const kwDestinations = destRes.status === 'fulfilled' ? destRes.value.items : (fail('destinations', destRes.reason), []);
@@ -1570,30 +1759,37 @@ async function syncFromKwentra() {
   return report;
 }
 
-const webhookJobs = { units: null, availability: null };
+const webhookJobs = { units: null, availability: null, 'room-avail': null };
 
-/** Bursts of the same notice collapse into one pull. This is not a timer. */
-function queueWebhook(kind, tenantId, fn) {
+/** Bursts of the same notice collapse into one pull. delayMs 0 = next tick (instant). */
+function queueWebhook(kind, tenantId, fn, delayMs = 50) {
   const key = kind;
-  const slot = webhookJobs[key] || { tenants: new Set(), timer: null, running: false };
+  const slot = webhookJobs[key] || { tenants: new Set(), timer: null, running: false, fn };
   webhookJobs[key] = slot;
-  slot.tenants.add(tenantId ? String(tenantId) : '*');
+  slot.fn = fn;
+  if (tenantId != null) slot.tenants.add(tenantId ? String(tenantId) : '*');
+  else slot.tenants.add('*');
   if (slot.running) return { queued: true, when: 'after the current pull' };
   clearTimeout(slot.timer);
-  slot.timer = setTimeout(() => {
+  const run = () => {
     slot.timer = null;
     slot.running = true;
     const tenants = [...slot.tenants];
     slot.tenants.clear();
-    fn(tenants)
+    Promise.resolve(slot.fn(tenants))
       .catch((err) => console.warn('[kwentra-webhook]', kind, err.message))
       .finally(() => {
         slot.running = false;
-        if (slot.tenants.size) queueWebhook(kind, null, fn);
+        if (slot.tenants.size) queueWebhook(kind, null, slot.fn, delayMs);
       });
-  }, 1000);
+  };
+  if (delayMs <= 0) {
+    slot.timer = setTimeout(run, 0);
+  } else {
+    slot.timer = setTimeout(run, delayMs);
+  }
   slot.timer.unref?.();
-  return { queued: true, when: 'in 1s' };
+  return { queued: true, when: delayMs <= 0 ? 'now' : `in ${delayMs}ms` };
 }
 
 async function pullUnitsFromWebhook(tenants) {
@@ -1703,17 +1899,16 @@ async function pullRatesFromWebhook(tenants) {
   }
 }
 
-/** Collapse reservation / availability notices into one blocked-nights pull. */
+/** Full tenant blocked-nights pull (boot / admin / availability webhook). */
 function scheduleAvailabilityRefresh(tenantId) {
   if (!kwentra.isConfigured()) return { queued: false };
-  return queueWebhook('availability', tenantId, pullAvailabilityFromWebhook);
+  return queueWebhook('availability', tenantId, pullAvailabilityFromWebhook, 50);
 }
 
 /**
- * What a Kwentra webhook should do. Reservation notices are pulled by the route (one GET)
- * and also refresh blocked nights — occupancy changes when a reservation is created/changed.
- * Room notices pull units. Availability notices pull blocked nights.
- * Rate notices rebuild card prices from the rate definition.
+ * What a Kwentra webhook should do after the route handles the payload.
+ * Reservation notices apply blocked nights instantly in the route (syncReservationAvailability).
+ * Availability notices still pull the full room calendars. Room notices pull units.
  */
 function onKwentraWebhook({ type, tenantId } = {}) {
   syncState.lastTrigger = { reason: `webhook: ${type}`, at: new Date().toISOString() };
@@ -1722,15 +1917,15 @@ function onKwentraWebhook({ type, tenantId } = {}) {
     return { action: 'availability', ...scheduleAvailabilityRefresh(tenantId) };
   }
   if (/room|unit|inventor/.test(type)) {
-    return { action: 'units', ...queueWebhook('units', tenantId, pullUnitsFromWebhook) };
+    return { action: 'units', ...queueWebhook('units', tenantId, pullUnitsFromWebhook, 50) };
   }
   if (/rate/.test(type)) {
     kwentra.clearLookupCache();
-    return { action: 'rates', ...queueWebhook('rates', tenantId, pullRatesFromWebhook) };
+    return { action: 'rates', ...queueWebhook('rates', tenantId, pullRatesFromWebhook, 50) };
   }
   if (/reserv/.test(type)) {
-    kwentra.clearLiveCache(tenantId ?? undefined);
-    return { action: 'reservation', ...scheduleAvailabilityRefresh(tenantId) };
+    // Blocked nights are patched instantly by syncReservationAvailability in the webhook route.
+    return { action: 'reservation', queued: false, instant: true };
   }
   return { action: 'ignored', queued: false };
 }
@@ -1842,4 +2037,6 @@ module.exports = {
   syncFromKwentra,
   warmAvailability,
   onKwentraWebhook,
+  syncReservationAvailability,
+  patchRoomStay,
 };

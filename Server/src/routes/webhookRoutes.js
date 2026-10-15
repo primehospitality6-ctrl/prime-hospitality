@@ -128,7 +128,14 @@ function websiteStatus(state) {
   return '';
 }
 
-/** Pull one reservation from Kwentra and update the website booking that points at it. */
+const RESERVATION_INCLUDES = [
+  'state.name',
+  'room_nights.room_number',
+  'room_nights.room_type',
+  'room_nights.actual_room_type',
+];
+
+/** Pull one reservation from Kwentra, update the website booking, and instantly patch blocked nights. */
 async function pullReservationEvent(body, tenantId = null) {
   const hinted = body.reservation || (body.data && !Array.isArray(body.data) ? body.data : null) || body;
   const id = String(hinted.id ?? hinted.reservation_id ?? body.reservation_id ?? '');
@@ -136,7 +143,7 @@ async function pullReservationEvent(body, tenantId = null) {
   let reservation = hinted;
   if (kwentra.isConfigured()) {
     try {
-      reservation = await kwentra.getReservation(id, { tenantId, includes: ['state.name'] });
+      reservation = await kwentra.getReservation(id, { tenantId, includes: RESERVATION_INCLUDES });
     } catch (err) {
       console.warn('[webhook/kwentra] reservation pull failed:', err.message);
     }
@@ -151,7 +158,14 @@ async function pullReservationEvent(body, tenantId = null) {
       break;
     }
   }
-  if (!booking) return { matched: false, pulled: true, reservationId: id, status };
+
+  // Always patch the room calendar from the Kwentra reservation — even when there is no website booking.
+  const availability = sync.syncReservationAvailability(reservation, tenantId, {
+    previousArrival: booking?.arrivalDate || null,
+    previousDeparture: booking?.departureDate || null,
+  });
+
+  if (!booking) return { matched: false, pulled: true, reservationId: id, status, availability };
   const patch = {};
   if (reservation?.arrival_date) patch.arrivalDate = String(reservation.arrival_date).slice(0, 10);
   if (reservation?.departure_date) patch.departureDate = String(reservation.departure_date).slice(0, 10);
@@ -161,18 +175,18 @@ async function pullReservationEvent(body, tenantId = null) {
     patch.status = status;
     if (status !== 'cancelled') patch.kwentraIssue = '';
   }
-  if (!Object.keys(patch).length) return { matched: true, unchanged: booking.id, status };
+  if (!Object.keys(patch).length) return { matched: true, unchanged: booking.id, status, availability };
   await updateBooking(booking.id, patch);
-  return { matched: true, updated: booking.id, status: patch.status || booking.status };
+  return { matched: true, updated: booking.id, status: patch.status || booking.status, availability };
 }
 
 /**
  * Kwentra webhooks — POST JSON envelope { event_id, tenant_id, data_type, event_time, data }:
- *   reservation  → pull that reservation and refresh blocked nights for the tenant
+ *   reservation  → pull reservation, update website booking, instantly patch blocked nights
  *   availability → pull blocked nights for that tenant
  *   room / room type / inventory → pull units for that tenant
  *   rates → drop cached rate lookups
- * Website bookings are pushed to Kwentra when the guest books. Boot + admin sync also warm nights.
+ * Website bookings push to Kwentra and block calendars immediately.
  */
 router.post('/kwentra', async (req, res, next) => {
   try {
