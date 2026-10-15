@@ -931,15 +931,35 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
         adults: booking.adults,
         children: booking.children,
         tenantId,
-      }).catch(() => []));
-    const rate = pickRate(offered, ratePlan?.code);
+      }).catch((err) => {
+        console.warn('[kwentra] rates lookup failed:', err.message);
+        return [];
+      }));
+    let rate = pickRate(offered, ratePlan?.code);
+    // When totalstay fails (e.g. children_ages shape), still book on the website rate from the grid.
+    if (!rate?.rateId) {
+      const grid = await pricesFromRateGrid(listing, booking.arrivalDate, booking.departureDate, {
+        adults: booking.adults,
+        children: booking.children,
+        tenantId,
+      }).catch(() => null);
+      if (grid?.rate?.rateId) rate = { ...grid.rate, mapped: false };
+    }
+    const rateId = rate?.rateId || process.env.KWENTRA_DEFAULT_RATE_ID;
+    if (!rateId) {
+      return {
+        pushed: false,
+        path,
+        error: 'Kwentra has no rate for this room on those dates',
+      };
+    }
     const discountPct = rate && !rate.mapped ? -(Number(ratePlan?.adjustmentPct) || 0) : 0;
     const [channelId, { market, source }] = await Promise.all([kwentra.websiteChannelId(tenantId), kwentra.websiteMarketSource(tenantId)]);
     const payload = buildReservationPayload({
       booking,
       roomTypeId,
       roomId: room.ref,
-      rateId: rate?.rateId || process.env.KWENTRA_DEFAULT_RATE_ID,
+      rateId,
       channelId,
       marketId: market,
       sourceId: source,

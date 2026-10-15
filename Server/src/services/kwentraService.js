@@ -468,9 +468,24 @@ async function listRates({ tenantId, from, to, roomTypeId, channel } = {}) {
   return extractList(data, ['rates', 'Rate_Entities']);
 }
 
+/**
+ * totalstay wants children_ages as a JSON list of objects, e.g. [{"age":8,"child_rate":"child"}].
+ * A plain list of ages is refused ("Expected a dictionary, but got int").
+ */
 function childrenAgesParam(ages = []) {
-  if (process.env.KWENTRA_CHILDREN_AGES_FORMAT === 'repeat') return ages.length ? ages : '[]';
-  return JSON.stringify(ages);
+  const list = (Array.isArray(ages) ? ages : []).map((entry) => {
+    if (entry && typeof entry === 'object') {
+      return {
+        age: Number(entry.age) || Number(process.env.KWENTRA_DEFAULT_CHILD_AGE || 8),
+        child_rate: entry.child_rate || 'child',
+      };
+    }
+    return {
+      age: Number(entry) || Number(process.env.KWENTRA_DEFAULT_CHILD_AGE || 8),
+      child_rate: 'child',
+    };
+  });
+  return JSON.stringify(list);
 }
 
 /**
