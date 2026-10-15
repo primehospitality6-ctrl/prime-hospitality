@@ -78,14 +78,14 @@ export default function ListingDatePicker({
     if (inline || !anchorRef?.current || isMobile) return undefined;
     const place = () => {
       const r = anchorRef.current.getBoundingClientRect();
-      const width = Math.min(620, window.innerWidth - 32);
+      const width = Math.min(680, window.innerWidth - 32);
       let left = r.left;
       if (left + width > window.innerWidth - 16) {
         left = Math.max(16, r.right - width);
       }
       left = Math.max(16, Math.min(left, window.innerWidth - width - 16));
       setPos({
-        top: r.bottom + 8,
+        top: r.bottom + 10,
         left,
         width,
       });
@@ -141,7 +141,7 @@ export default function ListingDatePicker({
       const nights = Math.round((+d - +value.start) / 86_400_000);
       if (nights < Math.max(1, minNights || 0)) return;
       onChange({ start: value.start, end: d });
-      if (!inline) setTimeout(() => onClose?.(), 250);
+      if (!inline) setTimeout(() => onClose?.(), 280);
       return;
     }
 
@@ -171,6 +171,11 @@ export default function ListingDatePicker({
       ? monthLabels[0]
       : `${monthLabels[0].split(' ')[0]} – ${monthLabels[monthCount - 1]}`;
 
+  const slideAnim =
+    slideDir < 0
+      ? 'animate-[primeCalSlideRight_0.4s_var(--prime-ease)_both]'
+      : 'animate-[primeCalSlideLeft_0.4s_var(--prime-ease)_both]';
+
   const panel = (
     <div
       ref={popRef}
@@ -179,8 +184,8 @@ export default function ListingDatePicker({
         inline
           ? 'bg-transparent'
           : isMobile
-            ? 'fixed inset-x-0 bottom-0 z-[260] max-h-dvh-90 overflow-y-auto rounded-t-[1.25rem] border-t border-prime-line bg-prime-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl'
-            : 'fixed z-[260] border border-prime-line bg-prime-surface p-6 shadow-[0_24px_64px_rgba(34,31,32,0.14)]'
+            ? 'fixed inset-x-0 bottom-0 z-[260] max-h-dvh-90 overflow-y-auto rounded-t-[1.75rem] border-t border-prime-line bg-prime-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl animate-[primeModalIn_0.4s_var(--prime-ease)_both]'
+            : 'fixed z-[260] border border-prime-line/80 bg-prime-surface p-6 shadow-[0_32px_80px_rgba(34,31,32,0.18)] animate-[primeModalIn_0.35s_var(--prime-ease)_both]'
       )}
       style={
         !inline && !isMobile && pos
@@ -188,22 +193,26 @@ export default function ListingDatePicker({
           : undefined
       }
     >
+      {!inline && isMobile && (
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-prime-line" aria-hidden />
+      )}
+
       <div className="mb-5 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => shiftView(-1)}
-          className="grid h-10 w-10 shrink-0 place-items-center border border-prime-line text-prime-ink transition duration-300 hover:border-prime-gold hover:bg-prime-gold/10"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-prime-line text-prime-ink transition duration-300 hover:border-prime-gold hover:bg-prime-gold/10 active:scale-95"
           aria-label={t('common.previousMonth')}
         >
           <ChevronLeft size={18} strokeWidth={1.75} />
         </button>
         <div className="min-w-0 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-muted">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-prime-gold-deep">
             {t('listing.selectDates')}
           </p>
           <h3
             key={`${view.getFullYear()}-${view.getMonth()}-${slideDir}`}
-            className="mt-1 truncate font-display text-lg font-bold tracking-[-0.02em] text-prime-ink sm:text-xl animate-[primeFadeUp_0.35s_var(--prime-ease)_both]"
+            className="mt-1 truncate font-display text-xl font-bold tracking-[-0.03em] text-prime-ink sm:text-2xl animate-[primeFadeUp_0.35s_var(--prime-ease)_both]"
           >
             {headerTitle}
           </h3>
@@ -211,7 +220,7 @@ export default function ListingDatePicker({
         <button
           type="button"
           onClick={() => shiftView(1)}
-          className="grid h-10 w-10 shrink-0 place-items-center border border-prime-line text-prime-ink transition duration-300 hover:border-prime-gold hover:bg-prime-gold/10"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-prime-line text-prime-ink transition duration-300 hover:border-prime-gold hover:bg-prime-gold/10 active:scale-95"
           aria-label={t('common.nextMonth')}
         >
           <ChevronRight size={18} strokeWidth={1.75} />
@@ -221,7 +230,8 @@ export default function ListingDatePicker({
       <div
         key={`${view.getFullYear()}-${view.getMonth()}`}
         className={cn(
-          'grid gap-8 animate-[primeFadeIn_0.3s_var(--prime-ease)_both]',
+          'grid gap-8',
+          slideAnim,
           monthCount > 1 ? 'grid-cols-1 md:grid-cols-2 md:gap-10' : 'grid-cols-1'
         )}
       >
@@ -242,47 +252,49 @@ export default function ListingDatePicker({
         ))}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-prime-line/80 pt-4 text-[11px] text-prime-muted">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3.5 w-3.5 bg-prime-ink" />
-          {t('listing.legendSelected')}
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3.5 w-3.5 bg-prime-gold/25 ring-1 ring-inset ring-prime-gold/35" />
-          {t('listing.legendStay')}
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="relative h-3.5 w-3.5 overflow-hidden bg-prime-mist">
-            <span className="absolute inset-0 opacity-50 [background-image:repeating-linear-gradient(-45deg,transparent,transparent_2px,rgba(110,103,100,0.35)_2px,rgba(110,103,100,0.35)_3px)]" />
-          </span>
-          {t('listing.legendBlocked')}
-        </span>
+      <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-prime-line/70 pt-4">
+        <LegendSwatch className="bg-prime-ink" />
+        <span className="me-3 text-[11px] text-prime-muted">{t('listing.legendSelected')}</span>
+        <LegendSwatch className="bg-prime-gold/30 ring-1 ring-inset ring-prime-gold/40" />
+        <span className="me-3 text-[11px] text-prime-muted">{t('listing.legendStay')}</span>
+        <LegendSwatch className="overflow-hidden bg-[#ebe6e0]">
+          <span
+            className="absolute inset-0 opacity-70"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(90,84,80,0.45) 2px, rgba(90,84,80,0.45) 3.5px)',
+            }}
+          />
+        </LegendSwatch>
+        <span className="me-3 text-[11px] text-prime-muted">{t('listing.legendBlocked')}</span>
         {checkoutSet.size > 0 && (
-          <span className="inline-flex items-center gap-2">
-            <span className="h-3.5 w-3.5 ring-1 ring-inset ring-prime-gold" />
-            {t('listing.legendCheckout')}
-          </span>
+          <>
+            <LegendSwatch className="bg-white ring-2 ring-inset ring-prime-gold" />
+            <span className="text-[11px] text-prime-muted">{t('listing.legendCheckout')}</span>
+          </>
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] font-medium text-prime-ink/80">{summary()}</p>
-        <button
-          type="button"
-          className="-my-3 px-2 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-muted underline-offset-4 transition hover:text-prime-ink hover:underline"
-          onClick={() => onChange({ start: null, end: null })}
-        >
-          {t('common.clear')}
-        </button>
-        {!inline && (
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-prime-mist/70 px-4 py-3.5">
+        <p className="text-[13px] font-medium text-prime-ink">{summary()}</p>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            className="ms-auto rounded-btn bg-prime-ink px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-sand transition hover:opacity-90"
-            onClick={() => onClose?.()}
+            className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-muted transition hover:text-prime-ink"
+            onClick={() => onChange({ start: null, end: null })}
           >
-            {t('common.apply')}
+            {t('common.clear')}
           </button>
-        )}
+          {!inline && (
+            <button
+              type="button"
+              className="rounded-full bg-prime-ink px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-sand transition hover:bg-prime-gold-deep active:scale-[0.98]"
+              onClick={() => onClose?.()}
+            >
+              {t('common.apply')}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -296,7 +308,7 @@ export default function ListingDatePicker({
     <>
       {isMobile && (
         <div
-          className="fixed inset-0 z-[259] bg-black/45 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[259] bg-black/50 backdrop-blur-[3px] animate-[primeFadeIn_0.25s_ease_both]"
           onClick={() => onClose?.()}
           aria-hidden="true"
         />
@@ -305,6 +317,10 @@ export default function ListingDatePicker({
     </>,
     document.body
   );
+}
+
+function LegendSwatch({ className, children }) {
+  return <span className={cn('relative inline-block h-3.5 w-3.5 shrink-0 rounded-sm', className)}>{children}</span>;
 }
 
 function Month({
@@ -330,7 +346,7 @@ function Month({
 
   const cells = [];
   for (let i = 0; i < startDay; i += 1) {
-    cells.push(<span key={`b${i}`} className="min-h-[3.65rem]" aria-hidden />);
+    cells.push(<span key={`b${i}`} className="min-h-[4.1rem]" aria-hidden />);
   }
 
   for (let d = 1; d <= last.getDate(); d += 1) {
@@ -382,46 +398,73 @@ function Month({
                 : undefined
         }
         className={cn(
-          'group relative flex min-h-[3.65rem] flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-center transition duration-200',
-          pastLocked && 'cursor-not-allowed text-prime-muted/35',
-          !pastLocked && !disabled && !isStart && !isEnd && !between && 'cursor-pointer hover:bg-prime-gold/12',
-          blocked &&
-            'cursor-not-allowed text-prime-muted/45 [background-image:repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(110,103,100,0.08)_3px,rgba(110,103,100,0.08)_5px)]',
-          violatesMin && !blocked && 'cursor-not-allowed bg-prime-mist/40 text-prime-muted/40',
-          between && 'bg-prime-gold/18 text-prime-ink',
-          (isStart || isEnd) && 'bg-prime-ink text-prime-sand z-[1]',
-          choosingCheckout && validCheckout && !isStart && !isEnd && checkoutOnly && 'ring-1 ring-inset ring-prime-line bg-prime-mist',
-          turnoverOpen && !isStart && !isEnd && !between && 'ring-1 ring-inset ring-prime-gold/50',
-          isStart && value.end && 'rounded-none',
-          isEnd && value.start && 'rounded-none',
-          isStart && !value.end && 'rounded-sm',
-          isEnd && !isStart && 'rounded-sm'
+          'group relative flex min-h-[4.1rem] flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-center transition duration-200',
+          pastLocked && 'cursor-not-allowed text-prime-muted/30',
+          !pastLocked && !disabled && !isStart && !isEnd && !between && 'cursor-pointer hover:bg-prime-gold/15',
+          blocked && 'cursor-not-allowed text-prime-muted/40',
+          violatesMin && !blocked && 'cursor-not-allowed bg-prime-mist/50 text-prime-muted/35',
+          between && 'bg-prime-gold/22 text-prime-ink',
+          (isStart || isEnd) && 'z-[1] bg-prime-ink text-prime-sand',
+          isStart && value.end && 'rounded-s-2xl',
+          isEnd && value.start && 'rounded-e-2xl',
+          isStart && !value.end && 'rounded-2xl animate-[primeDayPop_0.35s_var(--prime-ease)_both]',
+          isEnd && 'animate-[primeDayPop_0.35s_var(--prime-ease)_both]',
+          choosingCheckout &&
+            validCheckout &&
+            !isStart &&
+            !isEnd &&
+            checkoutOnly &&
+            'bg-prime-mist ring-1 ring-inset ring-prime-line',
+          turnoverOpen && !isStart && !isEnd && !between && 'ring-2 ring-inset ring-prime-gold/55'
         )}
       >
+        {blocked && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-1 rounded-md opacity-80"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(90,84,80,0.14) 3px, rgba(90,84,80,0.14) 5px)',
+            }}
+          />
+        )}
+        {blocked && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-2 top-1/2 h-px -translate-y-1/2 rotate-[-18deg] bg-prime-muted/35"
+          />
+        )}
         {isToday && !isStart && !isEnd && (
-          <span className="absolute bottom-1 left-1/2 h-0.5 w-3 -translate-x-1/2 bg-prime-gold" aria-hidden />
+          <span
+            className="absolute inset-1 rounded-xl ring-1 ring-prime-gold/70"
+            aria-hidden
+          />
         )}
         <span
           className={cn(
-            'text-[13px] font-semibold leading-none tabular-nums',
+            'relative text-[14px] font-semibold leading-none tabular-nums',
             pastLocked && 'line-through',
-            blocked && 'line-through decoration-prime-muted/40',
+            blocked && 'text-prime-muted/50',
             (isStart || isEnd) && 'text-prime-sand'
           )}
         >
           {d}
         </span>
-        {price !== undefined ? (
+        {blocked ? (
+          <span className="relative text-[10px] font-semibold leading-none text-prime-muted/50" aria-hidden>
+            ··
+          </span>
+        ) : price !== undefined ? (
           <span
             className={cn(
-              'text-[11px] font-medium leading-none tracking-wide tabular-nums',
-              isStart || isEnd ? 'text-prime-sand/75' : between ? 'text-prime-gold-deep' : 'text-prime-muted'
+              'relative text-[11px] font-medium leading-none tracking-wide tabular-nums',
+              isStart || isEnd ? 'text-prime-sand/80' : between ? 'text-prime-gold-deep' : 'text-prime-muted'
             )}
           >
             {compactPrice(price)}
           </span>
         ) : (
-          <span className="h-[9.5px]" aria-hidden />
+          <span className="h-[10px]" aria-hidden />
         )}
       </button>
     );
@@ -430,8 +473,8 @@ function Month({
   return (
     <div>
       {showMonthLabel && (
-        <div className="mb-3 flex items-baseline justify-between gap-2 border-b border-prime-line/70 pb-2">
-          <p className="font-display text-[0.95rem] font-bold tracking-[-0.02em] text-prime-ink">
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <p className="font-display text-[1.05rem] font-bold tracking-[-0.02em] text-prime-ink">
             {month.toLocaleDateString(localeTag || 'en-US', { month: 'long' })}
           </p>
           <span className="text-[11px] font-medium tabular-nums text-prime-muted">
@@ -439,17 +482,17 @@ function Month({
           </span>
         </div>
       )}
-      <div className="mb-1.5 grid grid-cols-7 gap-px">
+      <div className="mb-1 grid grid-cols-7">
         {(localeTag?.startsWith('ar') ? WEEKDAYS_AR : WEEKDAYS).map((day, i) => (
           <span
             key={`${day}-${i}`}
-            className="py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-muted"
+            className="py-2 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-prime-muted"
           >
             {day}
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-px overflow-hidden bg-prime-line/60 ring-1 ring-prime-line/60">{cells}</div>
+      <div className="grid grid-cols-7 overflow-hidden rounded-2xl bg-prime-surface ring-1 ring-prime-line/80">{cells}</div>
     </div>
   );
 }

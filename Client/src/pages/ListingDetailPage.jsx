@@ -371,125 +371,110 @@ export default function ListingDetailPage() {
 
   return (
     <div>
-      <Header />
+      <Header overHero />
       <main className="pb-28 lg:pb-0">
-        <div className="prime-container">
-          <nav aria-label={t('search.breadcrumb')} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-6 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-muted">
-            <Link to="/" className="transition hover:text-prime-ink">
-              {t('listing.egypt')}
-            </Link>
-            {crumbs.map((crumb) => (
-              <span key={crumb.to} className="flex items-center gap-2">
-                <span aria-hidden className="text-prime-line">/</span>
-                <Link to={crumb.to} className="transition hover:text-prime-ink">
-                  {crumb.label}
+        {/* Full-bleed gallery hero */}
+        <section className="relative isolate min-h-[72svh] overflow-hidden bg-brand-black text-white md:min-h-[85svh]">
+          <button type="button" onClick={() => setLightbox(true)} className="absolute inset-0 block" aria-label={t('listing.showAllPhotos', { count: photos.length })}>
+            <Img
+              src={photos[0]}
+              alt={listing.title}
+              priority
+              sizes="100vw"
+              className="prime-kenburns absolute inset-0 h-full w-full object-cover"
+            />
+            <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
+          </button>
+
+          <div className="relative flex min-h-[72svh] flex-col justify-end md:min-h-[85svh]">
+            <div className="prime-container pb-12 pt-32 md:pb-16">
+              <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white/55">
+                <Link to="/" className="transition hover:text-white">
+                  {t('listing.egypt')}
                 </Link>
-              </span>
-            ))}
-            <span aria-hidden className="text-prime-line">/</span>
-            <span className="text-prime-ink">{term(listing.unitType || listing.title)}</span>
-          </nav>
+                {crumbs.map((crumb) => (
+                  <span key={crumb.to} className="flex items-center gap-2">
+                    <span aria-hidden>/</span>
+                    <Link to={crumb.to} className="transition hover:text-white">
+                      {crumb.label}
+                    </Link>
+                  </span>
+                ))}
+              </nav>
 
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-6 md:mb-12">
-            <div className="max-w-3xl">
-              <p className="prime-eyebrow text-prime-gold">
-                {[listing.brand && `Prime ${listing.brand}`, listing.destination || listing.region]
-                  .filter(Boolean)
-                  .map(term)
-                  .join(' · ')}
-              </p>
-              <h1 className="mt-5 font-display text-display-lg font-extralight text-prime-ink text-balance">{term(listing.title)}</h1>
-              <p className="mt-5 text-[14.5px] font-light tracking-wide text-prime-muted">
-                <span className="text-prime-ink">{term(listing.unitType)}</span>
-                {[listing.compound, listing.city].filter(Boolean).length
-                  ? ` · ${[listing.compound, listing.city].filter(Boolean).map(term).join(t('common.listSep'))}`
-                  : ''}
-                {reviewCount > 0 ? (
-                  <>
-                    {' · '}
-                    <span className="text-prime-gold">★ {averageRating.toFixed(1)}</span>{' '}
-                    {t('listing.reviewCount', { count: reviewCount })}
-                  </>
-                ) : null}
-              </p>
+              <div className="flex flex-wrap items-end justify-between gap-6">
+                <div className="max-w-3xl">
+                  <p className="prime-eyebrow text-prime-gold-soft">
+                    {[listing.brand && `Prime ${listing.brand}`, listing.destination || listing.region]
+                      .filter(Boolean)
+                      .map(term)
+                      .join(' · ')}
+                  </p>
+                  <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{term(listing.title)}</h1>
+                  <p className="mt-5 text-[14.5px] font-light tracking-wide text-white/65">
+                    <span className="text-white">{term(listing.unitType)}</span>
+                    {[listing.compound, listing.city].filter(Boolean).length
+                      ? ` · ${[listing.compound, listing.city].filter(Boolean).map(term).join(t('common.listSep'))}`
+                      : ''}
+                    {reviewCount > 0 ? (
+                      <>
+                        {' · '}
+                        <span className="text-prime-gold-soft">★ {averageRating.toFixed(1)}</span>{' '}
+                        {t('listing.reviewCount', { count: reviewCount })}
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => toggle(listing.id)}
+                    aria-pressed={loved}
+                    className={cn(
+                      'inline-flex min-h-[2.75rem] items-center gap-2.5 border px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] transition duration-500',
+                      loved
+                        ? 'border-prime-gold-soft bg-prime-gold/20 text-prime-gold-soft'
+                        : 'border-white/35 text-white hover:border-white hover:bg-white hover:text-brand-black'
+                    )}
+                  >
+                    <Heart size={15} strokeWidth={1.5} fill={loved ? 'currentColor' : 'none'} />
+                    {loved ? t('listing.saved') : t('listing.save')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(true)}
+                    className="inline-flex min-h-[2.75rem] items-center border border-white/35 bg-white/10 px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white backdrop-blur-sm transition hover:bg-white hover:text-brand-black"
+                  >
+                    {t('listing.showAllPhotos', { count: photos.length })}
+                  </button>
+                </div>
+              </div>
+
+              {photos.length > 1 ? (
+                <div className="mt-10 hidden gap-2 md:grid md:grid-cols-4">
+                  {photos.slice(1, 5).map((src, i) => (
+                    <button
+                      type="button"
+                      key={`${src}-${i}`}
+                      onClick={() => setLightbox(true)}
+                      className="group relative aspect-[4/3] overflow-hidden bg-white/5"
+                    >
+                      <Img
+                        src={src}
+                        alt={t('listing.photoAlt', { title: listing.title, n: i + 2 })}
+                        sizes="20vw"
+                        widths={[400, 640]}
+                        className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => toggle(listing.id)}
-              aria-pressed={loved}
-              className={cn(
-                'inline-flex min-h-[2.75rem] items-center gap-2.5 border px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] transition duration-500',
-                loved
-                  ? 'border-prime-gold bg-prime-gold/10 text-prime-gold-deep'
-                  : 'border-prime-line text-prime-ink hover:border-prime-ink'
-              )}
-            >
-              <Heart size={15} strokeWidth={1.5} fill={loved ? 'currentColor' : 'none'} />
-              {loved ? t('listing.saved') : t('listing.save')}
-            </button>
           </div>
+        </section>
 
-          <div className="relative mb-12 md:mb-16">
-            <div className="hidden gap-1.5 md:grid md:grid-cols-[2.2fr_1fr_1fr] md:grid-rows-[280px_280px] lg:grid-rows-[340px_340px]">
-              <button
-                type="button"
-                onClick={() => setLightbox(true)}
-                className="group relative row-span-2 overflow-hidden bg-prime-mist text-start"
-              >
-                <Img
-                  src={photos[0]}
-                  alt={listing.title}
-                  priority
-                  sizes="(min-width: 768px) 55vw, 100vw"
-                  className="absolute inset-0 h-full w-full object-cover transition duration-[1600ms] ease-prime group-hover:scale-[1.03]"
-                />
-              </button>
-              {photos.slice(1, 5).map((src, i) => (
-                <button
-                  type="button"
-                  key={`${src}-${i}`}
-                  onClick={() => setLightbox(true)}
-                  className="group relative overflow-hidden bg-prime-mist"
-                >
-                  <Img
-                    src={src}
-                    alt={t('listing.photoAlt', { title: listing.title, n: i + 2 })}
-                    sizes="25vw"
-                    widths={[400, 640, 900]}
-                    className="absolute inset-0 h-full w-full object-cover transition duration-[1600ms] ease-prime group-hover:scale-[1.04]"
-                  />
-                </button>
-              ))}
-            </div>
-
-            <div className="prime-scroll-x -mx-5 gap-2 px-5 sm:-mx-8 sm:px-8 md:hidden">
-              {photos.slice(0, 8).map((src, i) => (
-                <button
-                  type="button"
-                  key={`${src}-m-${i}`}
-                  onClick={() => setLightbox(true)}
-                  className="relative aspect-[4/5] w-[86%] flex-none snap-start overflow-hidden bg-prime-mist sm:aspect-[4/3]"
-                >
-                  <Img
-                    src={src}
-                    alt={i === 0 ? listing.title : t('listing.photoAlt', { title: listing.title, n: i + 1 })}
-                    priority={i === 0}
-                    sizes="86vw"
-                    widths={[480, 768, 1080]}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setLightbox(true)}
-              className="absolute bottom-4 end-4 hidden bg-white/95 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[#221f20] transition hover:bg-white md:inline-flex"
-            >
-              {t('listing.showAllPhotos', { count: photos.length })}
-            </button>
-          </div>
+        <div className="prime-container pt-10 md:pt-14">
 
           <nav className="sticky top-[var(--prime-header-h)] z-30 mb-10 hidden border-b border-prime-line bg-prime-sand/95 backdrop-blur-md md:block">
             <div className="flex gap-8 text-[11px] font-medium uppercase tracking-[0.22em] text-prime-muted">
@@ -661,28 +646,28 @@ export default function ListingDetailPage() {
               ) : null}
             </div>
 
-            <aside className="hidden h-fit border border-prime-line/80 bg-prime-sand p-9 lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
-              <p className="prime-label">{t('listing.reservation')}</p>
+            <aside className="hidden h-fit bg-brand-black p-9 text-white lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
+              <p className="prime-label text-prime-gold-soft">{t('listing.reservation')}</p>
               {hasPrice ? (
                 <>
-                  <p className="mt-5 font-display text-[2.75rem] font-extralight leading-none tracking-[-0.03em] tabular-nums text-prime-ink">
+                  <p className="mt-5 font-display text-[2.85rem] font-extralight leading-none tracking-[-0.03em] tabular-nums text-white">
                     {formatMoney(displayFromPrice, listing.currency)}
                   </p>
-                  <p className="mt-3 text-[13px] font-light text-prime-muted">{t('listing.perNightNote')}</p>
+                  <p className="mt-3 text-[13px] font-light text-white/50">{t('listing.perNightNote')}</p>
                 </>
               ) : (
-                <p className="mt-5 font-display text-[2rem] font-extralight leading-tight text-prime-ink">{t('listing.priceOnRequest')}</p>
+                <p className="mt-5 font-display text-[2rem] font-extralight leading-tight text-white">{t('listing.priceOnRequest')}</p>
               )}
-              <div className="my-8 h-px bg-prime-line" />
+              <div className="my-8 h-px bg-white/15" />
               <div className="flex flex-col gap-3">
-                <button type="button" className="prime-btn w-full" onClick={() => setBookingOpen(true)}>
+                <button type="button" className="prime-btn-gold w-full" onClick={() => setBookingOpen(true)}>
                   {t('listing.bookNow')}
                 </button>
-                <a href={waHref} target="_blank" rel="noreferrer" className="prime-btn-outline w-full">
+                <a href={waHref} target="_blank" rel="noreferrer" className="prime-btn-ghost w-full">
                   {t('listing.whatsappInquiry')}
                 </a>
               </div>
-              <p className="mt-7 text-center text-[12px] font-light leading-relaxed text-prime-muted">
+              <p className="mt-7 text-center text-[12px] font-light leading-relaxed text-white/45">
                 {t('listing.bookDirectNote')}
               </p>
             </aside>
@@ -701,9 +686,9 @@ export default function ListingDetailPage() {
                   {t('listing.viewAll')}
                 </Link>
               </div>
-              <div className="grid gap-x-8 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 sm:gap-y-14 lg:gap-x-8 lg:gap-y-16">
                 {similar.map((item) => (
-                  <ListingCard key={item.id} listing={item} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" />
+                  <ListingCard key={item.id} listing={item} sizes="(min-width: 640px) 50vw, 100vw" />
                 ))}
               </div>
             </div>
@@ -711,22 +696,22 @@ export default function ListingDetailPage() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-prime-line bg-prime-surface/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-brand-black/95 px-5 py-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
         <div className="mx-auto flex max-w-prime items-center gap-4">
           <div className="min-w-0 flex-1">
             {hasPrice ? (
               <>
-                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-prime-muted">{t('card.from')}</p>
-                <p className="truncate font-display text-[1.5rem] font-medium leading-tight tabular-nums text-prime-ink">
+                <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-white/45">{t('card.from')}</p>
+                <p className="truncate font-display text-[1.45rem] font-extralight leading-tight tabular-nums text-white">
                   {formatMoney(displayFromPrice, listing.currency)}
-                  <span className="ms-1 font-sans text-[12px] font-light text-prime-muted">{t('card.perNight')}</span>
+                  <span className="ms-1 font-sans text-[12px] font-light text-white/45">{t('card.perNight')}</span>
                 </p>
               </>
             ) : (
-              <p className="truncate font-display text-[1.25rem] font-medium leading-tight text-prime-ink">{t('listing.priceOnRequest')}</p>
+              <p className="truncate font-display text-[1.25rem] font-extralight leading-tight text-white">{t('listing.priceOnRequest')}</p>
             )}
           </div>
-          <button type="button" className="prime-btn shrink-0 px-7" onClick={() => setBookingOpen(true)}>
+          <button type="button" className="prime-btn-gold shrink-0 px-7" onClick={() => setBookingOpen(true)}>
             {t('listing.bookNow')}
           </button>
         </div>

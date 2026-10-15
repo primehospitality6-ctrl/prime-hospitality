@@ -26,7 +26,7 @@ const HERO_FALLBACK = [
 ];
 const HERO_WIDTHS = [640, 960, 1440, 1920, 2560];
 const SLIDE_MS = 7000;
-const CAROUSEL_CARD = 'w-[80vw] flex-none snap-start sm:w-[44vw] lg:w-[30vw] xl:w-[23.5vw] 2xl:w-[320px]';
+const CAROUSEL_CARD = 'w-[85vw] flex-none snap-start sm:w-[55vw] md:w-[42vw] lg:w-[38vw] xl:w-[34vw]';
 
 function Hero() {
   const { t } = useLocale();
@@ -73,7 +73,6 @@ function Hero() {
     <section className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-brand-black text-white">
       <div className="absolute inset-0 -z-10" aria-hidden>
         {images.map((src, i) => {
-          // Only the visible slide, the one fading out and the next one are ever in the DOM
           if (i !== index && i !== prev && i !== next) return null;
           const active = i === index;
           return (
@@ -87,71 +86,78 @@ function Hero() {
               loading={i === 0 ? 'eager' : 'lazy'}
               decoding="async"
               className={cn(
-                'absolute inset-0 h-full w-full object-cover transition-opacity duration-[1800ms] ease-in-out',
+                'absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out',
                 active ? 'prime-kenburns opacity-100' : 'opacity-0'
               )}
             />
           );
         })}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/45" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/85" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(140,112,77,0.22),transparent_50%)]" />
       </div>
 
       <Wordmark
         word="Hospitality"
-        className="prime-fade-in pointer-events-none absolute end-[-0.04em] top-[calc(var(--prime-header-h)+1.5rem)] -z-10 hidden text-[clamp(8rem,18vw,18rem)] text-white/[0.1] md:block"
+        className="prime-fade-in pointer-events-none absolute inset-x-0 top-[18%] -z-10 mx-auto hidden w-max text-center text-[clamp(6rem,22vw,22rem)] text-white/[0.08] md:block"
       />
 
-      <div className="prime-container flex flex-1 flex-col justify-end pb-8 pt-36 md:pb-12">
-        <div className="max-w-4xl">
-          <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.3em] text-white/75">
-            <span className="h-px w-12 bg-prime-gold-soft" aria-hidden />
-            {t('home.introEyebrow')}
-          </p>
-          <h1 className="prime-fade-up mt-8 font-display text-display-2xl font-extralight" style={{ animationDelay: '100ms' }}>
-            <span className="block">{t('home.heroLine1')}</span>
-            <span className="block text-prime-gold-soft">{t('home.heroLine2')}</span>
-          </h1>
-          <p
-            className="prime-fade-up mt-8 max-w-md text-[15px] font-light leading-[1.8] text-white/70 md:text-[16.5px]"
-            style={{ animationDelay: '200ms' }}
-          >
-            {t('home.heroSubtitle')}
-          </p>
+      {/* Vertical slide index — editorial rail */}
+      {images.length > 1 ? (
+        <div className="pointer-events-auto absolute end-5 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-center gap-3 lg:end-10 lg:flex">
+          {images.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              onClick={() => goTo(i)}
+              aria-label={t('a11y.showSlide', { n: i + 1 })}
+              aria-current={i === index}
+              className={cn(
+                'font-display text-[13px] font-light tabular-nums tracking-[0.12em] transition duration-500',
+                i === index ? 'scale-125 text-prime-gold-soft' : 'text-white/35 hover:text-white/80'
+              )}
+            >
+              {String(i + 1).padStart(2, '0')}
+            </button>
+          ))}
+          <span className="mt-2 h-16 w-px overflow-hidden bg-white/20">
+            <span
+              key={index}
+              className="block w-full bg-prime-gold-soft"
+              style={{ height: `${((index + 1) / images.length) * 100}%`, transition: 'height 0.6s var(--prime-ease)' }}
+            />
+          </span>
         </div>
+      ) : null}
 
-        <div className="prime-fade-up mt-12 md:mt-16" style={{ animationDelay: '320ms' }}>
-          <HeroSearch />
-        </div>
-
-        {images.length > 1 ? (
-          <div className="mt-8 flex items-center gap-5 md:mt-10">
-            <span className="text-[10.5px] font-medium tabular-nums tracking-[0.22em] text-white/70">
-              {String(index + 1).padStart(2, '0')} — {String(images.length).padStart(2, '0')}
-            </span>
-            <div className="flex gap-1.5">
-              {images.map((src, i) => (
-                <button
-                  key={src}
-                  type="button"
-                  onClick={() => goTo(i)}
-                  aria-label={t('a11y.showSlide', { n: i + 1 })}
-                  aria-current={i === index}
-                  className="group px-1.5 py-5"
-                >
-                  <span className="relative block h-px w-10 overflow-hidden bg-white/25 sm:w-14">
-                    {i === index ? (
-                      <span
-                        key={index}
-                        className="absolute inset-y-0 start-0 bg-white"
-                        style={{ animation: `primeProgress ${SLIDE_MS}ms linear both` }}
-                      />
-                    ) : null}
-                  </span>
-                </button>
-              ))}
+      <div className="prime-container relative flex flex-1 flex-col justify-end pb-10 pt-36 md:pb-14">
+        <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+          <div className="max-w-3xl">
+            <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-soft">
+              <span className="inline-block h-2 w-2 rotate-45 border border-prime-gold-soft" aria-hidden />
+              {t('home.introEyebrow')}
+            </p>
+            <h1 className="prime-fade-up mt-8 font-display text-display-2xl font-extralight" style={{ animationDelay: '80ms' }}>
+              <span className="block">{t('home.heroLine1')}</span>
+              <span className="mt-1 block text-prime-gold-soft">{t('home.heroLine2')}</span>
+            </h1>
+          </div>
+          <div className="prime-fade-up max-w-md lg:justify-self-end lg:pb-3" style={{ animationDelay: '180ms' }}>
+            <p className="text-[15px] font-light leading-[1.85] text-white/70 md:text-[16.5px]">{t('home.heroSubtitle')}</p>
+            <div className="mt-6 flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white/50">
+              <span className="tabular-nums text-white/80">
+                {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
+              </span>
+              <span className="h-px flex-1 bg-white/20" />
             </div>
           </div>
-        ) : null}
+        </div>
+
+        <div className="prime-fade-up mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
+          <div className="overflow-hidden border border-white/10 bg-white/[0.97] shadow-[0_40px_100px_rgba(0,0,0,0.45)] backdrop-blur-sm">
+            <div className="h-1 w-full bg-gradient-to-r from-prime-gold via-prime-gold-soft to-transparent" />
+            <HeroSearch />
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -161,17 +167,22 @@ function Intro() {
   const { t } = useLocale();
 
   return (
-    <section className="prime-section">
-      <div className="prime-container">
-        <Reveal className="mx-auto max-w-3xl text-center">
-          <p className="prime-eyebrow inline-flex items-center justify-center gap-4 text-prime-gold">
-            <span className="h-px w-10 bg-prime-gold" aria-hidden />
-            {t('home.introEyebrow')}
-            <span className="h-px w-10 bg-prime-gold" aria-hidden />
-          </p>
-          <h2 className="mt-8 font-display text-display-lg font-extralight text-prime-ink text-balance">{t('home.introTitle')}</h2>
-          <p className="prime-lede mx-auto mt-8 max-w-xl">{t('home.introBody')}</p>
-          <Link to="/about" className="prime-link mt-12 justify-center">
+    <section className="relative overflow-hidden bg-brand-black text-white">
+      <Wordmark
+        word="Hospitality"
+        className="pointer-events-none absolute -bottom-[0.12em] start-[-0.06em] text-[clamp(8rem,28vw,26rem)] text-white/[0.045]"
+      />
+      <div className="prime-container relative grid gap-12 py-28 md:grid-cols-[auto_minmax(0,1fr)] md:gap-20 md:py-40 lg:gap-28">
+        <Reveal>
+          <span className="font-display text-[clamp(5rem,14vw,11rem)] font-extralight leading-none tracking-[-0.06em] text-prime-gold/40">
+            01
+          </span>
+        </Reveal>
+        <Reveal delay={100} className="max-w-3xl self-end pb-2">
+          <p className="prime-eyebrow text-prime-gold-soft">{t('home.introEyebrow')}</p>
+          <h2 className="mt-8 font-display text-display-xl font-extralight text-balance">{t('home.introTitle')}</h2>
+          <p className="mt-8 max-w-xl text-[16px] font-light leading-[1.85] text-white/65">{t('home.introBody')}</p>
+          <Link to="/about" className="prime-link prime-link--light mt-12">
             {t('home.ourStory')}
           </Link>
         </Reveal>
@@ -208,26 +219,26 @@ function FeaturedCarousel() {
     const el = trackRef.current;
     if (!el) return;
     const rtl = document.documentElement.dir === 'rtl';
-    el.scrollBy({ left: dir * (rtl ? -1 : 1) * el.clientWidth * 0.8, behavior: 'smooth' });
+    el.scrollBy({ left: dir * (rtl ? -1 : 1) * el.clientWidth * 0.75, behavior: 'smooth' });
   }
 
   if (!loading && !featured.length) return null;
 
   return (
-    <section className="prime-section overflow-hidden">
+    <section className="overflow-hidden bg-prime-mist/50 py-24 md:py-36">
       <div className="prime-container">
         <div className="mb-14 flex flex-col gap-8 md:mb-20 md:flex-row md:items-end md:justify-between">
-          <SectionIntro eyebrow={t('home.featured')} title={t('home.featuredTitle')} className="mb-0 md:mb-0" />
+          <SectionIntro eyebrow={t('home.featured')} title={t('home.featuredTitle')} className="mb-0" />
           <div className="flex items-center gap-6">
             <Link to="/search" className="prime-link">
               {t('home.viewAll')}
             </Link>
-            <div className="hidden gap-3 md:flex">
+            <div className="hidden gap-2 md:flex">
               <button
                 type="button"
                 onClick={() => scrollBy(-1)}
                 aria-label={t('home.prevStays')}
-                className="grid h-11 w-11 place-items-center border border-prime-line/80 text-prime-ink transition duration-500 hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
+                className="grid h-12 w-12 place-items-center bg-brand-black text-white transition duration-500 hover:bg-brand-gold"
               >
                 <ArrowLeft size={16} strokeWidth={1.3} className="rtl:rotate-180" />
               </button>
@@ -235,26 +246,27 @@ function FeaturedCarousel() {
                 type="button"
                 onClick={() => scrollBy(1)}
                 aria-label={t('home.moreStays')}
-                className="grid h-11 w-11 place-items-center border border-prime-line/80 text-prime-ink transition duration-500 hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand"
+                className="grid h-12 w-12 place-items-center bg-brand-black text-white transition duration-500 hover:bg-brand-gold"
               >
                 <ArrowRight size={16} strokeWidth={1.3} className="rtl:rotate-180" />
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        <div ref={trackRef} className="prime-scroll-x -mx-5 gap-6 px-5 scroll-px-5 sm:-mx-8 sm:gap-8 sm:px-8 sm:scroll-px-8 lg:-mx-12 lg:px-12 lg:scroll-px-12">
-          {loading
-            ? Array.from({ length: 4 }).map((_, i) => <ListingCardSkeleton key={i} className={CAROUSEL_CARD} />)
-            : featured.map((u) => (
-                <ListingCard
-                  key={u.id}
-                  listing={u}
-                  className={CAROUSEL_CARD}
-                  sizes="(min-width: 1280px) 24vw, (min-width: 1024px) 30vw, (min-width: 640px) 44vw, 80vw"
-                />
-              ))}
-        </div>
+      <div ref={trackRef} className="prime-scroll-x gap-4 px-5 scroll-px-5 sm:gap-5 sm:px-8 sm:scroll-px-8 lg:px-12 lg:scroll-px-12">
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => <ListingCardSkeleton key={i} className={CAROUSEL_CARD} />)
+          : featured.map((u) => (
+              <ListingCard
+                key={u.id}
+                listing={u}
+                featured
+                className={CAROUSEL_CARD}
+                sizes="(min-width: 1280px) 28vw, (min-width: 1024px) 34vw, (min-width: 640px) 48vw, 78vw"
+              />
+            ))}
       </div>
     </section>
   );
@@ -264,7 +276,6 @@ function PropertiesSection() {
   return <CompoundGrid limit={7} homeOnly />;
 }
 
-/** Homepage blocks below the hero — order and visibility come from Admin › Website › Homepage */
 const SECTIONS = {
   intro: Intro,
   properties: PropertiesSection,

@@ -85,20 +85,26 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
   const cover = listing.images?.[0] || listing.image;
 
   return (
-    <aside className={cn('relative flex-col overflow-y-auto bg-prime-night text-white', className)}>
-      <div className="relative h-56 shrink-0 overflow-hidden">
+    <aside className={cn('relative flex-col overflow-y-auto bg-brand-black text-white', className)}>
+      <div className="relative h-72 shrink-0 overflow-hidden lg:h-80">
         {cover && (
-          <img src={cover} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
+          <img
+            src={cover}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 h-full w-full object-cover transition duration-[1.2s] ease-out hover:scale-105"
+          />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-prime-night via-prime-night/45 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/55 to-black/15" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.28),transparent_55%)]" />
         {listing.brand && (
-          <span className="absolute start-5 top-5 border border-white/35 bg-black/25 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-sm">
+          <span className="absolute start-5 top-5 rounded-full border border-prime-gold/50 bg-black/40 px-3 py-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white backdrop-blur-sm">
             {term(`Prime ${listing.brand}`)}
           </span>
         )}
-        <div className="absolute inset-x-0 bottom-0 px-6 pb-4">
+        <div className="absolute inset-x-0 bottom-0 px-6 pb-6">
           <Crumbs listing={listing} className="text-prime-gold-soft" />
-          <h3 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-[-0.02em]">
+          <h3 className="mt-2 font-display text-3xl font-bold leading-tight tracking-[-0.03em]">
             {term(listing.compound || listing.title)}
           </h3>
         </div>
@@ -162,7 +168,7 @@ export function MobileSummary({ listing, stay, plan, planName, price, config, cl
         className="flex w-full items-center gap-3 px-5 py-3 text-start sm:px-8"
       >
         {cover && (
-          <img src={cover} alt="" referrerPolicy="no-referrer" className="h-11 w-11 shrink-0 object-cover" />
+          <img src={cover} alt="" referrerPolicy="no-referrer" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
         )}
         <span className="min-w-0 flex-1">
           <Crumbs listing={listing} className="text-prime-gold-deep" />

@@ -12,14 +12,18 @@ const labelCls = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.2
 export function StepHeading({ index, total, title, lede }) {
   const { t } = useLocale();
   return (
-    <div className="mb-6">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-prime-gold-deep">
-        {t('bm.stepOf', { n: index + 1, total })}
-      </p>
-      <h3 className="mt-1.5 font-display text-2xl font-bold tracking-[-0.02em] text-prime-ink" tabIndex={-1} data-step-heading>
+    <div className="mb-7">
+      <div className="mb-3 flex items-center gap-3">
+        <span className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-prime-gold/20 px-2 text-[11px] font-bold tabular-nums text-prime-gold-deep">
+          {index + 1}/{total}
+        </span>
+        <span className="h-px flex-1 bg-gradient-to-r from-prime-gold/50 to-transparent" aria-hidden />
+      </div>
+      <h3 className="font-display text-[1.65rem] font-bold leading-tight tracking-[-0.03em] text-prime-ink sm:text-3xl" tabIndex={-1} data-step-heading>
         {title}
       </h3>
-      {lede && <p className="mt-1.5 text-sm text-prime-muted">{lede}</p>}
+      {lede && <p className="mt-2 max-w-lg text-[15px] font-light leading-relaxed text-prime-muted">{lede}</p>}
+      <span className="sr-only">{t('bm.stepOf', { n: index + 1, total })}</span>
     </div>
   );
 }
@@ -55,22 +59,22 @@ function inputCls(error) {
 
 function Counter({ label, hint, value, min, max, onChange, decLabel, incLabel }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5">
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-prime-mist/60 px-4 py-4">
       <div>
         <p className="text-sm font-semibold text-prime-ink">{label}</p>
-        <p className="text-[12px] text-prime-muted">{hint}</p>
+        <p className="mt-0.5 text-[12px] text-prime-muted">{hint}</p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <button
           type="button"
           aria-label={decLabel}
           disabled={value <= min}
           onClick={() => onChange(value - 1)}
-          className="grid h-9 w-9 place-items-center border border-prime-line text-prime-ink transition hover:border-prime-gold disabled:cursor-not-allowed disabled:opacity-35"
+          className="grid h-11 w-11 place-items-center rounded-full border border-prime-line bg-prime-surface text-prime-ink transition hover:border-prime-gold active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
         >
-          <Minus size={15} strokeWidth={1.75} />
+          <Minus size={16} strokeWidth={1.75} />
         </button>
-        <span className="min-w-[1.5rem] text-center font-display text-lg font-bold tabular-nums text-prime-ink" aria-live="polite">
+        <span className="min-w-[2rem] text-center font-display text-2xl font-bold tabular-nums text-prime-ink" aria-live="polite">
           {value}
         </span>
         <button
@@ -78,9 +82,9 @@ function Counter({ label, hint, value, min, max, onChange, decLabel, incLabel })
           aria-label={incLabel}
           disabled={value >= max}
           onClick={() => onChange(value + 1)}
-          className="grid h-9 w-9 place-items-center border border-prime-line text-prime-ink transition hover:border-prime-gold disabled:cursor-not-allowed disabled:opacity-35"
+          className="grid h-11 w-11 place-items-center rounded-full border border-prime-line bg-prime-surface text-prime-ink transition hover:border-prime-gold active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
         >
-          <Plus size={15} strokeWidth={1.75} />
+          <Plus size={16} strokeWidth={1.75} />
         </button>
       </div>
     </div>
@@ -121,19 +125,49 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
     [stay.arrivalDate, stay.departureDate]
   );
 
-  const dateCell = (label, iso, error) => (
-    <div className={cn('px-4 py-3', error && 'bg-red-50 dark:bg-red-950/30')}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{label}</p>
-      <p className={cn('mt-1 text-sm font-semibold', iso ? 'text-prime-ink' : 'text-prime-muted')}>
-        {iso ? formatIsoDate(iso, localeTag, { weekday: 'short', month: 'short', day: 'numeric' }) : t('common.addDate')}
-      </p>
-    </div>
-  );
-
   return (
     <section>
       {heading}
-      <div className="border border-prime-line p-4 sm:p-5">
+
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <div
+          className={cn(
+            'rounded-2xl border px-3 py-3.5 sm:px-4',
+            errors.arrivalDate ? 'border-red-400 bg-red-50' : 'border-prime-line bg-prime-mist/50'
+          )}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('bm.arrival')}</p>
+          <p className={cn('mt-1.5 text-sm font-semibold', stay.arrivalDate ? 'text-prime-ink' : 'text-prime-muted')}>
+            {stay.arrivalDate
+              ? formatIsoDate(stay.arrivalDate, localeTag, { weekday: 'short', month: 'short', day: 'numeric' })
+              : t('common.addDate')}
+          </p>
+        </div>
+        <div
+          className={cn(
+            'rounded-2xl border px-3 py-3.5 sm:px-4',
+            errors.departureDate ? 'border-red-400 bg-red-50' : 'border-prime-line bg-prime-mist/50'
+          )}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('bm.departure')}</p>
+          <p className={cn('mt-1.5 text-sm font-semibold', stay.departureDate ? 'text-prime-ink' : 'text-prime-muted')}>
+            {stay.departureDate
+              ? formatIsoDate(stay.departureDate, localeTag, { weekday: 'short', month: 'short', day: 'numeric' })
+              : t('common.addDate')}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-prime-gold/35 bg-prime-gold/10 px-3 py-3.5 sm:px-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-prime-gold-deep">{t('bm.nights')}</p>
+          <p className="mt-1.5 font-display text-xl font-bold tabular-nums text-prime-ink">{stay.nights || '—'}</p>
+        </div>
+      </div>
+      {(errors.arrivalDate || errors.departureDate) && (
+        <p className="mb-3 text-[12px] font-medium text-red-600" role="alert">
+          {t(errors.arrivalDate || errors.departureDate)}
+        </p>
+      )}
+
+      <div className="overflow-hidden rounded-2xl bg-prime-sand/80 p-3 ring-1 ring-prime-line/80 sm:p-5">
         <ListingDatePicker
           inline
           months={2}
@@ -148,30 +182,13 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
         />
       </div>
 
-      <div className="mt-3 grid grid-cols-3 divide-x divide-prime-line border border-prime-line rtl:divide-x-reverse">
-        {dateCell(t('bm.arrival'), stay.arrivalDate, errors.arrivalDate)}
-        {dateCell(t('bm.departure'), stay.departureDate, errors.departureDate)}
-        <div className="bg-prime-mist/60 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('bm.nights')}</p>
-          <p className="mt-1 text-sm font-semibold text-prime-ink">
-            {stay.nights || '—'}
-            <span className="ms-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-prime-muted">{t('bm.auto')}</span>
-          </p>
-        </div>
-      </div>
-      {(errors.arrivalDate || errors.departureDate) && (
-        <p className="mt-1.5 text-[12px] font-medium text-red-600" role="alert">
-          {t(errors.arrivalDate || errors.departureDate)}
-        </p>
-      )}
-
-      <div className="mt-8 grid gap-8 md:grid-cols-2">
+      <div className="mt-8 grid gap-6 md:grid-cols-2">
         <div>
           <h4 className={labelCls}>
             {t('bm.whoComing')}
             <span className="ms-0.5 text-prime-gold-deep">*</span>
           </h4>
-          <div className="divide-y divide-prime-line border-y border-prime-line">
+          <div className="mt-2 space-y-2.5">
             <Counter
               label={t('bm.adults')}
               hint={t('bm.adultsHint')}
@@ -193,7 +210,7 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
               incLabel={t('bm.increase', { what: t('bm.children') })}
             />
           </div>
-          <p className={cn('mt-2 text-[11px]', errors.adults ? 'font-medium text-red-600' : 'text-prime-muted')}>
+          <p className={cn('mt-2.5 text-[11px]', errors.adults ? 'font-medium text-red-600' : 'text-prime-muted')}>
             {errors.adults ? t(errors.adults, { count: maxGuests }) : t('bm.sleepsUpTo', { count: maxGuests, type: term(listing.unitType) || '' })}
           </p>
         </div>
@@ -203,11 +220,11 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
             {t('bm.times')}
             <Tag>{t('bm.optional')}</Tag>
           </h4>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="mt-2 grid grid-cols-2 gap-3">
             <Field label={t('bm.checkInTime')} htmlFor="bm-cin" error={errors.checkInTime}>
               <select
                 id="bm-cin"
-                className="prime-input"
+                className="prime-input rounded-xl"
                 value={stay.checkInTime}
                 onChange={(e) => setStay((s) => ({ ...s, checkInTime: e.target.value }))}
               >
@@ -224,7 +241,7 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
             <Field label={t('bm.checkOutTime')} htmlFor="bm-cout" error={errors.checkOutTime}>
               <select
                 id="bm-cout"
-                className="prime-input"
+                className="prime-input rounded-xl"
                 value={stay.checkOutTime}
                 onChange={(e) => setStay((s) => ({ ...s, checkOutTime: e.target.value }))}
               >
@@ -271,11 +288,16 @@ export function RateStep({ quotes, selected, onSelect, error, currency, loading,
             <label
               key={plan.code}
               className={cn(
-                'relative flex gap-4 border p-4 transition sm:p-5',
+                'relative flex gap-4 overflow-hidden rounded-2xl border p-4 transition duration-300 sm:p-5',
                 eligible ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
-                active ? 'border-prime-ink bg-prime-sand ring-1 ring-prime-ink' : 'border-prime-line hover:border-prime-gold'
+                active
+                  ? 'border-prime-ink bg-prime-sand shadow-[0_12px_40px_rgba(34,31,32,0.08)] ring-1 ring-prime-ink'
+                  : 'border-prime-line bg-prime-surface hover:border-prime-gold hover:bg-prime-mist/40'
               )}
             >
+              {active && (
+                <span className="absolute inset-y-0 start-0 w-1 bg-prime-gold animate-[primeFadeIn_0.3s_ease_both]" aria-hidden />
+              )}
               <input
                 type="radio"
                 name="bm-rate"
@@ -287,8 +309,8 @@ export function RateStep({ quotes, selected, onSelect, error, currency, loading,
               />
               <span
                 className={cn(
-                  'mt-0.5 grid h-5 w-5 shrink-0 place-items-center border transition',
-                  active ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line'
+                  'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border transition duration-300',
+                  active ? 'scale-110 border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line'
                 )}
                 aria-hidden
               >
@@ -303,23 +325,23 @@ export function RateStep({ quotes, selected, onSelect, error, currency, loading,
                         {formatMoney(price.baseTotal, currency)}
                       </span>
                     )}
-                    <span className="font-display text-xl font-bold tabular-nums tracking-[-0.02em] text-prime-ink">
+                    <span className="font-display text-2xl font-bold tabular-nums tracking-[-0.03em] text-prime-ink">
                       {formatMoney(price.rateAmount, currency)}
                     </span>
                   </span>
                 </span>
-                <span className="mt-1 block text-[13px] leading-relaxed text-prime-muted">{planDescription(plan)}</span>
-                <span className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="mt-1.5 block text-[13px] leading-relaxed text-prime-muted">{planDescription(plan)}</span>
+                <span className="mt-3.5 flex flex-wrap items-center gap-2">
                   <span
                     className={cn(
-                      'border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em]',
+                      'rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em]',
                       plan.refundable ? 'border-emerald-600/30 text-emerald-700 dark:text-emerald-400' : 'border-prime-line text-prime-muted'
                     )}
                   >
                     {plan.refundable ? t('bm.refundable') : t('bm.nonRefundable')}
                   </span>
                   {plan.adjustmentPct < 0 && (
-                    <span className="bg-prime-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-gold-deep">
+                    <span className="rounded-full bg-prime-gold/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-gold-deep">
                       {t('bm.savePct', { pct: Math.abs(plan.adjustmentPct) })}
                     </span>
                   )}

@@ -7,46 +7,48 @@ import Reveal from '../ui/Reveal';
 import SectionIntro from '../ui/SectionIntro';
 import { cn } from '../../utils/cn';
 
-function DestinationTile({ destination, index, meta, lead }) {
+/** Full-bleed destination chapter — one composition per place */
+function DestinationChapter({ destination, index, meta }) {
   const { t, term } = useLocale();
+  const odd = index % 2 === 1;
+
   return (
     <Link
       to={`/search?destination=${encodeURIComponent(destination.id)}`}
-      className={cn(
-        'group relative block w-[82vw] flex-none snap-start overflow-hidden bg-brand-black sm:w-[48vw] md:w-auto',
-        lead ? 'aspect-[3/4] md:col-span-2 md:row-span-2 md:min-h-[36rem] md:aspect-auto' : 'aspect-[3/4] md:aspect-[4/5]'
-      )}
+      className="group relative block min-h-[78svh] overflow-hidden bg-brand-black md:min-h-[88svh]"
     >
       <Img
         src={destination.image}
         alt=""
-        sizes={lead ? '(min-width: 768px) 60vw, 80vw' : '(min-width: 768px) 30vw, 80vw'}
-        className="absolute inset-0 h-full w-full object-cover opacity-95 transition duration-[1800ms] ease-prime group-hover:scale-[1.04] group-hover:opacity-100"
+        sizes="100vw"
+        className={cn(
+          'absolute inset-0 h-full w-full object-cover transition duration-[2200ms] ease-prime group-hover:scale-[1.06]',
+          odd ? 'origin-bottom' : 'origin-top'
+        )}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
-      <span className="absolute start-5 top-5 text-[10.5px] font-medium tracking-[0.24em] text-white/65 md:start-8 md:top-8">
-        {String(index + 1).padStart(2, '0')}
-      </span>
-      <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-8 lg:p-10">
-        <h3
-          className={cn(
-            'font-display font-extralight leading-none tracking-[-0.035em]',
-            lead ? 'text-[2.5rem] md:text-[3.75rem]' : 'text-[2rem] md:text-[2.35rem]'
-          )}
-        >
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/20" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.35)_100%)]" />
+
+      <div className="relative flex min-h-[78svh] flex-col justify-end px-5 pb-16 pt-32 sm:px-8 md:min-h-[88svh] md:px-12 md:pb-24 lg:px-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">
+        <span className="font-display text-[clamp(4rem,12vw,9rem)] font-extralight leading-none tracking-[-0.06em] text-white/[0.12]">
+          {String(index + 1).padStart(2, '0')}
+        </span>
+        <h3 className="mt-2 max-w-4xl font-display text-[clamp(2.8rem,8vw,6.5rem)] font-extralight leading-[0.95] tracking-[-0.04em] text-white text-balance">
           {term(destination.name)}
         </h3>
-        {meta ? <p className="mt-4 text-[12.5px] font-light text-white/65">{meta}</p> : null}
-        <span className="mt-6 inline-flex items-center gap-3 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white/90">
+        {meta ? <p className="mt-6 max-w-md text-[14px] font-light tracking-wide text-white/65">{meta}</p> : null}
+        <span className="mt-10 inline-flex items-center gap-4 text-[11px] font-medium uppercase tracking-[0.28em] text-white">
           {t('home.discover')}
-          <span className="h-px w-8 bg-prime-gold-soft transition-all duration-700 ease-prime group-hover:w-14" />
+          <span className="relative h-px w-16 overflow-hidden bg-white/30">
+            <span className="absolute inset-y-0 start-0 w-0 bg-prime-gold-soft transition-all duration-700 ease-prime group-hover:w-full" />
+          </span>
         </span>
       </div>
     </Link>
   );
 }
 
-/** Home: destination tiles → /search?destination=… */
+/** Home: stacked destination chapters → /search?destination=… */
 export default function CompoundGrid({ limit, hideIntro = false, homeOnly = false }) {
   const { t } = useLocale();
   const [items, setItems] = useState([]);
@@ -75,28 +77,22 @@ export default function CompoundGrid({ limit, hideIntro = false, homeOnly = fals
       .join(' · ');
 
   return (
-    <section className="prime-section overflow-hidden">
-      <div className="prime-container">
-        {!hideIntro ? (
+    <section className="overflow-hidden">
+      {!hideIntro ? (
+        <div className="prime-container prime-section pb-10 md:pb-14">
           <SectionIntro
             align="split"
             eyebrow={t('home.destinations')}
             title={t('home.destinationsBody')}
             link={{ to: '/compounds', label: t('home.exploreCompounds') }}
           />
-        ) : null}
-        <Reveal className="prime-scroll-x -mx-5 gap-3 px-5 sm:-mx-8 sm:gap-4 sm:px-8 md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 lg:gap-4">
-          {items.map((d, i) => (
-            <DestinationTile
-              key={d.id}
-              destination={d}
-              index={i}
-              meta={destinationMeta(d)}
-              lead={i === 0 && items.length > 2}
-            />
-          ))}
-        </Reveal>
-      </div>
+        </div>
+      ) : null}
+      <Reveal className="flex flex-col">
+        {items.map((d, i) => (
+          <DestinationChapter key={d.id} destination={d} index={i} meta={destinationMeta(d)} />
+        ))}
+      </Reveal>
     </section>
   );
 }

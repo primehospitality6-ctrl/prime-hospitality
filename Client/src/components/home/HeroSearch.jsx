@@ -225,7 +225,7 @@ export default function HeroSearch() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="relative z-[60] w-full bg-prime-surface text-prime-ink shadow-[0_30px_80px_rgba(0,0,0,0.25)]"
+      className="relative z-[60] w-full bg-transparent text-prime-ink"
     >
       <div className="grid divide-y divide-prime-line md:grid-cols-[1.25fr_1.5fr_0.9fr_auto] md:divide-x md:divide-y-0 rtl:md:divide-x-reverse">
         <div className="relative">

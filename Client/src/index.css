@@ -537,6 +537,60 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 }
 
+@keyframes primeStepSlide {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes primeDayPop {
+  0% {
+    transform: scale(0.86);
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes primeCalSlideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes primeCalSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes primeProgressFill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -544,8 +598,13 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
 
   .prime-fade-in,
   .prime-fade-up,
-  .prime-kenburns {
-    animation: none;
+  .prime-kenburns,
+  .prime-cal {
+    animation: none !important;
+  }
+
+  .prime-cal * {
+    animation: none !important;
   }
 
   .prime-reveal {
