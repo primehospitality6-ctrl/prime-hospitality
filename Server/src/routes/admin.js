@@ -428,6 +428,17 @@ router.get(
   })
 );
 
+router.post(
+  '/kwentra/sync',
+  requireAdmin,
+  wrap(async (_req, res) => {
+    const report = await require('../services/kwentraSync').syncFromKwentra();
+    if (report?.reason === 'already_running') return res.status(409).json(report);
+    if (report?.reason === 'not_configured') return res.status(503).json(report);
+    res.json(report);
+  })
+);
+
 router.get(
   '/settings',
   requireAdmin,

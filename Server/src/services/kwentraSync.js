@@ -568,8 +568,60 @@ async function collectNightPrices(listing, arrival, departure, ctx, depth = 0) {
 }
 
 /**
- * Blocked nights for a linked unit. The minute sync's 12-month snapshot is used while it is fresh;
- * a failed live read falls back to the last snapshot that still covers the dates.
+ * Live blocked nights for one physical room when the in-memory snapshot is missing.
+ * Near-term nights are checked room-by-room; farther nights use room-type sold-out as a floor.
+ */
+async function liveBlockedForRoom(listing, from, to, tenantId) {
+  const roomId = String(roomIdOf(listing));
+  const roomTypeId = String(listing.kwentraRoomTypeId || '').trim();
+  const key = `room:${tenantId}|${roomId}`;
+  const blocked = new Set();
+  const today = localToday();
+  const hardEnd = addDays(today, ROOM_SCAN_NIGHTS);
+  const scanFrom = from < today ? today : from;
+  const scanTo = to < hardEnd ? to : hardEnd;
+
+  if (scanFrom < scanTo) {
+    for (let day = scanFrom; day < scanTo; day = addDays(day, 1)) {
+      try {
+        const vacant = await kwentra.listRooms({
+          tenantId,
+          roomTypeId: roomTypeId || undefined,
+          from: day,
+          to: day,
+          vacantOnly: true,
+        });
+        const free = new Set(vacant.map((r) => String(r.id)));
+        if (!free.has(roomId)) blocked.add(day);
+      } catch (err) {
+        console.warn('[kwentra] room night check failed', day, err.message);
+      }
+    }
+  }
+
+  // Beyond the per-room scan horizon: block nights where the whole room type is sold out.
+  if (roomTypeId) {
+    const typeFrom = scanTo > from ? scanTo : from;
+    if (typeFrom < to) {
+      try {
+        const avail = await kwentra.getAvailability(roomTypeId, { from: typeFrom, to, tenantId, fresh: true });
+        for (const date of avail.blocked || []) blocked.add(date);
+      } catch (err) {
+        console.warn('[kwentra] type availability fallback failed:', err.message);
+      }
+    }
+  }
+
+  const list = [...blocked].sort();
+  rememberAvailability(tenantId, roomTypeId, { from, to, blocked: list, checkoutDates: [] }, { force: true, key });
+  scheduleAvailabilityRefresh(tenantId);
+  return { blocked: nightsInside(list, from, to), checkoutDates: [] };
+}
+
+/**
+ * Blocked nights for a linked unit. Prefer the in-memory snapshot (filled by webhooks / boot /
+ * admin sync). Physical rooms never return an empty calendar just because the snapshot is cold —
+ * they live-pull from Kwentra instead.
  */
 async function blockedForListing(listing, from, to, tenantId) {
   const roomId = roomIdOf(listing);
@@ -584,7 +636,12 @@ async function blockedForListing(listing, from, to, tenantId) {
   // some room free, which is not this room's calendar.
   if (roomId) {
     if (covers(snap)) return { blocked: nightsInside(snap.blocked, from, to), checkoutDates: [] };
-    return { blocked: [], checkoutDates: [] };
+    try {
+      return await liveBlockedForRoom(listing, from, to, tenantId);
+    } catch (err) {
+      console.warn('[kwentra] live room availability failed:', err.message);
+      return { blocked: [], checkoutDates: [] };
+    }
   }
   try {
     const avail = await kwentra.getAvailability(listing.kwentraRoomTypeId, { from, to, tenantId, fresh: true });
@@ -969,6 +1026,9 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
     });
     const { id } = await kwentra.createReservation(payload, { tenantId });
     kwentra.clearLiveCache(tenantId);
+    const bookedRoomId = roomIdOf(listing);
+    if (bookedRoomId) availabilitySnapshots.delete(`room:${tenantId}|${bookedRoomId}`);
+    scheduleAvailabilityRefresh(tenantId);
     const extras = await sendReservationExtras(id, booking, tenantId);
     return {
       pushed: true,
@@ -1643,8 +1703,15 @@ async function pullRatesFromWebhook(tenants) {
   }
 }
 
+/** Collapse reservation / availability notices into one blocked-nights pull. */
+function scheduleAvailabilityRefresh(tenantId) {
+  if (!kwentra.isConfigured()) return { queued: false };
+  return queueWebhook('availability', tenantId, pullAvailabilityFromWebhook);
+}
+
 /**
- * What a Kwentra webhook should do. Reservation notices are pulled by the route (one GET).
+ * What a Kwentra webhook should do. Reservation notices are pulled by the route (one GET)
+ * and also refresh blocked nights — occupancy changes when a reservation is created/changed.
  * Room notices pull units. Availability notices pull blocked nights.
  * Rate notices rebuild card prices from the rate definition.
  */
@@ -1652,7 +1719,7 @@ function onKwentraWebhook({ type, tenantId } = {}) {
   syncState.lastTrigger = { reason: `webhook: ${type}`, at: new Date().toISOString() };
   if (/avail/.test(type)) {
     kwentra.clearLiveCache(tenantId ?? undefined);
-    return { action: 'availability', ...queueWebhook('availability', tenantId, pullAvailabilityFromWebhook) };
+    return { action: 'availability', ...scheduleAvailabilityRefresh(tenantId) };
   }
   if (/room|unit|inventor/.test(type)) {
     return { action: 'units', ...queueWebhook('units', tenantId, pullUnitsFromWebhook) };
@@ -1661,8 +1728,37 @@ function onKwentraWebhook({ type, tenantId } = {}) {
     kwentra.clearLookupCache();
     return { action: 'rates', ...queueWebhook('rates', tenantId, pullRatesFromWebhook) };
   }
-  if (/reserv/.test(type)) return { action: 'reservation', queued: false };
+  if (/reserv/.test(type)) {
+    kwentra.clearLiveCache(tenantId ?? undefined);
+    return { action: 'reservation', ...scheduleAvailabilityRefresh(tenantId) };
+  }
   return { action: 'ignored', queued: false };
+}
+
+/** Fill room blocked-night snapshots once the API is up (webhooks alone are not enough). */
+async function warmAvailability() {
+  if (!kwentra.isConfigured()) return { ok: false, reason: 'not_configured' };
+  if (syncState.running) return { ok: false, reason: 'already_running' };
+  syncState.running = true;
+  syncState.lastTrigger = { reason: 'boot', at: new Date().toISOString() };
+  const report = { ok: true, kind: 'availability', errors: [], startedAt: new Date().toISOString() };
+  const fail = (kind, err) => {
+    report.errors.push({ kind, message: err.message });
+    report.ok = false;
+  };
+  try {
+    await refreshAvailabilitySnapshots(report, fail);
+  } catch (err) {
+    fail('availability', err);
+  } finally {
+    report.finishedAt = new Date().toISOString();
+    syncState.running = false;
+    syncState.last = report;
+    console.log(
+      `[kwentra] boot availability — ${report.availability?.refreshed ?? 0} room(s)${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
+    );
+  }
+  return report;
 }
 
 async function syncStatus() {
@@ -1743,5 +1839,7 @@ module.exports = {
   normalizeRoom,
   publicProperty,
   syncStatus,
+  syncFromKwentra,
+  warmAvailability,
   onKwentraWebhook,
 };

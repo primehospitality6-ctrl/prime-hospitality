@@ -26,7 +26,7 @@ const HERO_FALLBACK = [
 ];
 const HERO_WIDTHS = [640, 960, 1440, 1920, 2560];
 const SLIDE_MS = 7000;
-const CAROUSEL_CARD = 'w-[85vw] flex-none snap-start sm:w-[55vw] md:w-[42vw] lg:w-[38vw] xl:w-[34vw]';
+const CAROUSEL_CARD = 'w-[78vw] flex-none snap-start sm:w-[46vw] md:w-[38vw] lg:w-[31vw] xl:w-[30vw]';
 
 function Hero() {
   const { t } = useLocale();

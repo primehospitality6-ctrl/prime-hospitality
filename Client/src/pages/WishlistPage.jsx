@@ -38,7 +38,7 @@ export default function WishlistPage() {
         <PageHero eyebrow={t('wishlist.eyebrow')} title={t('wishlist.title')} lede={t('wishlist.lede')} />
         <section className="prime-container pb-28">
           {loading && ids.length ? (
-            <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 sm:gap-y-14 lg:gap-x-8 lg:gap-y-16">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-12">
               {ids.slice(0, 4).map((id) => (
                 <ListingCardSkeleton key={id} />
               ))}
@@ -54,7 +54,7 @@ export default function WishlistPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 sm:gap-y-14 lg:gap-x-8 lg:gap-y-16">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-12">
               {items.map((u) => (
                 <ListingCard key={u.id} listing={u} />
               ))}

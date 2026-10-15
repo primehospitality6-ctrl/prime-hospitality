@@ -14,6 +14,7 @@ function formatTime(iso) {
 function KwentraCard({ onChanged }) {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState('');
+  const [syncing, setSyncing] = useState(false);
   const lastFinished = useRef(null);
   const onChangedRef = useRef(onChanged);
   onChangedRef.current = onChanged;
@@ -39,6 +40,21 @@ function KwentraCard({ onChanged }) {
     };
   }, []);
 
+  async function runSync() {
+    setSyncing(true);
+    setError('');
+    try {
+      const report = await api.adminKwentraSync();
+      setStatus((s) => ({ ...s, last: report, running: false, lastTrigger: { reason: 'admin', at: report.finishedAt } }));
+      onChangedRef.current?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSyncing(false);
+      api.adminKwentraStatus().then(setStatus).catch(() => {});
+    }
+  }
+
   const last = status?.last;
   const webhookUrl = status?.webhook ? status.webhook.url || `https://YOUR-API-DOMAIN${status.webhook.path}` : '';
   return (
@@ -47,19 +63,31 @@ function KwentraCard({ onChanged }) {
         <div>
           <h2 className="font-display text-lg font-bold">Kwentra PMS</h2>
           <p className="mt-1 max-w-xl text-sm text-prime-muted">
-            Kwentra sends a webhook when rooms or reservations change. That notice pulls units, blocked nights, and
-            the reservation onto the website. A guest booking is pushed to Kwentra. There is no timer. Photos, featured
-            and published stay controlled here.
+            Kwentra webhooks (and Sync now) pull units and blocked nights onto the website. Reservation notices also
+            refresh blocked nights. A guest booking is pushed to Kwentra. Photos, featured and published stay controlled
+            here.
           </p>
         </div>
-        <span
-          className={cn(
-            'border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
-            status?.configured ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-prime-line bg-prime-mist text-prime-muted'
-          )}
-        >
-          {status ? (status.configured ? (status.running ? 'Syncing…' : 'Connected') : 'Not connected') : '…'}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {status?.configured ? (
+            <button
+              type="button"
+              onClick={runSync}
+              disabled={syncing || status.running}
+              className="border border-prime-ink bg-prime-ink px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-sand transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {syncing || status.running ? 'Syncing…' : 'Sync now'}
+            </button>
+          ) : null}
+          <span
+            className={cn(
+              'border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
+              status?.configured ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-prime-line bg-prime-mist text-prime-muted'
+            )}
+          >
+            {status ? (status.configured ? (status.running || syncing ? 'Syncing…' : 'Connected') : 'Not connected') : '…'}
+          </span>
+        </div>
       </div>
 
       {status && !status.configured ? (
@@ -120,11 +148,12 @@ function KwentraCard({ onChanged }) {
       {status?.configured ? (
         <div className="mt-4 space-y-1 text-sm text-prime-muted">
           <p>
-            Nothing is polled. A Kwentra webhook is what pulls units and reservations.
+            Blocked nights warm on API boot, on Sync now, and when Kwentra sends availability or reservation webhooks.
           </p>
           <p>
             {last ? `Last sync ${formatTime(last.finishedAt)}` : 'No sync yet since the API started'}
-            {status.lastTrigger ? ` · last trigger: ${status.lastTrigger.reason}` : ''}.
+            {status.lastTrigger ? ` · last trigger: ${status.lastTrigger.reason}` : ''}
+            {last?.availability?.refreshed != null ? ` · ${last.availability.refreshed} room calendar(s)` : ''}.
           </p>
         </div>
       ) : null}
@@ -135,7 +164,7 @@ function KwentraCard({ onChanged }) {
           <p className="break-all font-mono text-xs">{webhookUrl}</p>
           <p className="mt-1 text-xs text-prime-muted">
             Give this URL to Kwentra. They POST room changes, availability, and reservations here. Room notices pull
-            units, availability notices pull blocked nights, and reservation notices pull that reservation.
+            units; availability and reservation notices refresh blocked nights (and the matching website booking).
             {status.webhook.url ? '' : ' (set PUBLIC_API_URL in Server/.env to show the real address)'}.{' '}
             {status.webhook.auth === 'basic'
               ? 'Authentication: Basic auth with KWENTRA_WEBHOOK_USERNAME / KWENTRA_WEBHOOK_PASSWORD from Server/.env.'

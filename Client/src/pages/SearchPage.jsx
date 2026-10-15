@@ -364,8 +364,8 @@ export default function SearchPage() {
             className={cn(
               'grid grid-cols-1',
               view === 'list'
-                ? 'gap-y-14 md:gap-y-20'
-                : 'gap-x-6 gap-y-12 sm:grid-cols-2 sm:gap-y-14 lg:gap-x-8 lg:gap-y-16 xl:grid-cols-2'
+                ? 'gap-y-10 md:gap-y-16'
+                : 'grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-12'
             )}
           >
             {loading &&

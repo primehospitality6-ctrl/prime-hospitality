@@ -263,6 +263,9 @@ export const api = {
   adminKwentraStatus() {
     return adminRequest('/api/admin/kwentra/status');
   },
+  adminKwentraSync() {
+    return adminRequest('/api/admin/kwentra/sync', { method: 'POST' });
+  },
   adminGetSettings() {
     return adminRequest('/api/admin/settings');
   },

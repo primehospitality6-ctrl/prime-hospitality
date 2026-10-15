@@ -168,11 +168,11 @@ async function pullReservationEvent(body, tenantId = null) {
 
 /**
  * Kwentra webhooks — POST JSON envelope { event_id, tenant_id, data_type, event_time, data }:
- *   reservation  → pull that reservation and update the website booking
+ *   reservation  → pull that reservation and refresh blocked nights for the tenant
  *   availability → pull blocked nights for that tenant
  *   room / room type / inventory → pull units for that tenant
  *   rates → drop cached rate lookups
- * Website bookings are pushed to Kwentra when the guest books. Nothing here runs on a timer.
+ * Website bookings are pushed to Kwentra when the guest books. Boot + admin sync also warm nights.
  */
 router.post('/kwentra', async (req, res, next) => {
   try {

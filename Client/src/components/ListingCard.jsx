@@ -8,7 +8,7 @@ import { useLocale } from '../context/LocaleContext';
 import { findBrand, useBrands } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
-const GRID_SIZES = '(min-width: 640px) 50vw, 100vw';
+const GRID_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
 
 function specsOf(listing, t) {
   return [
@@ -138,7 +138,7 @@ export function ListingCardSkeleton({ className, row = false }) {
   }
   return (
     <div className={cn('animate-pulse', className)}>
-      <div className="aspect-[4/5] bg-prime-mist sm:aspect-[5/6] lg:aspect-[4/5]" />
+      <div className="aspect-[5/4] bg-prime-mist sm:aspect-[4/5]" />
     </div>
   );
 }
@@ -215,13 +215,13 @@ export default function ListingCard({ listing, priority = false, featured = fals
       <div
         className={cn(
           'relative overflow-hidden bg-brand-black',
-          featured ? 'aspect-[4/5] sm:aspect-[3/4]' : 'aspect-[4/5] sm:aspect-[5/6] lg:aspect-[4/5]'
+          featured ? 'aspect-[4/5] sm:aspect-[3/4]' : 'aspect-[5/4] sm:aspect-[4/5]'
         )}
       >
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/25" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/20" />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3 sm:p-3.5">
           <span className="flex flex-wrap gap-1.5">
             {featured ? <FeaturedChip /> : null}
             {listing.brand ? <BrandChip name={listing.brand} /> : null}
@@ -229,23 +229,25 @@ export default function ListingCard({ listing, priority = false, featured = fals
           <SaveButton listing={listing} />
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <p className="prime-label truncate text-white/65">{metaOf(listing, term)}</p>
+        <div className="absolute inset-x-0 bottom-0 p-3.5 text-white sm:p-4 md:p-5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="prime-label truncate text-[10px] text-white/65 sm:text-[11px]">{metaOf(listing, term)}</p>
             <Rating listing={listing} light />
           </div>
           <h3
             className={cn(
-              'mt-3 font-display font-extralight leading-[1.12] tracking-[-0.03em] text-balance',
-              featured ? 'text-[1.85rem] md:text-[2.35rem]' : 'text-[1.55rem] md:text-[1.85rem]'
+              'mt-2 font-display font-extralight leading-[1.12] tracking-[-0.03em] text-balance sm:mt-2.5',
+              featured ? 'text-[1.55rem] sm:text-[1.85rem] md:text-[2.1rem]' : 'text-[1.2rem] sm:text-[1.35rem] md:text-[1.45rem]'
             )}
           >
             <Link to={href} className="prime-tap transition-colors hover:text-prime-gold-soft">
               {term(listing.title)}
             </Link>
           </h3>
-          {specs.length ? <p className="mt-2 text-[12px] font-light text-white/55">{specs.join('  ·  ')}</p> : null}
-          <div className="mt-4 border-t border-white/20 pt-4">
+          {specs.length ? (
+            <p className="mt-1.5 hidden text-[11px] font-light text-white/55 sm:mt-2 sm:block">{specs.join('  ·  ')}</p>
+          ) : null}
+          <div className="mt-2.5 border-t border-white/20 pt-2.5 sm:mt-3.5 sm:pt-3.5">
             <Price listing={listing} light />
           </div>
         </div>

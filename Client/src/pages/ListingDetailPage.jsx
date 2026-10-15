@@ -686,9 +686,9 @@ export default function ListingDetailPage() {
                   {t('listing.viewAll')}
                 </Link>
               </div>
-              <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 sm:gap-y-14 lg:gap-x-8 lg:gap-y-16">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-12">
                 {similar.map((item) => (
-                  <ListingCard key={item.id} listing={item} sizes="(min-width: 640px) 50vw, 100vw" />
+                  <ListingCard key={item.id} listing={item} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" />
                 ))}
               </div>
             </div>
