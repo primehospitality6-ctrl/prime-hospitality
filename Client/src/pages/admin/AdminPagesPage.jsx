@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, MoveButtons, reorderList } from '../../components/admin/AdminUi';
@@ -18,6 +19,8 @@ const GROUPS = [
   ['faq', 'FAQ', '/faq'],
   ['owners', 'List your property', '/owners'],
   ['careers', 'Careers', '/careers'],
+  ['properties', 'Compounds', '/compounds'],
+  ['wishlist', 'Wishlist', '/wishlist'],
   ['legal', 'Legal pages', '/terms'],
   ['listing', 'Unit page', '/search'],
   ['bm', 'Booking popup', '/search'],
@@ -25,6 +28,32 @@ const GROUPS = [
   ['bs', 'Booking confirmation', '/'],
   ['common', 'Shared labels', '/'],
 ];
+
+/** Every guest page hero photo editable from one place. Homepage uses the slideshow. */
+const HERO_PAGES = [
+  { key: 'about', path: 'about', label: 'About', href: '/about', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'compounds', path: 'compounds', label: 'Compounds', href: '/compounds', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'search', path: 'search', label: 'Units list', href: '/search', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'contact', path: 'contact', label: 'Contact', href: '/contact', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'faq', path: 'faq', label: 'FAQ', href: '/faq', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'wishlist', path: 'wishlist', label: 'Wishlist', href: '/wishlist', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'owners', path: 'owners', label: 'List your property', href: '/owners', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'careers', path: 'careers', label: 'Careers', href: '/careers', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'legal.terms', path: ['legal', 'terms'], label: 'Terms', href: '/terms', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'legal.privacy', path: ['legal', 'privacy'], label: 'Privacy', href: '/privacy', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+  { key: 'legal.refund', path: ['legal', 'refund'], label: 'Refund policy', href: '/refund-policy', fields: [['heroImage', 'Hero photo', '16:9 or wider']] },
+];
+
+function pageValue(pages, path) {
+  if (Array.isArray(path)) return path.reduce((acc, k) => (acc && acc[k]) || {}, pages || {});
+  return pages?.[path] || {};
+}
+
+function setPageValue(pages, path, value) {
+  if (!Array.isArray(path)) return { ...pages, [path]: value };
+  const [a, b] = path;
+  return { ...pages, [a]: { ...(pages?.[a] || {}), [b]: value } };
+}
 
 const ALL_KEYS = Object.keys(defaultCopy.en);
 
@@ -140,9 +169,60 @@ function PageImages({ title, description, fields, value, onChange, link }) {
             onChange={(url) => onChange({ ...value, [key]: url })}
           />
         ))}
-        <p className="text-xs text-prime-muted">Empty = the built-in photo. Page text is edited under “Words on the site”.</p>
+        <p className="text-xs text-prime-muted">Empty = the built-in photo (or a text-only opener). Page text is edited under “Words on the site”.</p>
       </div>
     </Card>
+  );
+}
+
+function HeroesEditor({ pages, onChange, previewSite }) {
+  const [which, setWhich] = useState(HERO_PAGES[0].key);
+  const current = HERO_PAGES.find((h) => h.key === which) || HERO_PAGES[0];
+  const value = pageValue(pages, current.path);
+  return (
+    <div className="space-y-6">
+      <Card
+        title="Homepage hero"
+        description="The homepage opener is a slideshow — edit those photos separately."
+        actions={
+          <Link to="/admin/slideshow" className="prime-link inline-flex items-center gap-1 text-xs">
+            Hero slideshow <ExternalLink size={12} />
+          </Link>
+        }
+      >
+        <p className="text-sm text-prime-muted">
+          Homepage hero wording is under Homepage / Words on the site. The Units list hero is below — when a guest picks a
+          destination or property, that place&apos;s photo still overrides it. Individual unit pages use unit photos.
+        </p>
+      </Card>
+      <div>
+        <p className={cn(labelCls, 'mb-2')}>Which page hero?</p>
+        <div className="mb-5 flex flex-wrap gap-1.5">
+          {HERO_PAGES.map((h) => (
+            <button
+              key={h.key}
+              type="button"
+              onClick={() => setWhich(h.key)}
+              className={cn(
+                'border px-3 py-1.5 text-xs font-semibold transition',
+                which === h.key ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink'
+              )}
+            >
+              {h.label}
+            </button>
+          ))}
+        </div>
+        <WithPreview path={current.href} site={previewSite}>
+          <PageImages
+            title={`${current.label} hero`}
+            link={current.href}
+            fields={current.fields}
+            value={value}
+            onChange={(v) => onChange(setPageValue(pages, current.path, v))}
+          />
+        </WithPreview>
+      </div>
+    </div>
   );
 }
 
@@ -280,9 +360,10 @@ function LegalEditor({ value, onChange, previewSite }) {
 }
 
 const TABS = [
+  ['heroes', 'Hero photos'],
   ['text', 'Words on the site'],
-  ['about', 'About photos'],
-  ['owners', 'Owners page photos'],
+  ['about', 'About extras'],
+  ['owners', 'Owners extras'],
   ['careers', 'Careers & jobs'],
   ['legal', 'Legal pages'],
 ];
@@ -291,7 +372,7 @@ export default function AdminPagesPage() {
   const toast = useToast();
   const { replace } = useSite();
   const { draft, setDraft, dirty, saving, error, save, discard, loaded } = useSiteSection(api, ['copy', 'pages'], replace);
-  const [tab, setTab] = useState('text');
+  const [tab, setTab] = useState('heroes');
 
   const setPages = (key, value) => setDraft((d) => ({ ...d, pages: { ...d.pages, [key]: value } }));
 
@@ -303,7 +384,7 @@ export default function AdminPagesPage() {
     <div>
       <AdminPageHeader
         title="Pages & text"
-        lede="Change any word or photo guests see, in English and Arabic. The preview on the right updates as you type; press Save to publish."
+        lede="Edit every page hero photo and any word guests see, in English and Arabic. Preview updates as you type; Save publishes."
       />
       {error ? <p className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
@@ -311,33 +392,38 @@ export default function AdminPagesPage() {
         <p className="text-sm text-prime-muted">Loading…</p>
       ) : (
         <>
+          {tab === 'heroes' && (
+            <HeroesEditor
+              pages={draft.pages}
+              onChange={(pages) => setDraft((d) => ({ ...d, pages }))}
+              previewSite={draft}
+            />
+          )}
           {tab === 'text' && <TextEditor copy={draft.copy} onChange={(copy) => setDraft((d) => ({ ...d, copy }))} previewSite={draft} />}
           {tab === 'about' && (
             <WithPreview path="/about" site={draft}>
               <PageImages
-                title="About page photos"
+                title="About page extras"
+                description="Hero is under Hero photos. These are the story-section images."
                 link="/about"
                 fields={[
-                  ['heroImage', 'Hero photo', '16:9 or wider'],
                   ['wideImage', 'Wide photo', '21:9'],
                   ['portraitImage', 'Portrait photo', '4:5'],
                 ]}
                 value={draft.pages.about}
-                onChange={(v) => setPages('about', v)}
+                onChange={(v) => setPages('about', { ...(draft.pages.about || {}), ...v })}
               />
             </WithPreview>
           )}
           {tab === 'owners' && (
             <WithPreview path="/owners" site={draft}>
               <PageImages
-                title="List-your-property page photos"
+                title="Owners page extras"
+                description="Hero is under Hero photos. This is the inquiry form portrait."
                 link="/owners"
-                fields={[
-                  ['heroImage', 'Hero photo', '16:9 or wider'],
-                  ['sideImage', 'Inquiry form photo', '4:5'],
-                ]}
+                fields={[['sideImage', 'Inquiry form photo', '4:5']]}
                 value={draft.pages.owners}
-                onChange={(v) => setPages('owners', v)}
+                onChange={(v) => setPages('owners', { ...(draft.pages.owners || {}), ...v })}
               />
             </WithPreview>
           )}

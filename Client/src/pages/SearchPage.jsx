@@ -13,7 +13,7 @@ import StaysFiltersBar, {
 } from '../components/search/StaysFilters';
 import api from '../api/client';
 import { useLocale } from '../context/LocaleContext';
-import { useBrands } from '../context/SiteContext';
+import { useBrands, useSite } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
 const SORT_OPTIONS = [
@@ -53,6 +53,7 @@ function ConciergeBand() {
 
 export default function SearchPage() {
   const { t, term } = useLocale();
+  const { site } = useSite();
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -199,6 +200,7 @@ export default function SearchPage() {
         : t('search.allStays');
 
   const contextText = property?.description || destination?.description;
+  const heroImage = property?.image || destination?.image || site.pages?.search?.heroImage || '';
   const pageItems = items.slice(0, shown);
 
   function setView(next) {
@@ -213,20 +215,16 @@ export default function SearchPage() {
       <Header overHero />
       <main>
         <section className="relative isolate overflow-hidden bg-brand-black text-white">
-          {(property?.image || destination?.image) ? (
+          {heroImage ? (
             <>
-              <img
-                src={property?.image || destination?.image}
-                alt=""
-                className="absolute inset-0 -z-10 h-full w-full object-cover opacity-45"
-              />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-black via-brand-black/80 to-brand-black/55" />
+              <img src={heroImage} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-50" />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-black via-brand-black/75 to-brand-black/50" />
             </>
           ) : (
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.25),transparent_55%)]" />
           )}
-          <div className="prime-container pb-14 pt-28 md:pb-20 md:pt-36">
-            <nav aria-label={t('search.breadcrumb')} className="mb-10 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-white/50">
+          <div className="prime-container pb-16 pt-28 md:pb-24 md:pt-36">
+            <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-white/50">
               <Link to="/" className="transition hover:text-white">{t('search.home')}</Link>
               <span aria-hidden>/</span>
               {destination || property ? (
@@ -260,27 +258,26 @@ export default function SearchPage() {
               <p className="prime-eyebrow text-prime-gold-soft">
                 {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
               </p>
-              <h1 className="mt-6 font-display text-display-xl font-extralight text-balance">{heading}</h1>
-              {contextText ? <p className="mt-7 max-w-xl text-[15px] font-light leading-[1.85] text-white/65 md:text-[16.5px]">{contextText}</p> : null}
-              <p className="mt-8 text-[11px] font-medium uppercase tracking-[0.24em] text-white/45" aria-live="polite">
+              <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{heading}</h1>
+              {contextText ? <p className="mt-6 max-w-xl text-[15px] font-light leading-[1.85] text-white/65 md:text-[16.5px]">{contextText}</p> : null}
+              <p className="mt-7 text-[11px] font-medium uppercase tracking-[0.24em] text-white/45" aria-live="polite">
                 {loading ? t('search.searching') : t(total === 1 ? 'search.countOne' : 'search.countMany', { count: total })}
               </p>
             </div>
           </div>
         </section>
 
-        <div className="sticky top-[var(--prime-header-h)] z-30 border-b border-prime-line/80 bg-prime-sand/95 backdrop-blur-xl">
-          <div className="prime-container space-y-3 py-3.5 md:py-4">
-            <div className="hidden md:block">
-              <StaysFiltersBar
-                filters={filters}
-                destinations={destinations}
-                unitTypes={unitTypes}
-                brands={brands}
-                onChange={patchParams}
-                onClear={clearFilters}
-              />
-            </div>
+        <div className="sticky top-[var(--prime-header-h)] z-30 border-b border-prime-line/60 bg-prime-sand/90 backdrop-blur-xl">
+          <div className="prime-container space-y-3 py-3 md:py-4">
+            <StaysFiltersBar
+              filters={filters}
+              destinations={destinations}
+              unitTypes={unitTypes}
+              brands={brands}
+              onChange={patchParams}
+              onClear={clearFilters}
+              onOpenSheet={() => setSheetOpen(true)}
+            />
 
             <PlaceCapsules
               places={placeCapsules}
@@ -291,6 +288,7 @@ export default function SearchPage() {
               emptyLabel={t('search.noProperties')}
               backLabel={t('home.destinations')}
               onBack={destination ? () => patchParams({ destination: '', compound: '' }) : undefined}
+              className="md:hidden"
             />
           </div>
         </div>

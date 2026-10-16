@@ -182,7 +182,12 @@ function defaultSite() {
         ],
       },
       owners: { heroImage: '', sideImage: '' },
-      legal: Object.fromEntries(LEGAL_PAGES.map((k) => [k, { en: '', ar: '', updatedAt: '' }])),
+      compounds: { heroImage: '' },
+      search: { heroImage: '' },
+      contact: { heroImage: '' },
+      faq: { heroImage: '' },
+      wishlist: { heroImage: '' },
+      legal: Object.fromEntries(LEGAL_PAGES.map((k) => [k, { en: '', ar: '', updatedAt: '', heroImage: '' }])),
     },
     copy: { en: {}, ar: {} },
     seo: {
@@ -305,6 +310,11 @@ const sanitizers = {
     const about = v.about || {};
     const careers = v.careers || base.careers;
     const owners = v.owners || {};
+    const compounds = v.compounds || {};
+    const search = v.search || {};
+    const contact = v.contact || {};
+    const faq = v.faq || {};
+    const wishlist = v.wishlist || {};
     const legal = v.legal || {};
     return {
       about: {
@@ -320,10 +330,15 @@ const sanitizers = {
           .slice(0, 30),
       },
       owners: { heroImage: link(owners.heroImage), sideImage: link(owners.sideImage) },
+      compounds: { heroImage: link(compounds.heroImage) },
+      search: { heroImage: link(search.heroImage) },
+      contact: { heroImage: link(contact.heroImage) },
+      faq: { heroImage: link(faq.heroImage) },
+      wishlist: { heroImage: link(wishlist.heroImage) },
       legal: Object.fromEntries(
         LEGAL_PAGES.map((k) => {
           const page = legal[k] || {};
-          return [k, { en: text(page.en), ar: text(page.ar), updatedAt: date(page.updatedAt) }];
+          return [k, { en: text(page.en), ar: text(page.ar), updatedAt: date(page.updatedAt), heroImage: link(page.heroImage) }];
         })
       ),
     };

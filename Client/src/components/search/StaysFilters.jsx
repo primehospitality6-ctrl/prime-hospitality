@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BedDouble,
   Building2,
+  CalendarRange,
   ChevronDown,
   Gem,
   MapPin,
@@ -22,6 +23,7 @@ function Dropdown({
   children,
   className,
   panelClassName,
+  active,
 }) {
   return (
     <div className={cn('relative min-w-0', className)}>
@@ -29,23 +31,36 @@ function Dropdown({
         type="button"
         onClick={onToggle}
         className={cn(
-          'flex h-full w-full items-center gap-3 px-4 py-3.5 text-start transition hover:bg-prime-mist/60 sm:px-5',
-          open && 'bg-prime-mist'
+          'group flex h-full w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-start transition sm:px-4',
+          open ? 'bg-prime-mist' : 'hover:bg-prime-mist/70',
+          active && !open && 'bg-prime-gold/10'
         )}
       >
+        <span
+          className={cn(
+            'grid h-9 w-9 shrink-0 place-items-center rounded-full border transition',
+            active || open
+              ? 'border-prime-gold/50 bg-prime-gold/15 text-prime-gold-deep'
+              : 'border-prime-line bg-prime-surface text-prime-muted group-hover:border-prime-gold/40'
+          )}
+          aria-hidden
+        >
+          {Icon ? <Icon size={15} strokeWidth={1.6} /> : null}
+        </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">
-            {Icon ? <Icon size={12} strokeWidth={1.6} className="text-prime-gold-deep" aria-hidden /> : null}
+          <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-prime-muted">
             {label}
-            <ChevronDown size={12} className={cn('opacity-60 transition', open && 'rotate-180')} />
+            <ChevronDown size={11} className={cn('opacity-50 transition', open && 'rotate-180')} />
           </span>
-          <span className="mt-1.5 block truncate text-[15px] text-prime-ink">{valueLabel}</span>
+          <span className={cn('mt-0.5 block truncate text-[14px] font-medium', active ? 'text-prime-ink' : 'text-prime-ink/80')}>
+            {valueLabel}
+          </span>
         </span>
       </button>
       {open ? (
         <div
           className={cn(
-            'absolute start-0 top-full z-30 mt-2 max-h-80 min-w-[220px] overflow-y-auto border border-prime-line bg-prime-surface p-1.5 shadow-premium-lg',
+            'absolute start-0 top-full z-30 mt-2 max-h-80 min-w-[240px] overflow-y-auto rounded-2xl border border-prime-line/80 bg-prime-surface p-1.5 shadow-[0_20px_50px_rgba(34,31,32,0.12)]',
             panelClassName
           )}
         >
@@ -62,15 +77,13 @@ function MenuItem({ active, onClick, title, subtitle }) {
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full flex-col px-3 py-2.5 text-start transition',
+        'flex w-full flex-col rounded-xl px-3 py-2.5 text-start transition',
         active ? 'bg-prime-ink text-prime-sand' : 'text-prime-ink hover:bg-prime-mist'
       )}
     >
       <span className="text-sm font-medium">{title}</span>
       {subtitle ? (
-        <span className={cn('text-[11px]', active ? 'text-white/60' : 'text-prime-muted')}>
-          {subtitle}
-        </span>
+        <span className={cn('text-[11px]', active ? 'text-white/60' : 'text-prime-muted')}>{subtitle}</span>
       ) : null}
     </button>
   );
@@ -78,7 +91,7 @@ function MenuItem({ active, onClick, title, subtitle }) {
 
 function MenuGroup({ title }) {
   return (
-    <p className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-[0.22em] text-prime-gold-deep first:pt-1.5">
+    <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-prime-gold-deep first:pt-1.5">
       {title}
     </p>
   );
@@ -89,8 +102,18 @@ export function findDestination(destinations, value) {
   return destinations.find((d) => d.id === value || d.name === value) || null;
 }
 
-/** Horizontal filter bar for the stays page — Destination › Property › Unit type, plus brand / dates / guests */
-export default function StaysFiltersBar({ filters, destinations, unitTypes, brands, onChange, onClear }) {
+/** Filter strip for the units list — compact field chips with gold active cues. */
+export default function StaysFiltersBar({
+  filters,
+  destinations,
+  unitTypes,
+  brands,
+  onChange,
+  onClear,
+  onOpenSheet,
+  /** When true, always show the field strip (used inside the mobile sheet). */
+  embedded = false,
+}) {
   const { localeTag, t, term } = useLocale();
   const rootRef = useRef(null);
   const [openMenu, setOpenMenu] = useState(null);
@@ -104,7 +127,7 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
   const datesLabel =
     filters.checkIn || filters.checkOut
       ? `${formatStayDate(filters.checkIn, t('home.arrive'), localeTag)} – ${formatStayDate(filters.checkOut, t('home.depart'), localeTag)}`
-      : '';
+      : t('common.addDate');
 
   const activeCount = [
     filters.destination,
@@ -132,149 +155,222 @@ export default function StaysFiltersBar({ filters, destinations, unitTypes, bran
     setOpenMenu(null);
   }
 
-  return (
-    <div ref={rootRef} className="relative z-20">
-      <div className="overflow-visible border border-prime-line bg-prime-surface">
-        <div className="grid divide-y divide-prime-line md:grid-cols-2 md:divide-x md:divide-y-0 lg:grid-cols-[1fr_1.2fr_1.25fr_0.85fr_0.85fr_0.7fr_auto] rtl:md:divide-x-reverse">
-          <Dropdown
-            label={t('home.destination')}
-            icon={MapPin}
-            valueLabel={term(destination?.name) || t('search.allDestinations')}
-            open={openMenu === 'destination'}
-            onToggle={() => toggle('destination')}
+  const strip = (
+        <div className="rounded-2xl border border-prime-line/80 bg-prime-surface p-1.5 shadow-[0_12px_40px_rgba(34,31,32,0.06)]">
+          <div
+            className={cn(
+              'grid gap-0.5',
+              embedded
+                ? 'grid-cols-1 sm:grid-cols-2'
+                : 'grid-cols-2 lg:grid-cols-[1.1fr_1.15fr_1.35fr_0.95fr_0.95fr_0.75fr_auto]'
+            )}
           >
-            <MenuItem
-              active={!filters.destination}
-              title={t('search.allDestinations')}
-              onClick={() => pick({ destination: '', compound: '' })}
-            />
-            {destinations.map((d) => (
+            <Dropdown
+              label={t('home.destination')}
+              icon={MapPin}
+              valueLabel={term(destination?.name) || t('search.allDestinations')}
+              open={openMenu === 'destination'}
+              onToggle={() => toggle('destination')}
+              active={Boolean(filters.destination)}
+            >
               <MenuItem
-                key={d.id}
-                active={destination?.id === d.id}
-                title={term(d.name)}
-                subtitle={t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 })}
-                onClick={() => {
-                  const keep = (d.projects || []).some((p) => p.id === filters.compound) ? filters.compound : '';
-                  pick({ destination: d.id, compound: keep });
+                active={!filters.destination}
+                title={t('search.allDestinations')}
+                onClick={() => pick({ destination: '', compound: '' })}
+              />
+              {destinations.map((d) => (
+                <MenuItem
+                  key={d.id}
+                  active={destination?.id === d.id}
+                  title={term(d.name)}
+                  subtitle={t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 })}
+                  onClick={() => {
+                    const keep = (d.projects || []).some((p) => p.id === filters.compound) ? filters.compound : '';
+                    pick({ destination: d.id, compound: keep });
+                  }}
+                />
+              ))}
+            </Dropdown>
+
+            <Dropdown
+              label={t('filters.property')}
+              icon={Building2}
+              valueLabel={propertyLabel}
+              open={openMenu === 'compound'}
+              onToggle={() => toggle('compound')}
+              panelClassName="min-w-[280px]"
+              active={Boolean(filters.compound)}
+            >
+              <MenuItem active={!filters.compound} title={t('filters.anyProperty')} onClick={() => pick({ compound: '' })} />
+              {propertyGroups.map((group) => (
+                <div key={group.id}>
+                  {!destination && <MenuGroup title={term(group.name)} />}
+                  {(group.projects || []).map((p) => (
+                    <MenuItem
+                      key={p.id}
+                      active={filters.compound === p.id}
+                      title={term(p.name)}
+                      subtitle={[p.brand && `Prime ${p.brand}`, p.city].filter(Boolean).map(term).join(' · ')}
+                      onClick={() => pick({ compound: p.id, destination: group.id })}
+                    />
+                  ))}
+                </div>
+              ))}
+            </Dropdown>
+
+            <div
+              className={cn(
+                'min-w-0 rounded-2xl px-3.5 py-2.5 transition sm:px-4',
+                filters.checkIn || filters.checkOut ? 'bg-prime-gold/10' : 'hover:bg-prime-mist/70'
+              )}
+            >
+              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-prime-muted">
+                <CalendarRange size={11} className="text-prime-gold-deep" aria-hidden />
+                {t('common.dates')}
+              </p>
+              <DateRangePicker
+                checkin={filters.checkIn || ''}
+                checkout={filters.checkOut || ''}
+                onChange={({ checkin, checkout }) => onChange({ checkIn: checkin || '', checkOut: checkout || '' })}
+                onOpenChange={(open) => {
+                  if (open) setOpenMenu(null);
                 }}
               />
-            ))}
-          </Dropdown>
-
-          <Dropdown
-            label={t('filters.property')}
-            icon={Building2}
-            valueLabel={propertyLabel}
-            open={openMenu === 'compound'}
-            onToggle={() => toggle('compound')}
-            panelClassName="min-w-[280px]"
-          >
-            <MenuItem active={!filters.compound} title={t('filters.anyProperty')} onClick={() => pick({ compound: '' })} />
-            {propertyGroups.map((group) => (
-              <div key={group.id}>
-                {!destination && <MenuGroup title={term(group.name)} />}
-                {(group.projects || []).map((p) => (
-                  <MenuItem
-                    key={p.id}
-                    active={filters.compound === p.id}
-                    title={term(p.name)}
-                    subtitle={[p.brand && `Prime ${p.brand}`, p.city].filter(Boolean).map(term).join(' · ')}
-                    onClick={() => pick({ compound: p.id, destination: group.id })}
-                  />
-                ))}
-              </div>
-            ))}
-          </Dropdown>
-
-          <div className="min-w-0 px-3 py-2.5 sm:px-4">
-            <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">{t('common.dates')}</p>
-            <DateRangePicker
-              checkin={filters.checkIn || ''}
-              checkout={filters.checkOut || ''}
-              onChange={({ checkin, checkout }) => onChange({ checkIn: checkin || '', checkOut: checkout || '' })}
-              onOpenChange={(open) => {
-                if (open) setOpenMenu(null);
-              }}
-            />
-          </div>
-
-          <Dropdown
-            label={t('listing.specUnitType')}
-            icon={BedDouble}
-            valueLabel={term(filters.unitType) || t('filters.allTypes')}
-            open={openMenu === 'unitType'}
-            onToggle={() => toggle('unitType')}
-            panelClassName="min-w-[180px]"
-          >
-            <MenuItem active={!filters.unitType} title={t('filters.allTypes')} onClick={() => pick({ unitType: '' })} />
-            {unitTypes.map((type) => (
-              <MenuItem
-                key={type}
-                active={filters.unitType === type}
-                title={term(type)}
-                onClick={() => pick({ unitType: type })}
-              />
-            ))}
-          </Dropdown>
-
-          <Dropdown
-            label={t('listing.specBrand')}
-            icon={Gem}
-            valueLabel={filters.brand ? term(`Prime ${filters.brand}`) : t('filters.allBrands')}
-            open={openMenu === 'brand'}
-            onToggle={() => toggle('brand')}
-            panelClassName="min-w-[180px]"
-          >
-            <MenuItem active={!filters.brand} title={t('filters.allBrands')} onClick={() => pick({ brand: '' })} />
-            {brands.map((b) => (
-              <MenuItem key={b} active={filters.brand === b} title={term(`Prime ${b}`)} onClick={() => pick({ brand: b })} />
-            ))}
-          </Dropdown>
-
-          <Dropdown
-            label={t('home.searchGuests')}
-            icon={Users}
-            valueLabel={guestsLabel}
-            open={openMenu === 'guests'}
-            onToggle={() => toggle('guests')}
-            panelClassName="min-w-[200px] p-3"
-          >
-            <div className="flex items-center justify-between gap-3 px-1 py-1">
-              <button
-                type="button"
-                onClick={() => onChange({ guests: String(Math.max(0, Number(filters.guests || 0) - 1) || '') })}
-                aria-label={t('booking.decreaseGuests')}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-prime-line text-lg transition hover:border-prime-ink"
-              >
-                −
-              </button>
-              <span className="font-display text-3xl font-medium text-prime-ink">{filters.guests || t('filters.any')}</span>
-              <button
-                type="button"
-                onClick={() => onChange({ guests: String(Math.min(12, Number(filters.guests || 0) + 1)) })}
-                aria-label={t('booking.increaseGuests')}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-prime-line text-lg transition hover:border-prime-ink"
-              >
-                +
-              </button>
             </div>
-          </Dropdown>
 
-          <div className="flex items-center justify-end gap-2 px-3 py-3 sm:px-4">
-            {activeCount > 0 ? (
-              <button
-                type="button"
-                onClick={onClear}
-                className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-muted transition hover:text-prime-ink"
-              >
-                {t('common.clear')}
-              </button>
-            ) : null}
-            <span className="hidden text-xs text-prime-muted xl:inline">{datesLabel || null}</span>
+            <Dropdown
+              label={t('listing.specUnitType')}
+              icon={BedDouble}
+              valueLabel={term(filters.unitType) || t('filters.allTypes')}
+              open={openMenu === 'unitType'}
+              onToggle={() => toggle('unitType')}
+              panelClassName="min-w-[180px]"
+              active={Boolean(filters.unitType)}
+            >
+              <MenuItem active={!filters.unitType} title={t('filters.allTypes')} onClick={() => pick({ unitType: '' })} />
+              {unitTypes.map((type) => (
+                <MenuItem
+                  key={type}
+                  active={filters.unitType === type}
+                  title={term(type)}
+                  onClick={() => pick({ unitType: type })}
+                />
+              ))}
+            </Dropdown>
+
+            <Dropdown
+              label={t('listing.specBrand')}
+              icon={Gem}
+              valueLabel={filters.brand ? term(`Prime ${filters.brand}`) : t('filters.allBrands')}
+              open={openMenu === 'brand'}
+              onToggle={() => toggle('brand')}
+              panelClassName="min-w-[180px]"
+              active={Boolean(filters.brand)}
+            >
+              <MenuItem active={!filters.brand} title={t('filters.allBrands')} onClick={() => pick({ brand: '' })} />
+              {brands.map((b) => (
+                <MenuItem key={b} active={filters.brand === b} title={term(`Prime ${b}`)} onClick={() => pick({ brand: b })} />
+              ))}
+            </Dropdown>
+
+            <Dropdown
+              label={t('home.searchGuests')}
+              icon={Users}
+              valueLabel={guestsLabel}
+              open={openMenu === 'guests'}
+              onToggle={() => toggle('guests')}
+              panelClassName="min-w-[200px] p-3"
+              active={Boolean(filters.guests)}
+            >
+              <div className="flex items-center justify-between gap-3 px-1 py-1">
+                <button
+                  type="button"
+                  onClick={() => onChange({ guests: String(Math.max(0, Number(filters.guests || 0) - 1) || '') })}
+                  aria-label={t('booking.decreaseGuests')}
+                  className="grid h-10 w-10 place-items-center rounded-full border border-prime-line text-lg transition hover:border-prime-ink"
+                >
+                  −
+                </button>
+                <span className="font-display text-3xl font-medium text-prime-ink">{filters.guests || t('filters.any')}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange({ guests: String(Math.min(12, Number(filters.guests || 0) + 1)) })}
+                  aria-label={t('booking.increaseGuests')}
+                  className="grid h-10 w-10 place-items-center rounded-full border border-prime-line text-lg transition hover:border-prime-ink"
+                >
+                  +
+                </button>
+              </div>
+            </Dropdown>
+
+            <div className="flex items-center justify-end gap-1.5 px-2 py-2">
+              {activeCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="rounded-full px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-prime-muted transition hover:bg-prime-mist hover:text-prime-ink"
+                >
+                  {t('common.clear')}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
+  );
+
+  if (embedded) {
+    return (
+      <div ref={rootRef} className="relative z-20">
+        {strip}
       </div>
+    );
+  }
+
+  return (
+    <div ref={rootRef} className="relative z-20">
+      {/* Mobile: one control that opens the full sheet */}
+      <div className="flex items-center gap-2 md:hidden">
+        <button
+          type="button"
+          onClick={onOpenSheet}
+          className="inline-flex min-h-[48px] flex-1 items-center justify-between gap-3 rounded-2xl border border-prime-line bg-prime-surface px-4 py-3 text-start shadow-sm"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-prime-ink text-prime-sand">
+              <SlidersHorizontal size={15} strokeWidth={1.75} aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-prime-muted">{t('filters.title')}</span>
+              <span className="mt-0.5 block truncate text-sm font-medium text-prime-ink">
+                {[
+                  term(destination?.name),
+                  filters.compound ? propertyLabel : null,
+                  filters.checkIn || filters.checkOut ? datesLabel : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || t('filters.title')}
+              </span>
+            </span>
+          </span>
+          {activeCount > 0 ? (
+            <span className="grid h-6 min-w-6 place-items-center rounded-full bg-prime-gold px-1.5 text-[11px] font-bold text-prime-ink">
+              {activeCount}
+            </span>
+          ) : null}
+        </button>
+        {activeCount > 0 ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-prime-line bg-prime-surface text-prime-muted transition hover:text-prime-ink"
+            aria-label={t('filters.clearAll')}
+          >
+            <X size={16} />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="hidden md:block">{strip}</div>
     </div>
   );
 }
@@ -296,10 +392,10 @@ export function StaysFiltersSheet({ onClose, ...props }) {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-5">
-        <StaysFiltersBar {...props} />
+        <StaysFiltersBar {...props} embedded />
       </div>
       <div className="border-t border-prime-line p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <button type="button" onClick={onClose} className="prime-btn w-full">
+        <button type="button" onClick={onClose} className="prime-btn w-full rounded-full">
           {t('filters.showStays')}
         </button>
       </div>
@@ -359,12 +455,12 @@ export function MobileFilterButton({ count, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 border border-prime-line bg-white px-4 py-2.5 text-sm font-medium text-prime-ink md:hidden"
+      className="inline-flex items-center gap-2 rounded-full border border-prime-line bg-white px-4 py-2.5 text-sm font-medium text-prime-ink md:hidden"
     >
       <SlidersHorizontal size={15} />
       {t('filters.title')}
       {count > 0 ? (
-        <span className="flex h-5 min-w-5 items-center justify-center bg-prime-gold px-1.5 text-[11px] font-semibold text-prime-ink">
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-prime-gold px-1.5 text-[11px] font-semibold text-prime-ink">
           {count}
         </span>
       ) : null}

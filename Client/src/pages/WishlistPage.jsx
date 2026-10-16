@@ -4,6 +4,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ListingCard, { ListingCardSkeleton } from '../components/ListingCard';
 import PageHero from '../components/ui/PageHero';
+import { useSite } from '../context/SiteContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useLocale } from '../context/LocaleContext';
 import api from '../api/client';
@@ -12,6 +13,8 @@ import api from '../api/client';
 export default function WishlistPage() {
   const { ids } = useWishlist();
   const { t } = useLocale();
+  const { site } = useSite();
+  const heroImage = site.pages?.wishlist?.heroImage || '';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,9 +36,14 @@ export default function WishlistPage() {
 
   return (
     <div>
-      <Header />
+      <Header overHero={Boolean(heroImage)} />
       <main>
-        <PageHero eyebrow={t('wishlist.eyebrow')} title={t('wishlist.title')} lede={t('wishlist.lede')} />
+        <PageHero
+          image={heroImage || undefined}
+          eyebrow={t('wishlist.eyebrow')}
+          title={t('wishlist.title')}
+          lede={t('wishlist.lede')}
+        />
         <section className="prime-container pb-28">
           {loading && ids.length ? (
             <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-12">

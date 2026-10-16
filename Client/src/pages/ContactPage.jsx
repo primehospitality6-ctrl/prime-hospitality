@@ -11,7 +11,8 @@ import { useSite } from '../context/SiteContext';
 
 export default function ContactPage() {
   const { t, term } = useLocale();
-  useSite();
+  const { site } = useSite();
+  const heroImage = site.pages?.contact?.heroImage || '';
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -42,9 +43,14 @@ export default function ContactPage() {
 
   return (
     <div>
-      <Header />
+      <Header overHero={Boolean(heroImage)} />
       <main>
-        <PageHero eyebrow={t('contact.eyebrow')} title={t('contact.title')} lede={t('contact.lede')} />
+        <PageHero
+          image={heroImage || undefined}
+          eyebrow={t('contact.eyebrow')}
+          title={t('contact.title')}
+          lede={t('contact.lede')}
+        />
 
         <section className="prime-container grid gap-16 pb-28 lg:grid-cols-[0.9fr_1.1fr] lg:gap-24">
           <Reveal as="ul" className="border-t border-prime-line">

@@ -13,12 +13,12 @@ import { useLocale } from '../context/LocaleContext';
 import { useSite } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
-export function StaticPage({ title, eyebrow, lede, children }) {
+export function StaticPage({ title, eyebrow, lede, image, children }) {
   return (
     <div>
-      <Header />
+      <Header overHero={Boolean(image)} />
       <main>
-        <PageHero eyebrow={eyebrow} title={title} lede={lede} />
+        <PageHero image={image || undefined} eyebrow={eyebrow} title={title} lede={lede} />
         <div className="prime-container pb-28">
           <div className="max-w-3xl space-y-6 border-t border-prime-line pt-12 text-[16px] font-light leading-[1.85] text-prime-ink/85">
             {children}
@@ -106,6 +106,8 @@ function FaqItem({ item, index, open, onToggle }) {
 
 export function FaqPage() {
   const { t, locale } = useLocale();
+  const { site } = useSite();
+  const heroImage = site.pages?.faq?.heroImage || '';
   const [open, setOpen] = useState(0);
   const [faqs, setFaqs] = useState([]);
 
@@ -126,9 +128,14 @@ export function FaqPage() {
 
   return (
     <div>
-      <Header />
+      <Header overHero={Boolean(heroImage)} />
       <main>
-        <PageHero eyebrow={t('faq.eyebrow')} title={t('faq.title')} lede={t('faq.lede')} />
+        <PageHero
+          image={heroImage || undefined}
+          eyebrow={t('faq.eyebrow')}
+          title={t('faq.title')}
+          lede={t('faq.lede')}
+        />
         <section className="prime-container grid gap-14 pb-28 lg:grid-cols-[0.8fr_1.6fr] lg:gap-24">
           <aside className="lg:sticky lg:top-[calc(var(--prime-header-h)+2rem)] lg:self-start">
             <div className="bg-prime-mist p-8 md:p-10">
@@ -169,7 +176,12 @@ export function LegalPage({ kind }) {
     : '';
 
   return (
-    <StaticPage eyebrow={t('legal.eyebrow')} title={t(`legal.${key}`)} lede={t('legal.lede')}>
+    <StaticPage
+      image={page.heroImage || undefined}
+      eyebrow={t('legal.eyebrow')}
+      title={t(`legal.${key}`)}
+      lede={t('legal.lede')}
+    >
       {updated ? <p className="text-[13px] uppercase tracking-[0.18em] text-prime-muted">{t('legal.updated', { date: updated })}</p> : null}
       {body ? <RichText text={body} /> : <p>{t('legal.placeholder')}</p>}
       <p className="text-[15px] text-prime-muted">

@@ -7,6 +7,7 @@ import PageHero from '../components/ui/PageHero';
 import Img from '../components/ui/Img';
 import Reveal from '../components/ui/Reveal';
 import { useLocale } from '../context/LocaleContext';
+import { useSite } from '../context/SiteContext';
 import api from '../api/client';
 import { cn } from '../utils/cn';
 
@@ -113,6 +114,7 @@ function Chip({ active, onClick, children, count }) {
 
 export default function PropertiesPage() {
   const { t, term } = useLocale();
+  const { site } = useSite();
   const [params, setParams] = useSearchParams();
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +176,7 @@ export default function PropertiesPage() {
       <Header overHero />
       <main>
         <PageHero
-          image={HERO}
+          image={site.pages?.compounds?.heroImage || HERO}
           eyebrow={t('home.brandsEyebrow')}
           title={t('properties.title')}
           lede={t('properties.lede')}
