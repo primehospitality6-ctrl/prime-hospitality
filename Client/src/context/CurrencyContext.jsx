@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 const CurrencyContext = createContext(null);
 
 export function CurrencyProvider({ children }) {
-  const [currency, setCurrency] = useState('EGP');
+  const [currency, setCurrency] = useState('USD');
   const value = useMemo(() => ({ currency, setCurrency }), [currency]);
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }

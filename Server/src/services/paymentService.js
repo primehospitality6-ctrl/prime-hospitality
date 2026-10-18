@@ -2,12 +2,16 @@
  * On-site payment gateways — embedded iframe / hosted fields only.
  * NEVER return a top-level redirect URL for the guest to leave our domain.
  * Paymob iframe is rendered inside PaymentModal on our React app.
+ *
+ * Site amounts are usually USD. Paymob can charge USD (if the integration is USD)
+ * or the live EGP equivalent (PAYMOB_CURRENCY=EGP).
  */
 
 const https = require('https');
 const crypto = require('crypto');
 
 const PAYMOB_BASE = process.env.PAYMOB_BASE_URL || 'https://accept.paymob.com/api';
+const SITE_CURRENCY = String(process.env.SITE_CURRENCY || process.env.KWENTRA_CURRENCY || 'USD').toUpperCase();
 
 function isPaymobConfigured() {
   return Boolean(
@@ -25,6 +29,12 @@ function activeProvider() {
   if (isPaymobConfigured()) return 'paymob';
   if (isStripeConfigured()) return 'stripe';
   return 'mock';
+}
+
+/** Currency the Paymob integration is set up for (USD or EGP). */
+function paymobChargeCurrency() {
+  const v = String(process.env.PAYMOB_CURRENCY || 'EGP').toUpperCase();
+  return v === 'USD' ? 'USD' : 'EGP';
 }
 
 function requestJson(method, urlString, body, headers = {}) {
@@ -62,6 +72,83 @@ function requestJson(method, urlString, body, headers = {}) {
   });
 }
 
+function getJson(urlString) {
+  return requestJson('GET', urlString);
+}
+
+/**
+ * Live FX: 1 unit of `from` in `to`. Cached briefly.
+ * Override with PAYMOB_USD_EGP_RATE (fixed) or PAYMOB_FX_URL.
+ */
+const fxCache = { at: 0, rate: null };
+const FX_TTL_MS = 30 * 60_000;
+
+async function exchangeRate(from, to) {
+  const a = String(from).toUpperCase();
+  const b = String(to).toUpperCase();
+  if (a === b) return 1;
+
+  const fixed = Number(process.env.PAYMOB_USD_EGP_RATE);
+  if (a === 'USD' && b === 'EGP' && Number.isFinite(fixed) && fixed > 0) return fixed;
+  if (a === 'EGP' && b === 'USD' && Number.isFinite(fixed) && fixed > 0) return 1 / fixed;
+
+  if (fxCache.rate && Date.now() - fxCache.at < FX_TTL_MS && fxCache.from === a && fxCache.to === b) {
+    return fxCache.rate;
+  }
+
+  const custom = process.env.PAYMOB_FX_URL;
+  let rate;
+  if (custom) {
+    const url = custom.replace('{from}', a).replace('{to}', b);
+    const { data, status } = await getJson(url);
+    if (status >= 400) throw new Error(`FX lookup failed: ${status}`);
+    rate = Number(data?.rate ?? data?.rates?.[b] ?? data?.result);
+  } else {
+    // Frankfurter (ECB) — free, no key
+    const { data, status } = await getJson(`https://api.frankfurter.app/latest?from=${a}&to=${b}`);
+    if (status >= 400 || !data?.rates?.[b]) {
+      throw new Error(`FX lookup failed: ${JSON.stringify(data)}`);
+    }
+    rate = Number(data.rates[b]);
+  }
+  if (!(rate > 0)) throw new Error(`Invalid FX rate ${a}→${b}`);
+  fxCache.at = Date.now();
+  fxCache.from = a;
+  fxCache.to = b;
+  fxCache.rate = rate;
+  return rate;
+}
+
+/** Convert booking amount into what Paymob will charge. */
+async function amountForPaymob(amount, bookingCurrency) {
+  const from = String(bookingCurrency || SITE_CURRENCY).toUpperCase();
+  const to = paymobChargeCurrency();
+  const value = Number(amount);
+  if (!(value > 0)) throw new Error('Payment amount must be positive');
+
+  if (from === to) {
+    return {
+      chargeAmount: value,
+      chargeCurrency: to,
+      displayAmount: value,
+      displayCurrency: from,
+      fxRate: 1,
+      converted: false,
+    };
+  }
+
+  const fxRate = await exchangeRate(from, to);
+  const chargeAmount = Math.round(value * fxRate * 100) / 100;
+  return {
+    chargeAmount,
+    chargeCurrency: to,
+    displayAmount: value,
+    displayCurrency: from,
+    fxRate,
+    converted: true,
+  };
+}
+
 async function paymobAuthToken() {
   const { data, status } = await requestJson('POST', `${PAYMOB_BASE}/auth/tokens`, {
     api_key: process.env.PAYMOB_API_KEY,
@@ -72,15 +159,16 @@ async function paymobAuthToken() {
   return data.token;
 }
 
-async function initializePaymobEmbedded({ amountEgp, merchantOrderId, billing }) {
-  const amountCents = Math.round(Number(amountEgp) * 100);
+async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing }) {
+  const priced = await amountForPaymob(amount, currency);
+  const amountCents = Math.round(Number(priced.chargeAmount) * 100);
   const token = await paymobAuthToken();
 
   const orderRes = await requestJson('POST', `${PAYMOB_BASE}/ecommerce/orders`, {
     auth_token: token,
     delivery_needed: false,
     amount_cents: amountCents,
-    currency: 'EGP',
+    currency: priced.chargeCurrency,
     merchant_order_id: merchantOrderId,
     items: [],
   });
@@ -112,7 +200,7 @@ async function initializePaymobEmbedded({ amountEgp, merchantOrderId, billing })
       last_name: lastName,
       state: 'NA',
     },
-    currency: 'EGP',
+    currency: priced.chargeCurrency,
     integration_id: Number(process.env.PAYMOB_INTEGRATION_ID),
   });
   if (keyRes.status >= 400 || !keyRes.data?.token) {
@@ -121,19 +209,23 @@ async function initializePaymobEmbedded({ amountEgp, merchantOrderId, billing })
 
   const paymentKey = keyRes.data.token;
   const iframeId = process.env.PAYMOB_IFRAME_ID;
-  // Embedded iframe URL — rendered inside our PaymentModal (guest stays on our domain)
   const iframeSrc = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentKey}`;
 
   return {
     provider: 'paymob',
     mode: 'embedded_iframe',
     amountCents,
-    currency: 'EGP',
+    currency: priced.chargeCurrency,
+    displayAmount: priced.displayAmount,
+    displayCurrency: priced.displayCurrency,
+    chargeAmount: priced.chargeAmount,
+    chargeCurrency: priced.chargeCurrency,
+    fxRate: priced.fxRate,
+    converted: priced.converted,
     merchantOrderId,
     providerOrderId: String(orderRes.data.id),
     paymentKey,
     iframeSrc,
-    // Explicitly do NOT expose a top-level redirect checkout for the SPA to navigate to
     redirectForbidden: true,
   };
 }
@@ -142,13 +234,13 @@ async function initializePaymobEmbedded({ amountEgp, merchantOrderId, billing })
  * Stripe PaymentIntent for Elements (embedded card fields on our domain).
  * Client confirms with Stripe.js — no redirect Checkout Session.
  */
-async function initializeStripeEmbedded({ amountEgp, merchantOrderId, billing, currency = 'egp' }) {
+async function initializeStripeEmbedded({ amount, merchantOrderId, billing, currency = 'usd' }) {
   if (!isStripeConfigured()) {
     throw new Error('Stripe is not configured');
   }
-  const amount = Math.round(Number(amountEgp) * 100);
+  const amountCents = Math.round(Number(amount) * 100);
   const params = new URLSearchParams({
-    amount: String(amount),
+    amount: String(amountCents),
     currency: String(currency).toLowerCase(),
     'metadata[merchant_order_id]': merchantOrderId,
     'metadata[email]': billing.email || '',
@@ -194,8 +286,10 @@ async function initializeStripeEmbedded({ amountEgp, merchantOrderId, billing, c
   return {
     provider: 'stripe',
     mode: 'embedded_elements',
-    amountCents: amount,
-    currency: currency.toUpperCase(),
+    amountCents,
+    currency: String(currency).toUpperCase(),
+    displayAmount: Number(amount),
+    displayCurrency: String(currency).toUpperCase(),
     merchantOrderId,
     providerOrderId: raw.data.id,
     clientSecret: raw.data.client_secret,
@@ -205,12 +299,14 @@ async function initializeStripeEmbedded({ amountEgp, merchantOrderId, billing, c
 }
 
 /** Dev / offline: mock embedded session so UI can be tested without gateways */
-function initializeMockEmbedded({ amountEgp, merchantOrderId }) {
+function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE_CURRENCY }) {
   return {
     provider: 'mock',
     mode: 'embedded_mock',
-    amountCents: Math.round(Number(amountEgp) * 100),
-    currency: 'EGP',
+    amountCents: Math.round(Number(amount) * 100),
+    currency: String(currency || SITE_CURRENCY).toUpperCase(),
+    displayAmount: Number(amount),
+    displayCurrency: String(currency || SITE_CURRENCY).toUpperCase(),
     merchantOrderId,
     providerOrderId: `mock_${merchantOrderId}`,
     iframeSrc: null,
@@ -223,17 +319,18 @@ function initializeMockEmbedded({ amountEgp, merchantOrderId }) {
  * Start an on-site payment session.
  * Returns embed payload for PaymentModal — never a navigation redirect.
  */
-async function createPaymentSession({ amount, currency = 'EGP', merchantOrderId, billing }) {
+async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing }) {
   const provider = activeProvider();
+  const cur = String(currency || SITE_CURRENCY).toUpperCase();
   if (provider === 'paymob') {
-    return initializePaymobEmbedded({ amountEgp: amount, merchantOrderId, billing });
+    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing });
   }
   if (provider === 'stripe') {
     return initializeStripeEmbedded({
-      amountEgp: amount,
+      amount,
       merchantOrderId,
       billing,
-      currency: currency.toLowerCase(),
+      currency: cur.toLowerCase(),
     });
   }
   if (provider === 'fawry') {
@@ -241,7 +338,7 @@ async function createPaymentSession({ amount, currency = 'EGP', merchantOrderId,
     err.status = 501;
     throw err;
   }
-  return initializeMockEmbedded({ amountEgp: amount, merchantOrderId });
+  return initializeMockEmbedded({ amount, merchantOrderId, currency: cur });
 }
 
 function verifyPaymobHmac(obj, receivedHmac) {
@@ -283,4 +380,6 @@ module.exports = {
   initializePaymobEmbedded,
   initializeStripeEmbedded,
   initializeMockEmbedded,
+  paymobChargeCurrency,
+  SITE_CURRENCY,
 };

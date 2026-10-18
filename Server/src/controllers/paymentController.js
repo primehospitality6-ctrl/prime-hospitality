@@ -10,7 +10,7 @@ async function createSession(req, res, next) {
     }
     const session = await payment.createPaymentSession({
       amount,
-      currency: currency || 'EGP',
+      currency: currency || payment.SITE_CURRENCY || 'USD',
       merchantOrderId,
       billing: { name, email, phone },
     });

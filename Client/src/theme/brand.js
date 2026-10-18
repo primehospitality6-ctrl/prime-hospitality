@@ -68,7 +68,7 @@ export function listingWhatsAppMessage(pathnameOrUrl) {
   return `Hi Prime — I'd like to inquire about this stay:\n${listingUrl}`;
 }
 
-export function formatMoney(amount, currency = 'EGP') {
+export function formatMoney(amount, currency = 'USD') {
   const n = Number(amount) || 0;
   return `${n.toLocaleString('en-EG')} ${currencyLabel(currency)}`;
 }

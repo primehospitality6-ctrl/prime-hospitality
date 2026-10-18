@@ -8,12 +8,18 @@ import { useLocale } from '../../context/LocaleContext';
  * Embedded payment — Paymob iframe / Stripe Elements / mock.
  * STRICT: never window.location.assign to an external checkout.
  */
-export default function PaymentPanel({ payment, booking, amount, currency = 'EGP', onPaid }) {
+export default function PaymentPanel({ payment, booking, amount, currency = 'USD', onPaid }) {
   const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [polling, setPolling] = useState(false);
   const isMock = payment?.mode === 'embedded_mock' || payment?.provider === 'mock';
+  const displayCurrency = payment?.displayCurrency || currency;
+  const displayAmount = payment?.displayAmount ?? amount;
+  const chargeNote =
+    payment?.converted && payment?.chargeAmount != null && payment?.chargeCurrency
+      ? `${formatMoney(payment.chargeAmount, payment.chargeCurrency)} · ${Number(payment.fxRate).toFixed(2)} ${payment.displayCurrency}/${payment.chargeCurrency}`
+      : null;
 
   useEffect(() => {
     if (!payment?.merchantOrderId || isMock) return undefined;
@@ -63,8 +69,11 @@ export default function PaymentPanel({ payment, booking, amount, currency = 'EGP
           <Lock size={13} strokeWidth={2} aria-hidden />
           {t('bm.securePayment')}
         </span>
-        <span className="font-display text-lg font-bold tabular-nums text-prime-ink">
-          {formatMoney(amount, currency)}
+        <span className="text-end">
+          <span className="block font-display text-lg font-bold tabular-nums text-prime-ink">
+            {formatMoney(displayAmount, displayCurrency)}
+          </span>
+          {chargeNote ? <span className="mt-0.5 block text-[11px] text-prime-muted">{chargeNote}</span> : null}
         </span>
       </div>
 
@@ -87,7 +96,7 @@ export default function PaymentPanel({ payment, booking, amount, currency = 'EGP
             <p className="text-sm text-prime-muted">{t('bm.mockGateway')}</p>
             <button type="button" className="prime-btn" disabled={busy} onClick={payMock}>
               {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : null}
-              {busy ? t('bm.confirming') : t('bm.payNow', { amount: formatMoney(amount, currency) })}
+              {busy ? t('bm.confirming') : t('bm.payNow', { amount: formatMoney(displayAmount, displayCurrency) })}
             </button>
           </div>
         ) : null}

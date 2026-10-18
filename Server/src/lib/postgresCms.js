@@ -456,7 +456,7 @@ async function createUnit(body) {
     areaSqm: Number(body.areaSqm) || 0,
     maxGuests: Number(body.maxGuests) || 2,
     pricePerNight: Number(body.pricePerNight) || 0,
-    currency: body.currency || 'EGP',
+    currency: body.currency || process.env.SITE_CURRENCY || process.env.KWENTRA_CURRENCY || 'USD',
     featured: Boolean(body.featured),
     available: body.available !== false,
     published: body.published !== false,
