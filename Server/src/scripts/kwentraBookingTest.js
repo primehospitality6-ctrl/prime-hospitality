@@ -73,7 +73,7 @@ async function main() {
     voucherNumber: `PHW-TEST-${Date.now().toString().slice(-6)}`,
     ratePlanName: 'Flexible',
     rateAmount: pick.rate.quote,
-    rateCurrency: process.env.KWENTRA_CURRENCY || 'EGP',
+    rateCurrency: 'USD',
     primaryGuestName: 'Prime Api Test',
     email: 'api-test@stayatprime.com',
     phone: '+201000000000',

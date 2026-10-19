@@ -793,7 +793,7 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
       prices,
       occupancy,
       rate: rate ? { id: rate.rateId, code: rate.rateCode } : null,
-      currency: listing.currency || process.env.KWENTRA_CURRENCY || 'EGP',
+      currency: 'USD',
     };
   }
 
@@ -1169,7 +1169,7 @@ async function pushPaidBooking(booking, payment = {}) {
  * hold date removed); one Kwentra already auto-cancelled is reinstated — the same reservation, never a
  * second booking. Then the payment is posted on the billing account (Billing API) with a billing note.
  */
-async function pushPayment({ booking, reservationId, amount, currency = 'EGP', merchantOrderId, provider, transactionId, cardLast4, cardType }) {
+async function pushPayment({ booking, reservationId, amount, currency = 'USD', merchantOrderId, provider, transactionId, cardLast4, cardType }) {
   if (!kwentra.isConfigured() || !reservationId) {
     return { pushed: false, reason: !reservationId ? 'missing_reservation_id' : 'not_configured' };
   }
@@ -1603,7 +1603,7 @@ async function ensureRoomUnit({ room, type, template, home, units, slugs, report
       maxGuests: inherit('maxGuests') || 2,
       areaSqm: inherit('areaSqm') || 0,
       pricePerNight: inherit('pricePerNight') || 0,
-      currency: template?.currency || type.currency || 'EGP',
+      currency: 'USD',
       description: inherit('description') || `${type.title}, room ${room.number}.`,
       amenities: inherit('amenities')?.length ? inherit('amenities') : ['Wi-Fi'],
       images: template?.images || [],

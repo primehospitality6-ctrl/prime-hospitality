@@ -14,9 +14,9 @@ export function setActiveLocale(locale) {
   activeLocale = locale;
 }
 
-export function currencyLabel(code) {
-  if (activeLocale === 'ar') return CURRENCY_AR[code] || code;
-  return CURRENCY_EN[code] || code;
+export function currencyLabel(_code = 'USD') {
+  // Website displays USD only.
+  return activeLocale === 'ar' ? CURRENCY_AR.USD : 'USD';
 }
 
 const EXACT_EN_AR = {

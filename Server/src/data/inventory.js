@@ -223,7 +223,7 @@ function buildInventory() {
           areaSqm: spec.areaSqm,
           maxGuests: spec.maxGuests,
           pricePerNight: price,
-          currency: 'EGP',
+          currency: 'USD',
           featured: false,
           available: true,
           amenities: BRAND_AMENITIES[brand] || BRAND_AMENITIES.Residence,

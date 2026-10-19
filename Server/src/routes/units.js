@@ -10,7 +10,7 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 /** Room numbers, Drive links and sync bookkeeping are for staff only */
 function publicUnit(unit) {
   const { unitNumbers: _n, kwentraSnapshot: _s, driveFolderUrl: _d, completeness: _c, live: _l, ...rest } = unit;
-  return rest;
+  return { ...rest, currency: 'USD' };
 }
 
 function matchesFilters(listing, params = {}) {
@@ -120,7 +120,7 @@ router.get(
       });
     } catch (err) {
       console.warn('[pricing]', item.slug, err.message);
-      avail = { source: 'kwentra-unreachable', prices: {}, currency: item.currency || 'EGP' };
+      avail = { source: 'kwentra-unreachable', prices: {}, currency: 'USD' };
     }
     const { rows } = buildPricing(item, from, to);
     res.json({
@@ -129,7 +129,7 @@ router.get(
       source: avail.source,
       from,
       to,
-      currency: avail.currency || item.currency || 'EGP',
+      currency: 'USD',
       prices: avail.prices || {},
       occupancy: avail.occupancy || {},
       rows,

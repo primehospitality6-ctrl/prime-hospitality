@@ -111,7 +111,7 @@ function buildAnchoredAvailability(listing, from, to) {
  */
 function buildPricing(listing, from, to) {
   const base = Number(listing.pricePerNight) || 10000;
-  const currency = listing.currency || 'EGP';
+  const currency = 'USD';
   const prices = {};
   const rows = [];
 

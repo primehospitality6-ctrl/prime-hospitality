@@ -111,7 +111,7 @@ function ratePlansForStay(nights) {
 /**
  * Price a stay for a rate plan from nightly base prices ({ 'YYYY-MM-DD': amount }).
  */
-function priceStay({ arrivalDate, departureDate, nightlyPrices = {}, fallbackNightly = 0, ratePlan, currency = 'EGP' }) {
+function priceStay({ arrivalDate, departureDate, nightlyPrices = {}, fallbackNightly = 0, ratePlan, currency = 'USD' }) {
   const nights = nightsBetween(arrivalDate, departureDate);
   const factor = 1 + (Number(ratePlan?.adjustmentPct) || 0) / 100;
   const nightly = [];

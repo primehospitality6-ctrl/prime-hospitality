@@ -11,7 +11,8 @@ const https = require('https');
 const crypto = require('crypto');
 
 const PAYMOB_BASE = process.env.PAYMOB_BASE_URL || 'https://accept.paymob.com/api';
-const SITE_CURRENCY = String(process.env.SITE_CURRENCY || process.env.KWENTRA_CURRENCY || 'USD').toUpperCase();
+/** Guest website is USD-only. Paymob may still charge EGP via PAYMOB_CURRENCY. */
+const SITE_CURRENCY = 'USD';
 
 function isPaymobConfigured() {
   return Boolean(
@@ -31,10 +32,10 @@ function activeProvider() {
   return 'mock';
 }
 
-/** Currency the Paymob integration is set up for (USD or EGP). */
+/** Currency the Paymob integration is set up for (USD or EGP). Defaults to USD. */
 function paymobChargeCurrency() {
-  const v = String(process.env.PAYMOB_CURRENCY || 'EGP').toUpperCase();
-  return v === 'USD' ? 'USD' : 'EGP';
+  const v = String(process.env.PAYMOB_CURRENCY || 'USD').toUpperCase();
+  return v === 'EGP' ? 'EGP' : 'USD';
 }
 
 function requestJson(method, urlString, body, headers = {}) {

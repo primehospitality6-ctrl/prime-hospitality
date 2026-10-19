@@ -28,7 +28,7 @@ const EMPTY = {
   areaSqm: 100,
   maxGuests: 4,
   pricePerNight: 0,
-  currency: 'EGP',
+  currency: 'USD',
   featured: false,
   published: true,
   description: '',
@@ -64,7 +64,7 @@ function formFromUnit(u, defaults = {}) {
     areaSqm: u.areaSqm || 0,
     maxGuests: u.maxGuests || 2,
     pricePerNight: u.pricePerNight || 0,
-    currency: u.currency || 'EGP',
+    currency: 'USD',
     featured: Boolean(u.featured),
     published: u.published !== false,
     description: u.description || '',
@@ -271,13 +271,13 @@ export default function UnitEditor({ open, unit, compounds, compoundGroups, defa
           </div>
         </Section>
 
-        <Section title="Price shown on the website" hint="The “from” price on cards. Real nightly rates and totals come from Kwentra at booking time.">
+        <Section title="Price shown on the website" hint="Amounts are always in USD. The “from” price on cards; real nightly rates and totals come from Kwentra at booking time.">
           <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-            <Field label="From price per night">
-              <input className="prime-input" type="number" min="0" value={form.pricePerNight} onChange={(e) => set({ pricePerNight: Number(e.target.value) })} />
+            <Field label="From price per night (USD)">
+              <input className="prime-input" type="number" min="0" value={form.pricePerNight} onChange={(e) => set({ pricePerNight: Number(e.target.value), currency: 'USD' })} />
             </Field>
             <Field label="Currency">
-              <input className="prime-input" value={form.currency} onChange={(e) => set({ currency: e.target.value.toUpperCase() })} />
+              <input className="prime-input" value="USD" disabled readOnly />
             </Field>
           </div>
         </Section>

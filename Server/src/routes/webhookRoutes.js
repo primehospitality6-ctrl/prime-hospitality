@@ -23,7 +23,7 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
   if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
   const result = await sync.pushPaidBooking(booking, {
     amount: booking.rateAmount ?? booking.amount,
-    currency: booking.rateCurrency || booking.currency || 'EGP',
+    currency: booking.rateCurrency || booking.currency || 'USD',
     merchantOrderId: merchantOrderId || booking.externalRef,
     provider,
     transactionId,

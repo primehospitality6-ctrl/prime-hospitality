@@ -1,10 +1,10 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 const CurrencyContext = createContext(null);
 
+/** Website currency is fixed to USD — no guest switcher. */
 export function CurrencyProvider({ children }) {
-  const [currency, setCurrency] = useState('USD');
-  const value = useMemo(() => ({ currency, setCurrency }), [currency]);
+  const value = useMemo(() => ({ currency: 'USD', setCurrency: () => {} }), []);
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }
 

@@ -8,18 +8,15 @@ import { useLocale } from '../../context/LocaleContext';
  * Embedded payment — Paymob iframe / Stripe Elements / mock.
  * STRICT: never window.location.assign to an external checkout.
  */
-export default function PaymentPanel({ payment, booking, amount, currency = 'USD', onPaid }) {
+export default function PaymentPanel({ payment, booking, amount, currency: _currency = 'USD', onPaid }) {
   const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [polling, setPolling] = useState(false);
   const isMock = payment?.mode === 'embedded_mock' || payment?.provider === 'mock';
-  const displayCurrency = payment?.displayCurrency || currency;
+  // Guest-facing currency is always USD (Paymob may charge another currency inside its iframe).
+  const displayCurrency = 'USD';
   const displayAmount = payment?.displayAmount ?? amount;
-  const chargeNote =
-    payment?.converted && payment?.chargeAmount != null && payment?.chargeCurrency
-      ? `${formatMoney(payment.chargeAmount, payment.chargeCurrency)} · ${Number(payment.fxRate).toFixed(2)} ${payment.displayCurrency}/${payment.chargeCurrency}`
-      : null;
 
   useEffect(() => {
     if (!payment?.merchantOrderId || isMock) return undefined;
@@ -73,7 +70,6 @@ export default function PaymentPanel({ payment, booking, amount, currency = 'USD
           <span className="block font-display text-lg font-bold tabular-nums text-prime-ink">
             {formatMoney(displayAmount, displayCurrency)}
           </span>
-          {chargeNote ? <span className="mt-0.5 block text-[11px] text-prime-muted">{chargeNote}</span> : null}
         </span>
       </div>
 

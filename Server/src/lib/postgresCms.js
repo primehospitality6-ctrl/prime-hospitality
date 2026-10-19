@@ -456,7 +456,7 @@ async function createUnit(body) {
     areaSqm: Number(body.areaSqm) || 0,
     maxGuests: Number(body.maxGuests) || 2,
     pricePerNight: Number(body.pricePerNight) || 0,
-    currency: body.currency || process.env.SITE_CURRENCY || process.env.KWENTRA_CURRENCY || 'USD',
+    currency: 'USD',
     featured: Boolean(body.featured),
     available: body.available !== false,
     published: body.published !== false,
@@ -503,6 +503,7 @@ async function updateUnit(idOrSlug, body) {
   for (const key of scalar) {
     if (body[key] !== undefined) next[key] = body[key];
   }
+  next.currency = 'USD';
   for (const key of ['bedrooms', 'bathrooms', 'areaSqm', 'maxGuests', 'pricePerNight']) {
     if (body[key] !== undefined) next[key] = Number(body[key]) || 0;
   }

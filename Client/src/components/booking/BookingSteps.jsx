@@ -571,7 +571,7 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
             { label: t('bm.roomType'), value: term(listing.unitType || listing.propertyType) || none },
             { label: t('bm.ratePlan'), value: plan ? planName(plan) : none },
             { label: t('bm.rateAmount'), value: formatMoney(price?.rateAmount, listing.currency) },
-            { label: t('bm.rateCurrency'), value: listing.currency || 'USD' },
+            { label: t('bm.rateCurrency'), value: 'USD' },
           ]}
         />
       </div>

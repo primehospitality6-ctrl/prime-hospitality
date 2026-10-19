@@ -77,7 +77,7 @@ async function getAvailability(req, res, next) {
           blocked: avail.blocked,
           checkout_dates: avail.checkoutDates,
           prices: {},
-          currency: process.env.KWENTRA_CURRENCY || 'EGP',
+          currency: 'USD',
         });
       }
       return res.status(404).json({ error: 'Listing not found' });
@@ -95,7 +95,7 @@ async function getAvailability(req, res, next) {
         blocked: avail.blocked,
         checkout_dates: avail.checkoutDates || avail.checkout_dates || [],
         prices: avail.prices || {},
-        currency: avail.currency || listing.currency || 'EGP',
+        currency: 'USD',
       });
     } catch (err) {
       console.warn('[kwentra] availability lookup failed:', err.message);
@@ -165,7 +165,7 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
         blocked: availability.blocked,
         checkoutDates: availability.checkoutDates,
         prices: grid ? grid.prices : base ? sync.nightsToPrices(arrivalDate, base.nights) : {},
-        currency: listing.currency || process.env.KWENTRA_CURRENCY || 'EGP',
+        currency: 'USD',
       };
     } catch (err) {
       if (strict || err.status) throw err;
@@ -190,7 +190,7 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
     occupied,
     prices,
     rates,
-    currency: avail.currency || listing.currency || 'EGP',
+    currency: 'USD',
   };
 }
 
@@ -492,7 +492,7 @@ async function confirmMockPayment(req, res, next) {
     if (kwentra.isConfigured()) {
       paymentPush = await sync.pushPaidBooking(booking, {
         amount: booking.rateAmount ?? booking.amount,
-        currency: booking.rateCurrency || booking.currency || 'EGP',
+        currency: booking.rateCurrency || booking.currency || 'USD',
         merchantOrderId: booking.externalRef,
         provider: 'mock',
         transactionId: `mock_${booking.externalRef}`,
