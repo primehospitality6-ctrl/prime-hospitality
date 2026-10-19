@@ -6,7 +6,7 @@ import { Card, ConfirmDialog, Field, SaveBar, useSiteSection, useToast } from '.
 import Wordmark from '../../components/ui/Wordmark';
 import { useSite } from '../../context/SiteContext';
 
-const NEW_BRAND = { name: '', nameAr: '', color: '#231F20', image: '', text: { en: '', ar: '' } };
+const NEW_BRAND = { name: '', nameAr: '', color: '#231F20', image: '', minNights: 1, text: { en: '', ar: '' } };
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The brand's home-page card in miniature */
@@ -74,6 +74,16 @@ function BrandEditor({ brand, index, count, onChange, onMove, onRemove }) {
               />
             </div>
           </Field>
+          <Field label="Minimum stay" hint="Nights required for units under this brand">
+            <input
+              type="number"
+              min={1}
+              max={30}
+              className="prime-input"
+              value={brand.minNights ?? 1}
+              onChange={(e) => set({ minNights: Math.max(1, Math.min(30, Number(e.target.value) || 1)) })}
+            />
+          </Field>
           <ImageUploadField
             label="Photo"
             value={brand.image}
@@ -114,7 +124,7 @@ export default function AdminBrandsPage() {
     <div>
       <AdminPageHeader
         title="Brands"
-        lede="Prime sub-brands shown as colour cards on the homepage, as coloured tags on stay cards and in the search filter. Properties are linked to a brand in Inventory › Properties."
+        lede="Prime sub-brands shown as colour cards on the homepage and as coloured tags on stay cards. Each brand can set a minimum stay. Properties are linked to a brand in Inventory › Properties."
       />
       {error ? <p className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       {!loaded ? (
@@ -149,14 +159,14 @@ export default function AdminBrandsPage() {
               ))}
             </ol>
           ) : (
-            <p className="text-sm text-prime-muted">No brands — the homepage brand section and the search brand filter are hidden.</p>
+            <p className="text-sm text-prime-muted">No brands — the homepage brand section is hidden.</p>
           )}
         </Card>
       )}
       <ConfirmDialog
         open={removing != null}
         title={`Remove ${items[removing]?.name ? `Prime ${items[removing].name}` : 'this brand'}?`}
-        message="It disappears from the homepage and the search filter once you save. Properties tagged with it keep the tag until you change them in Properties."
+        message="It disappears from the homepage once you save. Properties tagged with it keep the tag until you change them in Properties."
         confirmText="Remove"
         danger
         onConfirm={() => {

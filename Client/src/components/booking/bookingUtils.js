@@ -12,9 +12,9 @@ export const STEP_OF_FIELD = {
   primaryGuestName: 'guests',
   otherGuestNames: 'guests',
   nationality: 'guests',
-  reservationCountry: 'guests',
   email: 'guests',
   phone: 'guests',
+  notes: 'stay',
 };
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M}\s.'-]*$/u;
@@ -79,12 +79,17 @@ export function pricesForGuests(occupancy, adults, children) {
 }
 
 /** Error values are LocaleContext keys; server messages pass through t() unchanged */
-export function validateStay(stay, maxGuests) {
+export function validateStay(stay, maxGuests, minNights = 1) {
   const errors = {};
   if (!stay.arrivalDate) errors.arrivalDate = 'bm.err.arrival';
   else if (stay.arrivalDate < todayIso()) errors.arrivalDate = 'bm.err.arrivalPast';
   if (!stay.departureDate) errors.departureDate = 'bm.err.departure';
   else if (stay.arrivalDate && stay.departureDate <= stay.arrivalDate) errors.departureDate = 'bm.err.departureOrder';
+  else {
+    const nights = nightsBetween(stay.arrivalDate, stay.departureDate);
+    const brandMin = Math.max(1, Number(minNights) || 1);
+    if (nights < brandMin) errors.departureDate = 'bm.err.minStay';
+  }
   if (stay.adults < 1) errors.adults = 'bm.err.adults';
   if (stay.adults + stay.children > maxGuests) errors.adults = 'bm.err.tooManyGuests';
   return errors;
@@ -105,8 +110,6 @@ export function validateGuest(guest) {
 
   const others = guest.otherGuestNames.map(cleanName).filter(Boolean);
   if (others.some((n) => !NAME_RE.test(n))) errors.otherGuestNames = 'bm.err.nameLetters';
-
-  if (!guest.reservationCountry) errors.reservationCountry = 'bm.err.country';
 
   const email = guest.email.trim();
   if (!email) errors.email = 'bm.err.email';

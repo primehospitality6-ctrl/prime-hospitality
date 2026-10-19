@@ -4,7 +4,6 @@ import {
   Building2,
   CalendarRange,
   ChevronDown,
-  Gem,
   MapPin,
   SlidersHorizontal,
   Users,
@@ -107,7 +106,6 @@ export default function StaysFiltersBar({
   filters,
   destinations,
   unitTypes,
-  brands,
   onChange,
   onClear,
   onOpenSheet,
@@ -133,7 +131,6 @@ export default function StaysFiltersBar({
     filters.destination,
     filters.compound,
     filters.unitType,
-    filters.brand,
     filters.guests,
     filters.checkIn || filters.checkOut,
   ].filter(Boolean).length;
@@ -162,7 +159,7 @@ export default function StaysFiltersBar({
               'grid gap-0.5',
               embedded
                 ? 'grid-cols-1 sm:grid-cols-2'
-                : 'grid-cols-2 lg:grid-cols-[1.1fr_1.15fr_1.35fr_0.95fr_0.95fr_0.75fr_auto]'
+                : 'grid-cols-2 lg:grid-cols-[1.1fr_1.15fr_1.35fr_0.95fr_0.75fr_auto]'
             )}
           >
             <Dropdown
@@ -255,21 +252,6 @@ export default function StaysFiltersBar({
                   title={term(type)}
                   onClick={() => pick({ unitType: type })}
                 />
-              ))}
-            </Dropdown>
-
-            <Dropdown
-              label={t('listing.specBrand')}
-              icon={Gem}
-              valueLabel={filters.brand ? term(`Prime ${filters.brand}`) : t('filters.allBrands')}
-              open={openMenu === 'brand'}
-              onToggle={() => toggle('brand')}
-              panelClassName="min-w-[180px]"
-              active={Boolean(filters.brand)}
-            >
-              <MenuItem active={!filters.brand} title={t('filters.allBrands')} onClick={() => pick({ brand: '' })} />
-              {brands.map((b) => (
-                <MenuItem key={b} active={filters.brand === b} title={term(`Prime ${b}`)} onClick={() => pick({ brand: b })} />
               ))}
             </Dropdown>
 
@@ -414,7 +396,6 @@ export function ActiveFilterPills({ filters, destinations, onRemove, onClear }) 
     pills.push({ key: 'compound', label: term(properties.find((p) => p.id === filters.compound)?.name || filters.compound) });
   }
   if (filters.unitType) pills.push({ key: 'unitType', label: term(filters.unitType) });
-  if (filters.brand) pills.push({ key: 'brand', label: term(`Prime ${filters.brand}`) });
   if (filters.guests) pills.push({ key: 'guests', label: t('filters.guestsPlus', { count: filters.guests }) });
   if (filters.checkIn || filters.checkOut) {
     pills.push({

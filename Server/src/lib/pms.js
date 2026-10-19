@@ -16,7 +16,7 @@ const PMS_FIELDS = [
   { no: 6, key: 'nights', label: 'Nights', type: 'Numeric', required: true, source: 'auto' },
   { no: 7, key: 'checkInTime', label: 'Check-In Time', type: 'Time', required: false, source: 'guest' },
   { no: 8, key: 'checkOutTime', label: 'Check-Out Time', type: 'Time', required: false, source: 'guest' },
-  { no: 9, key: 'reservationCountry', label: 'Reservation Country', type: 'Alphabetic', required: true, source: 'guest', autofill: 'ip' },
+  { no: 9, key: 'reservationCountry', label: 'Reservation Country', type: 'Alphabetic', required: true, source: 'auto', value: 'EG' },
   { no: 10, key: 'channel', label: 'Channel', type: 'Alphabetic', required: true, source: 'constant', value: CHANNEL },
   { no: 11, key: 'voucherNumber', label: 'Voucher Number', type: 'Alpha-Numeric', required: true, source: 'auto' },
   { no: 12, key: 'adults', label: 'Number of guests (Adults)', type: 'Numeric', required: true, source: 'guest' },
@@ -27,41 +27,38 @@ const PMS_FIELDS = [
   { no: 17, key: 'rateCurrency', label: 'Rate Currency', type: 'Currency', required: true, source: 'listing' },
 ];
 
+/** Website only sells these two Kwentra rate families (map ids via KWENTRA_RATE_MAP). */
 const RATE_PLANS = [
   {
-    code: 'FLEX',
-    name: 'Flexible Rate',
-    description: 'Free cancellation up to 48 hours before arrival.',
+    code: 'BB',
+    name: 'Bed & Breakfast',
+    nameAr: 'إفطار وإقامة',
+    description: 'Room with breakfast included.',
+    descriptionAr: 'الغرفة مع الإفطار.',
     adjustmentPct: 0,
     minNights: 1,
     refundable: true,
+    kwentraNames: ['bb', 'bed and breakfast', 'bed & breakfast', 'b&b'],
   },
   {
-    code: 'NRF',
-    name: 'Non-Refundable Rate',
-    description: 'Save 10% — prepaid, no changes or refunds.',
-    adjustmentPct: -10,
+    code: 'RO',
+    name: 'Room Only',
+    nameAr: 'غرفة فقط',
+    description: 'Room only — meals not included.',
+    descriptionAr: 'الغرفة فقط — بدون وجبات.',
+    adjustmentPct: 0,
     minNights: 1,
-    refundable: false,
-  },
-  {
-    code: 'WEEKLY',
-    name: 'Weekly Stay Rate',
-    description: 'Save 15% on stays of 7 nights or more. Free cancellation up to 7 days before arrival.',
-    adjustmentPct: -15,
-    minNights: 7,
     refundable: true,
+    kwentraNames: ['ro', 'room only', 'room-only', 'accommodation only'],
   },
 ];
 
 const STANDARD_CHECK_IN = '15:00';
 const STANDARD_CHECK_OUT = '12:00';
-
-const hours = (from, to) =>
-  Array.from({ length: to - from + 1 }, (_, i) => `${String(from + i).padStart(2, '0')}:00`);
-
-const CHECK_IN_TIMES = hours(12, 23);
-const CHECK_OUT_TIMES = hours(6, 12);
+/** Fixed times — guests cannot choose otherwise. */
+const CHECK_IN_TIMES = [STANDARD_CHECK_IN];
+const CHECK_OUT_TIMES = [STANDARD_CHECK_OUT];
+const DEFAULT_RESERVATION_COUNTRY = 'EG';
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M}\s.'-]*$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -177,9 +174,8 @@ function validateBookingRequest(body = {}, listing = {}) {
   const nationality = String(body.nationality || '').toUpperCase();
   if (nationality && !countryName(nationality)) errors.nationality = 'Select a valid nationality';
 
-  const reservationCountry = String(body.reservationCountry || '').toUpperCase();
-  if (!reservationCountry) errors.reservationCountry = 'Reservation country is required';
-  else if (!countryName(reservationCountry)) errors.reservationCountry = 'Select a valid country';
+  // Always Egypt for website bookings — not collected from the guest.
+  const reservationCountry = DEFAULT_RESERVATION_COUNTRY;
 
   const arrivalDate = String(body.arrivalDate ?? body.checkIn ?? '');
   const departureDate = String(body.departureDate ?? body.checkOut ?? '');
@@ -191,10 +187,14 @@ function validateBookingRequest(body = {}, listing = {}) {
   }
   const nights = errors.arrivalDate || errors.departureDate ? 0 : nightsBetween(arrivalDate, departureDate);
 
-  const checkInTime = String(body.checkInTime || '');
-  const checkOutTime = String(body.checkOutTime || '');
-  if (checkInTime && !TIME_RE.test(checkInTime)) errors.checkInTime = 'Use HH:MM';
-  if (checkOutTime && !TIME_RE.test(checkOutTime)) errors.checkOutTime = 'Use HH:MM';
+  const brandMin = Math.max(1, Number(body.brandMinNights || listing.minNights || listing.brandMinNights) || 1);
+  if (nights && nights < brandMin) {
+    errors.departureDate = `This brand requires a minimum stay of ${brandMin} night${brandMin === 1 ? '' : 's'}`;
+  }
+
+  // Fixed property times — ignore guest overrides.
+  const checkInTime = STANDARD_CHECK_IN;
+  const checkOutTime = STANDARD_CHECK_OUT;
 
   const ratePlan = findRatePlan(body.ratePlanCode);
   if (!ratePlan) errors.ratePlanCode = 'Select a rate plan';
@@ -261,6 +261,9 @@ function bookingConfig() {
     checkOutTimes: CHECK_OUT_TIMES,
     standardCheckIn: STANDARD_CHECK_IN,
     standardCheckOut: STANDARD_CHECK_OUT,
+    timesFixed: true,
+    lateChargesNote: true,
+    defaultReservationCountry: DEFAULT_RESERVATION_COUNTRY,
   };
 }
 
@@ -270,6 +273,7 @@ module.exports = {
   RATE_PLANS,
   STANDARD_CHECK_IN,
   STANDARD_CHECK_OUT,
+  DEFAULT_RESERVATION_COUNTRY,
   countryName,
   nightsBetween,
   findRatePlan,

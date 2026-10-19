@@ -9,9 +9,20 @@ const {
   listBookings,
   findBooking,
   nextVoucherSerial,
+  getSite,
 } = require('../lib/cmsStore');
 const pms = require('../lib/pms');
+const emailService = require('../services/emailService');
 const { resolveWindow, buildAvailability, buildPricing } = require('../lib/mockCalendar');
+
+function brandMinNightsFor(listing, site) {
+  const key = String(listing?.brand || '')
+    .trim()
+    .replace(/^prime\s+/i, '')
+    .toLowerCase();
+  const brand = (site?.brands?.items || []).find((b) => String(b.name || '').toLowerCase() === key);
+  return Math.max(1, Number(brand?.minNights) || Number(listing?.minNights) || 1);
+}
 
 function pmsRoomTypeId(listing, explicit) {
   return (
@@ -148,7 +159,7 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
       } catch (err) {
         console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
       }
-      const base = sync.pickRate(offered, 'FLEX');
+      const base = sync.pickRate(offered, 'BB');
       avail = {
         source: 'kwentra',
         blocked: availability.blocked,
@@ -185,11 +196,15 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
 
 /**
  * Price one website rate plan. A plan mapped to its own Kwentra rate (KWENTRA_RATE_MAP) uses that
- * rate's nightly amounts as-is; otherwise the base nightly prices with the plan's adjustment.
+ * rate's nightly amounts as-is; name-matched BB / Room Only rates count the same way.
  */
 function priceForPlan(plan, stay, listing, arrivalDate, departureDate) {
   const mappedId = sync.mappedRateId(plan.code);
-  const mapped = mappedId && stay.rates?.find((r) => r.rateId === mappedId && r.quote > 0);
+  let mapped = mappedId && stay.rates?.find((r) => r.rateId === mappedId && r.quote > 0);
+  if (!mapped && stay.rates?.length) {
+    const picked = sync.pickRate(stay.rates, plan.code);
+    if (picked?.mapped) mapped = picked;
+  }
   return pms.priceStay({
     arrivalDate,
     departureDate,
@@ -280,7 +295,12 @@ async function bookDirect(req, res, next) {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    const { errors, value } = pms.validateBookingRequest(req.body, listing);
+    const site = await getSite().catch(() => null);
+    const brandMinNights = brandMinNightsFor(listing, site);
+    const { errors, value } = pms.validateBookingRequest(
+      { ...req.body, brandMinNights },
+      { ...listing, brandMinNights }
+    );
     if (Object.keys(errors).length) {
       return res.status(422).json({ error: 'Please check the highlighted booking details', fields: errors });
     }
@@ -479,6 +499,10 @@ async function confirmMockPayment(req, res, next) {
       });
       booking = (await sync.recordPaymentResult(booking, paymentPush)) || booking;
     }
+
+    emailService.sendBookingConfirmation(booking).catch((err) => {
+      console.warn('[email] confirmation failed:', err.message);
+    });
 
     res.json({
       ok: true,

@@ -42,7 +42,7 @@ function UnitCard({ unit: u, selected, onSelect, onEdit, onToggle }) {
   const live = u.published !== false && isComplete(u);
   const stats = [
     [BedDouble, u.bedrooms === 0 ? 'Studio' : u.bedrooms != null ? `${u.bedrooms} bed` : null],
-    [Bath, u.bathrooms ? `${u.bathrooms} bath` : null],
+    [Bath, u.bathrooms ? `${u.bathrooms} bathroom${u.bathrooms === 1 ? '' : 's'}` : null],
     [Users, u.maxGuests ? `${u.maxGuests} guests` : null],
     [Ruler, u.areaSqm ? `${u.areaSqm} m²` : null],
   ].filter(([, label]) => label);

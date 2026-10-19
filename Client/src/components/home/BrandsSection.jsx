@@ -14,7 +14,7 @@ const GRID_COLS = { 1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3
 /** Each sub-brand as its business card: the brand colour, its name stacked in syllables, a photo on hover */
 function BrandCard({ name, color, image, copy, explore, dense, wide }) {
   return (
-    <Link to={`/search?brand=${encodeURIComponent(name)}`} className="group block">
+    <Link to="/search" className="group block">
       <div
         className={cn('relative isolate overflow-hidden text-white', wide ? 'aspect-[5/4]' : 'aspect-[4/5]')}
         style={{ backgroundColor: color }}

@@ -3,7 +3,8 @@ const { Router } = require('express');
 const payment = require('../services/paymentService');
 const kwentra = require('../services/kwentraService');
 const sync = require('../services/kwentraSync');
-const { listBookings, updateBooking } = require('../lib/cmsStore');
+const emailService = require('../services/emailService');
+const { listBookings, updateBooking, findBooking } = require('../lib/cmsStore');
 
 const router = Router();
 
@@ -11,6 +12,14 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
   if (!booking) return null;
   if (booking.paymentStatus === 'paid') return { pushed: false, reason: 'already_paid' };
   await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
+  const confirmed = (await findBooking(booking.id).catch(() => null)) || {
+    ...booking,
+    status: 'confirmed',
+    paymentStatus: 'paid',
+  };
+  emailService.sendBookingConfirmation(confirmed).catch((err) => {
+    console.warn('[email] confirmation failed:', err.message);
+  });
   if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
   const result = await sync.pushPaidBooking(booking, {
     amount: booking.rateAmount ?? booking.amount,

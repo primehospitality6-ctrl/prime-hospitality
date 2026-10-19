@@ -5,7 +5,7 @@
 
 const BRANDS = ['Inn', 'Residence', 'Select'];
 
-const UNIT_TYPES = ['Studio', '1 BDR', '2 BDR', '3 BDR', '4 BDR'];
+const UNIT_TYPES = ['Studio', '1 BDR', '2 BDR', '3 BDR', '4 BDR', 'Other'];
 
 const UNIT_TYPE_SPECS = {
   Studio: { label: 'Studio', bedrooms: 0, bathrooms: 1, areaSqm: 45, maxGuests: 2, basePrice: 2400 },
@@ -13,6 +13,7 @@ const UNIT_TYPE_SPECS = {
   '2 BDR': { label: '2 Bedrooms', bedrooms: 2, bathrooms: 2, areaSqm: 125, maxGuests: 5, basePrice: 5000 },
   '3 BDR': { label: '3 Bedrooms', bedrooms: 3, bathrooms: 3, areaSqm: 175, maxGuests: 7, basePrice: 7200 },
   '4 BDR': { label: '4 Bedrooms', bedrooms: 4, bathrooms: 4, areaSqm: 240, maxGuests: 9, basePrice: 9800 },
+  Other: { label: 'Other', bedrooms: 1, bathrooms: 1, areaSqm: 80, maxGuests: 4, basePrice: 3000 },
 };
 
 const BRAND_PRICE_FACTOR = { Inn: 0.8, Residence: 1, Select: 1.3 };

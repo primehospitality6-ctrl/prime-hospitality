@@ -13,7 +13,7 @@ import StaysFiltersBar, {
 } from '../components/search/StaysFilters';
 import api from '../api/client';
 import { useLocale } from '../context/LocaleContext';
-import { useBrands, useSite } from '../context/SiteContext';
+import { useSite } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
 const SORT_OPTIONS = [
@@ -60,8 +60,6 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
   const [destinations, setDestinations] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
-  const brandItems = useBrands();
-  const brands = useMemo(() => brandItems.map((b) => b.name), [brandItems]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
@@ -86,7 +84,6 @@ export default function SearchPage() {
     destination: params.get('destination') || params.get('region') || '',
     compound: params.get('compound') || '',
     unitType: params.get('unitType') || '',
-    brand: params.get('brand') || '',
     guests: params.get('guests') || '',
     checkIn: params.get('checkIn') || '',
     checkOut: params.get('checkOut') || '',
@@ -195,9 +192,7 @@ export default function SearchPage() {
     ? term(shortName(property.name))
     : destination
       ? t('search.staysIn', { name: term(destination.name) })
-      : filters.brand
-        ? term(`Prime ${filters.brand}`)
-        : t('search.allStays');
+      : t('search.allStays');
 
   const contextText = property?.description || destination?.description;
   const heroImage = property?.image || destination?.image || site.pages?.search?.heroImage || '';
@@ -273,7 +268,6 @@ export default function SearchPage() {
               filters={filters}
               destinations={destinations}
               unitTypes={unitTypes}
-              brands={brands}
               onChange={patchParams}
               onClear={clearFilters}
               onOpenSheet={() => setSheetOpen(true)}
@@ -422,7 +416,6 @@ export default function SearchPage() {
               filters={filters}
               destinations={destinations}
               unitTypes={unitTypes}
-              brands={brands}
               onChange={patchParams}
               onClear={clearFilters}
               onClose={() => setSheetOpen(false)}

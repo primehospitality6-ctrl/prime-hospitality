@@ -4,7 +4,7 @@ import api from '../../api/client';
 import { reorderList } from './AdminUi';
 import { Badge, Drawer, Field, Toggle, labelCls } from './kit';
 
-export const UNIT_TYPES = ['Studio', '1 BDR', '2 BDR', '3 BDR', '4 BDR'];
+export const UNIT_TYPES = ['Studio', '1 BDR', '2 BDR', '3 BDR', '4 BDR', 'Other'];
 
 /** Sensible defaults when an admin picks a unit type — every field stays editable */
 const UNIT_TYPE_DEFAULTS = {
@@ -13,6 +13,7 @@ const UNIT_TYPE_DEFAULTS = {
   '2 BDR': { bedrooms: 2, bathrooms: 2, areaSqm: 125, maxGuests: 5 },
   '3 BDR': { bedrooms: 3, bathrooms: 3, areaSqm: 175, maxGuests: 7 },
   '4 BDR': { bedrooms: 4, bathrooms: 4, areaSqm: 240, maxGuests: 9 },
+  Other: { bedrooms: 1, bathrooms: 1, areaSqm: 80, maxGuests: 4 },
 };
 
 const EMPTY = {

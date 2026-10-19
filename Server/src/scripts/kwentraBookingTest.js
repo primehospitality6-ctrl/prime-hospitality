@@ -48,7 +48,7 @@ async function main() {
   for (const type of roomTypes) {
     const listing = { kwentraRoomTypeId: String(type.id) };
     const rates = await sync.roomTypeRates(listing, { arrivalDate, departureDate, adults: 2, tenantId, fresh: true });
-    const rate = sync.pickRate(rates, 'FLEX');
+    const rate = sync.pickRate(rates, 'BB');
     if (rate) {
       pick = { roomTypeId: String(type.id), name: type.room_type || type.id, rate };
       break;

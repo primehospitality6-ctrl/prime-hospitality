@@ -94,6 +94,7 @@ const DEFAULT_BRANDS = [
     nameAr: 'إن',
     color: '#00671B',
     image: '',
+    minNights: 1,
     text: {
       en: 'Smart, design-led stays for short city trips and business travel.',
       ar: 'إقامات عملية بتصميم أنيق للرحلات القصيرة ورحلات العمل.',
@@ -104,6 +105,7 @@ const DEFAULT_BRANDS = [
     nameAr: 'ريزيدنس',
     color: '#58595B',
     image: '',
+    minNights: 2,
     text: {
       en: 'Serviced apartments with room to live — made for longer stays.',
       ar: 'شقق مخدومة بمساحة للعيش — مثالية للإقامات الطويلة.',
@@ -114,6 +116,7 @@ const DEFAULT_BRANDS = [
     nameAr: 'سيلكت',
     color: '#8C2433',
     image: '',
+    minNights: 2,
     text: {
       en: 'Our most distinctive homes, hand-picked and fully serviced.',
       ar: 'أكثر منازلنا تميزًا، مختارة بعناية ومخدومة بالكامل.',
@@ -230,11 +233,13 @@ const sanitizers = {
       if (!name || seen.has(key)) continue;
       seen.add(key);
       const color = str(b?.color, 7);
+      const minNights = Math.max(1, Math.min(30, Number(b?.minNights) || 1));
       items.push({
         name,
         nameAr: str(b?.nameAr, 40),
         color: /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : '#231F20',
         image: link(b?.image),
+        minNights,
         text: localized(b?.text, 300),
       });
     }

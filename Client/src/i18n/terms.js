@@ -1,10 +1,11 @@
 /**
- * Arabic for the names that arrive in English from Kwentra / the CMS (places, properties, unit
- * types, amenities). Whole-string matches first, then phrase-by-phrase composition; anything that
- * would leave Latin words behind stays in English rather than showing half a translation.
+ * Place / property / unit-type / amenity names that arrive from Kwentra or the CMS.
+ * Whole-string matches first, then phrase-by-phrase composition so mixed labels still make sense.
+ * Supports EN→AR and AR→EN so either language can be the stored source.
  */
 
 const CURRENCY_AR = { EGP: 'ج.م', USD: 'دولار', EUR: 'يورو' };
+const CURRENCY_EN = { 'ج.م': 'EGP', دولار: 'USD', يورو: 'EUR' };
 
 /** Set by LocaleProvider while rendering so plain helpers like formatMoney follow the language */
 let activeLocale = 'en';
@@ -14,14 +15,16 @@ export function setActiveLocale(locale) {
 }
 
 export function currencyLabel(code) {
-  return (activeLocale === 'ar' && CURRENCY_AR[code]) || code;
+  if (activeLocale === 'ar') return CURRENCY_AR[code] || code;
+  return CURRENCY_EN[code] || code;
 }
 
-const EXACT = {
+const EXACT_EN_AR = {
   // Unit titles
   'standard studio': 'استوديو قياسي',
   'deluxe studio': 'استوديو ديلوكس',
   studio: 'استوديو',
+  other: 'أخرى',
   'standard one bedroom apartment': 'شقة قياسية بغرفة نوم واحدة',
   'deluxe one bedroom apartment': 'شقة ديلوكس بغرفة نوم واحدة',
   'deluxe one bedroom apartment (king size bed)': 'شقة ديلوكس بغرفة نوم واحدة (سرير كينج)',
@@ -32,6 +35,7 @@ const EXACT = {
   'standard two bedroom apartment': 'شقة قياسية بغرفتي نوم',
   'deluxe two bedroom apartment': 'شقة ديلوكس بغرفتي نوم',
   'three bedroom apartment': 'شقة بثلاث غرف نوم',
+  'four bedroom apartment': 'شقة بأربع غرف نوم',
   apartment: 'شقة',
   'hotel room': 'غرفة فندقية',
   room: 'غرفة',
@@ -39,6 +43,16 @@ const EXACT = {
   chalet: 'شاليه',
   duplex: 'دوبلكس',
   penthouse: 'بنتهاوس',
+  'bed & breakfast': 'إفطار وإقامة',
+  'bed and breakfast': 'إفطار وإقامة',
+  bb: 'إفطار وإقامة',
+  'room only': 'غرفة فقط',
+  bathrooms: 'حمامات',
+  bathroom: 'حمام',
+  baths: 'حمامات',
+  bath: 'حمام',
+  bedrooms: 'غرف نوم',
+  bedroom: 'غرفة نوم',
 
   // Unit type codes
   '1 bdr': 'غرفة نوم',
@@ -57,6 +71,8 @@ const EXACT = {
   'high floor': 'دور مرتفع',
   'ground floor': 'الدور الأرضي',
   'first floor': 'الدور الأول',
+  'second floor': 'الدور الثاني',
+  'third floor': 'الدور الثالث',
 
   // Amenities
   'new furnishing': 'أثاث جديد',
@@ -110,6 +126,14 @@ const EXACT = {
   'dining table': 'طاولة طعام',
   workspace: 'مساحة عمل',
   dishwasher: 'غسالة أطباق',
+  'mini bar': 'ميني بار',
+  bathtub: 'بانيو',
+  shower: 'دش',
+  'sea view': 'إطلالة بحر',
+  'nile view': 'إطلالة على النيل',
+  'city view': 'إطلالة على المدينة',
+  'garden view': 'إطلالة على الحديقة',
+  'pool view': 'إطلالة على المسبح',
 
   // Places
   egypt: 'مصر',
@@ -117,7 +141,7 @@ const EXACT = {
 };
 
 /** Ordered longest-first at build time; used to compose property names like "Prime Select Lake View" */
-const PHRASES = {
+const PHRASES_EN_AR = {
   'prime hospitality': 'برايم للضيافة',
   'prime residence': 'برايم ريزيدنس',
   'prime select': 'برايم سيلكت',
@@ -169,30 +193,79 @@ const PHRASES = {
   'the crown': 'ذا كراون',
   'west sodic': 'ويست سوديك',
   egypt: 'مصر',
+  deluxe: 'ديلوكس',
+  standard: 'قياسي',
+  suite: 'جناح',
 };
 
-const PHRASE_LIST = Object.entries(PHRASES).sort((a, b) => b[0].length - a[0].length);
+function invertMap(map) {
+  const out = {};
+  for (const [en, ar] of Object.entries(map)) {
+    if (!out[ar]) out[ar] = en;
+  }
+  return out;
+}
+
+const EXACT_AR_EN = invertMap(EXACT_EN_AR);
+const PHRASES_AR_EN = invertMap(PHRASES_EN_AR);
+
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const PHRASE_RE = PHRASE_LIST.map(([en, ar]) => [new RegExp(`(^|[\\s,(&·-])${escape(en)}(?=$|[\\s,)&·-])`, 'gi'), ar]);
+
+function phraseList(map) {
+  return Object.entries(map).sort((a, b) => b[0].length - a[0].length);
+}
+
+const EN_AR_PHRASE_RE = phraseList(PHRASES_EN_AR).map(([en, ar]) => [
+  new RegExp(`(^|[\\s,(&·/-])${escape(en)}(?=$|[\\s,)&·/-])`, 'gi'),
+  ar,
+]);
+const AR_EN_PHRASE_RE = phraseList(PHRASES_AR_EN).map(([ar, en]) => [
+  new RegExp(`(^|[\\s,(&·/-])${escape(ar)}(?=$|[\\s,)&·/-])`, 'g'),
+  en,
+]);
 
 const cache = new Map();
 
-export function translateTerm(value) {
+function compose(text, phraseRes, joinerFix) {
+  let composed = text;
+  phraseRes.forEach(([re, replacement]) => {
+    composed = composed.replace(re, (_m, lead) => `${lead}${replacement}`);
+  });
+  return joinerFix(composed).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Translate a catalog term into the active locale (or an explicit one).
+ * Returns the original string when no confident translation exists.
+ */
+export function translateTerm(value, locale = activeLocale) {
   if (typeof value !== 'string') return value;
   const text = value.trim();
   if (!text) return value;
-  if (cache.has(text)) return cache.get(text);
 
-  const key = text.toLowerCase().replace(/\s+/g, ' ');
-  let out = EXACT[key];
-  if (!out) {
-    let composed = key;
-    PHRASE_RE.forEach(([re, ar]) => {
-      composed = composed.replace(re, (_m, lead) => `${lead}${ar}`);
-    });
-    composed = composed.replace(/\s*&\s*/g, ' و').replace(/,/g, '،').replace(/\s+/g, ' ').trim();
-    out = /[a-z]/i.test(composed) ? text : composed;
+  const cacheKey = `${locale}:${text}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  let out = text;
+  if (locale === 'ar') {
+    const key = text.toLowerCase().replace(/\s+/g, ' ');
+    out = EXACT_EN_AR[key];
+    if (!out) {
+      const composed = compose(key, EN_AR_PHRASE_RE, (s) =>
+        s.replace(/\s*&\s*/g, ' و').replace(/,/g, '،')
+      );
+      // Keep original when Latin leftovers remain (avoid half-translated mush)
+      out = /[a-z]/i.test(composed) ? text : composed;
+    }
+  } else if (/[\u0600-\u06FF]/.test(text)) {
+    // Only reverse-translate when the source string is Arabic
+    out = EXACT_AR_EN[text] || EXACT_AR_EN[text.replace(/\s+/g, ' ')];
+    if (!out) {
+      const composed = compose(text, AR_EN_PHRASE_RE, (s) => s.replace(/،/g, ',').replace(/\s+و\s+/g, ' & '));
+      out = /[\u0600-\u06FF]/.test(composed) ? text : composed;
+    }
   }
-  cache.set(text, out);
+
+  cache.set(cacheKey, out);
   return out;
 }

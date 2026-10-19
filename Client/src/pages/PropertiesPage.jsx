@@ -119,7 +119,6 @@ export default function PropertiesPage() {
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const activeDest = params.get('destination') || '';
-  const activeBrand = params.get('brand') || '';
 
   useEffect(() => {
     let cancelled = false;
@@ -137,12 +136,6 @@ export default function PropertiesPage() {
     };
   }, []);
 
-  const brands = useMemo(() => {
-    const set = new Set();
-    destinations.forEach((d) => (d.projects || []).forEach((p) => p.brand && set.add(p.brand)));
-    return [...set];
-  }, [destinations]);
-
   const stats = useMemo(() => {
     const projects = destinations.flatMap((d) => d.projects || []);
     return {
@@ -158,10 +151,10 @@ export default function PropertiesPage() {
         .filter((d) => !activeDest || d.id === activeDest)
         .map((d) => ({
           destination: d,
-          properties: (d.projects || []).filter((p) => !activeBrand || p.brand === activeBrand),
+          properties: d.projects || [],
         }))
         .filter((g) => g.properties.length),
-    [destinations, activeDest, activeBrand]
+    [destinations, activeDest]
   );
 
   function patch(key, value) {
@@ -215,30 +208,6 @@ export default function PropertiesPage() {
                 </Chip>
               ))}
             </div>
-            {brands.length > 1 ? (
-              <div className="flex max-w-full flex-wrap items-center gap-1 text-[11px] font-medium uppercase tracking-[0.2em]" role="group" aria-label={t('listing.specBrand')}>
-                {['', ...brands].map((b) => (
-                  <button
-                    key={b || 'all'}
-                    type="button"
-                    onClick={() => patch('brand', b)}
-                    aria-pressed={activeBrand === b}
-                    className={cn(
-                      'relative min-h-[44px] px-3 py-2 transition',
-                      activeBrand === b ? 'text-prime-ink' : 'text-prime-muted hover:text-prime-ink'
-                    )}
-                  >
-                    {b ? term(`Prime ${b}`) : t('filters.allBrands')}
-                    <span
-                      className={cn(
-                        'absolute inset-x-3 bottom-0.5 h-px bg-prime-gold transition-transform duration-500 ease-prime',
-                        activeBrand === b ? 'scale-x-100' : 'scale-x-0'
-                      )}
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
         </div>
 

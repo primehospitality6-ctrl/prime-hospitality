@@ -117,9 +117,25 @@ function CountrySelect({ id, value, onChange, error, placeholder }) {
 
 /* ─── Step 1 · Stay ─── */
 
-export function StayStep({ stay, setStay, errors, listing, config, blockedDates, checkoutDates, dailyPrices, heading }) {
+export function StayStep({
+  stay,
+  setStay,
+  guest,
+  setGuest,
+  errors,
+  listing,
+  config,
+  blockedDates,
+  checkoutDates,
+  dailyPrices,
+  minNights = 1,
+  heading,
+}) {
   const { t, term, localeTag } = useLocale();
   const maxGuests = listing.maxGuests || 8;
+  const brandMin = Math.max(1, Number(minNights) || 1);
+  const checkIn = config?.standardCheckIn || '15:00';
+  const checkOut = config?.standardCheckOut || '12:00';
   const range = useMemo(
     () => ({ start: isoToLocalDate(stay.arrivalDate), end: isoToLocalDate(stay.departureDate) }),
     [stay.arrivalDate, stay.departureDate]
@@ -163,8 +179,11 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
       </div>
       {(errors.arrivalDate || errors.departureDate) && (
         <p className="mb-3 text-[12px] font-medium text-red-600" role="alert">
-          {t(errors.arrivalDate || errors.departureDate)}
+          {t(errors.arrivalDate || errors.departureDate, { count: brandMin })}
         </p>
+      )}
+      {brandMin > 1 && !errors.departureDate && (
+        <p className="mb-3 text-[12px] text-prime-muted">{t('bm.brandMinStay', { count: brandMin })}</p>
       )}
 
       <div className="overflow-hidden rounded-2xl bg-prime-sand/80 p-3 ring-1 ring-prime-line/80 sm:p-5">
@@ -178,7 +197,7 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
           blockedDates={blockedDates}
           checkoutDates={checkoutDates}
           dailyPrices={dailyPrices}
-          minNights={1}
+          minNights={brandMin}
         />
       </div>
 
@@ -216,48 +235,33 @@ export function StayStep({ stay, setStay, errors, listing, config, blockedDates,
         </div>
 
         <div>
-          <h4 className={labelCls}>
-            {t('bm.times')}
-            <Tag>{t('bm.optional')}</Tag>
-          </h4>
+          <h4 className={labelCls}>{t('bm.times')}</h4>
           <div className="mt-2 grid grid-cols-2 gap-3">
-            <Field label={t('bm.checkInTime')} htmlFor="bm-cin" error={errors.checkInTime}>
-              <select
-                id="bm-cin"
-                className="prime-input rounded-xl"
-                value={stay.checkInTime}
-                onChange={(e) => setStay((s) => ({ ...s, checkInTime: e.target.value }))}
-              >
-                <option value="">
-                  {t('bm.standardTime', { time: formatTime(config?.standardCheckIn || '15:00', localeTag) })}
-                </option>
-                {(config?.checkInTimes || []).map((tm) => (
-                  <option key={tm} value={tm}>
-                    {formatTime(tm, localeTag)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label={t('bm.checkOutTime')} htmlFor="bm-cout" error={errors.checkOutTime}>
-              <select
-                id="bm-cout"
-                className="prime-input rounded-xl"
-                value={stay.checkOutTime}
-                onChange={(e) => setStay((s) => ({ ...s, checkOutTime: e.target.value }))}
-              >
-                <option value="">
-                  {t('bm.standardTime', { time: formatTime(config?.standardCheckOut || '12:00', localeTag) })}
-                </option>
-                {(config?.checkOutTimes || []).map((tm) => (
-                  <option key={tm} value={tm}>
-                    {formatTime(tm, localeTag)}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="rounded-2xl border border-prime-line bg-prime-mist/50 px-4 py-3.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('bm.checkInTime')}</p>
+              <p className="mt-1.5 text-sm font-semibold text-prime-ink">{formatTime(checkIn, localeTag)}</p>
+            </div>
+            <div className="rounded-2xl border border-prime-line bg-prime-mist/50 px-4 py-3.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('bm.checkOutTime')}</p>
+              <p className="mt-1.5 text-sm font-semibold text-prime-ink">{formatTime(checkOut, localeTag)}</p>
+            </div>
           </div>
-          <p className="mt-2 text-[11px] text-prime-muted">{t('bm.timesHint')}</p>
+          <p className="mt-2 text-[11px] text-prime-muted">{t('bm.timesFixed')}</p>
+          <p className="mt-1 text-[11px] font-medium text-prime-ink/80">{t('bm.lateCharges')}</p>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <Field label={t('bm.requests')} optional htmlFor="bm-notes" hint={t('bm.requestsHint')}>
+          <textarea
+            id="bm-notes"
+            className="prime-input min-h-[88px] resize-y"
+            value={guest?.notes || ''}
+            onChange={(e) => setGuest((g) => ({ ...g, notes: e.target.value }))}
+            maxLength={1000}
+            placeholder={t('bm.requestsPlaceholder')}
+          />
+        </Field>
       </div>
     </section>
   );
@@ -429,40 +433,21 @@ export function GuestStep({ guest, setGuest, stay, errors, autoCountry, heading 
           </Field>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label={t('bm.nationality')}
-            optional
-            htmlFor="bm-nat"
+        <Field
+          label={t('bm.nationality')}
+          optional
+          htmlFor="bm-nat"
+          error={errors.nationality}
+          hint={autoCountry && guest.nationality === autoCountry ? autoHint : null}
+        >
+          <CountrySelect
+            id="bm-nat"
+            value={guest.nationality}
+            onChange={(nationality) => setGuest((g) => ({ ...g, nationality }))}
             error={errors.nationality}
-            hint={autoCountry && guest.nationality === autoCountry ? autoHint : null}
-          >
-            <CountrySelect
-              id="bm-nat"
-              value={guest.nationality}
-              onChange={(nationality) => setGuest((g) => ({ ...g, nationality }))}
-              error={errors.nationality}
-              placeholder={t('bm.selectCountry')}
-            />
-          </Field>
-          <Field
-            label={t('bm.reservationCountry')}
-            required
-            htmlFor="bm-country"
-            error={errors.reservationCountry}
-            hint={
-              autoCountry && guest.reservationCountry === autoCountry ? autoHint : t('bm.reservationCountryHint')
-            }
-          >
-            <CountrySelect
-              id="bm-country"
-              value={guest.reservationCountry}
-              onChange={(reservationCountry) => setGuest((g) => ({ ...g, reservationCountry }))}
-              error={errors.reservationCountry}
-              placeholder={t('bm.selectCountry')}
-            />
-          </Field>
-        </div>
+            placeholder={t('bm.selectCountry')}
+          />
+        </Field>
 
         {extra > 0 && (
           <fieldset className="border border-prime-line p-4 sm:p-5">
@@ -503,17 +488,6 @@ export function GuestStep({ guest, setGuest, stay, errors, autoCountry, heading 
             )}
           </fieldset>
         )}
-
-        <Field label={t('bm.requests')} optional htmlFor="bm-notes">
-          <textarea
-            id="bm-notes"
-            className="prime-input min-h-[88px] resize-y"
-            value={guest.notes}
-            onChange={set('notes')}
-            maxLength={1000}
-            placeholder={t('bm.requestsPlaceholder')}
-          />
-        </Field>
       </div>
     </section>
   );
@@ -555,8 +529,9 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
   const none = <span className="text-prime-muted">—</span>;
   const others = guest.otherGuestNames.map((n) => n.trim()).filter(Boolean);
   const country = (code) => (code ? `${countryName(code, localeTag)} (${code})` : none);
-  const time = (value, standard) =>
-    value ? formatTime(value, localeTag) : t('bm.standardTime', { time: formatTime(standard, localeTag) });
+  const checkIn = formatTime(config?.standardCheckIn || '15:00', localeTag);
+  const checkOut = formatTime(config?.standardCheckOut || '12:00', localeTag);
+  const requestText = guest.notes?.trim();
 
   return (
     <section>
@@ -569,10 +544,11 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
             { label: t('bm.arrivalDate'), value: formatIsoDate(stay.arrivalDate, localeTag) },
             { label: t('bm.departureDate'), value: formatIsoDate(stay.departureDate, localeTag) },
             { label: t('bm.nights'), value: stay.nights },
-            { label: t('bm.checkInTime'), value: time(stay.checkInTime, config?.standardCheckIn || '15:00') },
-            { label: t('bm.checkOutTime'), value: time(stay.checkOutTime, config?.standardCheckOut || '12:00') },
+            { label: t('bm.checkInTime'), value: checkIn },
+            { label: t('bm.checkOutTime'), value: checkOut },
             { label: t('bm.adults'), value: stay.adults },
             { label: t('bm.children'), value: stay.children },
+            ...(requestText ? [{ label: t('bm.requests'), value: requestText }] : []),
           ]}
         />
         <ReviewGroup
@@ -582,7 +558,6 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
             { label: t('bm.primaryGuest'), value: guest.primaryGuestName.trim() },
             { label: t('bm.otherGuests'), value: others.length ? others.join(', ') : none },
             { label: t('bm.nationality'), value: country(guest.nationality) },
-            { label: t('bm.reservationCountry'), value: country(guest.reservationCountry) },
             { label: t('bm.email'), value: guest.email.trim() },
             { label: t('bm.phone'), value: <span dir="ltr">{guest.phone.trim()}</span> },
           ]}
@@ -597,13 +572,6 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
             { label: t('bm.ratePlan'), value: plan ? planName(plan) : none },
             { label: t('bm.rateAmount'), value: formatMoney(price?.rateAmount, listing.currency) },
             { label: t('bm.rateCurrency'), value: listing.currency || 'USD' },
-          ]}
-        />
-        <ReviewGroup
-          title={t('bm.groupReservation')}
-          rows={[
-            { label: t('bm.channel'), value: config?.channel || 'Website' },
-            { label: t('bm.voucher'), value: <span className="text-prime-muted">{t('bm.voucherPending')}</span> },
           ]}
         />
       </div>

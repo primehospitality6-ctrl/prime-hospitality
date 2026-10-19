@@ -14,8 +14,7 @@ function publicUnit(unit) {
 }
 
 function matchesFilters(listing, params = {}) {
-  const { destination, compound, region, city, brand, unitType, propertyType, guests, beds, q, featured } =
-    params;
+  const { destination, compound, region, city, unitType, propertyType, guests, beds, q, featured } = params;
 
   if (featured === true || featured === 'true') {
     if (!listing.featured) return false;
@@ -28,7 +27,6 @@ function matchesFilters(listing, params = {}) {
   }
   if (region && listing.region !== region) return false;
   if (city && listing.city !== city) return false;
-  if (brand && listing.brand !== brand) return false;
   if (unitType && listing.unitType !== unitType) return false;
   if (propertyType && propertyType !== 'All' && listing.propertyType !== propertyType) {
     return false;

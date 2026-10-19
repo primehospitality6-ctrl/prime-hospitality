@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, X } from 'lucide-react';
 import { kwentraApi } from '../../services/api';
 import { formatMoney } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
+import { findBrand, useBrands } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
 import { browserCountry } from '../../utils/countries';
 import PaymentPanel from './PaymentPanel';
@@ -25,7 +26,7 @@ const EMPTY_GUEST = {
   primaryGuestName: '',
   otherGuestNames: [],
   nationality: '',
-  reservationCountry: '',
+  reservationCountry: 'EG',
   email: '',
   phone: '',
   notes: '',
@@ -51,7 +52,12 @@ export default function BookingModal({
   onDatesTaken,
 }) {
   const { t, term } = useLocale();
+  const brands = useBrands();
   const maxGuests = listing?.maxGuests || 8;
+  const brandMinNights = Math.max(
+    1,
+    Number(findBrand(brands, listing?.brand)?.minNights) || Number(listing?.minNights) || 1
+  );
   const scrollRef = useRef(null);
   const dialogRef = useRef(null);
 
@@ -63,10 +69,10 @@ export default function BookingModal({
     departureDate: '',
     adults: 2,
     children: 0,
-    checkInTime: '',
-    checkOutTime: '',
+    checkInTime: '15:00',
+    checkOutTime: '12:00',
   });
-  const [ratePlanCode, setRatePlanCode] = useState('FLEX');
+  const [ratePlanCode, setRatePlanCode] = useState('BB');
   const [guest, setGuest] = useState(EMPTY_GUEST);
   const [autoCountry, setAutoCountry] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -92,9 +98,11 @@ export default function BookingModal({
       departureDate: initialCheckOut || '',
       adults,
       children: Math.min(Math.max(0, initialChildren || 0), maxGuests - adults),
-      checkInTime: '',
-      checkOutTime: '',
+      checkInTime: '15:00',
+      checkOutTime: '12:00',
     });
+    setGuest((g) => ({ ...EMPTY_GUEST, nationality: g.nationality || '', reservationCountry: 'EG' }));
+    setRatePlanCode('BB');
     setStep('stay');
     setReached(0);
     setErrors({});
@@ -125,7 +133,7 @@ export default function BookingModal({
         setGuest((g) => ({
           ...g,
           nationality: g.nationality || code,
-          reservationCountry: g.reservationCountry || code,
+          reservationCountry: 'EG',
         }));
       });
     return () => {
@@ -241,7 +249,7 @@ export default function BookingModal({
 
   function advance() {
     let stepErrors = {};
-    if (step === 'stay') stepErrors = validateStay(stay, maxGuests);
+    if (step === 'stay') stepErrors = validateStay(stay, maxGuests, brandMinNights);
     if (step === 'rate') stepErrors = validateRate(plan, nights);
     if (step === 'guests') stepErrors = validateGuest(guest);
     setErrors(stepErrors);
@@ -265,16 +273,17 @@ export default function BookingModal({
         departureDate: stay.departureDate,
         adults: stay.adults,
         children: stay.children,
-        checkInTime: stay.checkInTime,
-        checkOutTime: stay.checkOutTime,
+        checkInTime: '15:00',
+        checkOutTime: '12:00',
         ratePlanCode,
+        brandMinNights,
         primaryGuestName: cleanName(guest.primaryGuestName),
         otherGuestNames: guest.otherGuestNames
           .slice(0, Math.max(0, stay.adults + stay.children - 1))
           .map(cleanName)
           .filter(Boolean),
         nationality: guest.nationality,
-        reservationCountry: guest.reservationCountry,
+        reservationCountry: 'EG',
         email: guest.email.trim(),
         phone: guest.phone.trim(),
         notes: guest.notes.trim(),
@@ -311,7 +320,7 @@ export default function BookingModal({
     review: { title: t('bm.reviewTitle'), lede: t('bm.reviewLede') },
     pay: {
       title: t('bm.payTitle'),
-      lede: result?.booking?.voucherNumber ? t('bm.payLede', { voucher: result.booking.voucherNumber }) : '',
+      lede: t('bm.payLedeSimple'),
     },
   };
   const heading = (
@@ -422,12 +431,15 @@ export default function BookingModal({
                 <StayStep
                   stay={stayView}
                   setStay={setStay}
+                  guest={guest}
+                  setGuest={setGuest}
                   errors={errors}
                   listing={listing}
                   config={config}
                   blockedDates={blockedDates}
                   checkoutDates={checkoutDates}
                   dailyPrices={calendarPrices}
+                  minNights={brandMinNights}
                   heading={heading}
                 />
               )}
@@ -476,14 +488,8 @@ export default function BookingModal({
               {step === 'pay' && result && (
                 <section>
                   {heading}
-                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-prime-line px-5 py-4">
-                    <div>
-                      <p className="prime-label text-prime-gold">{t('bm.voucher')}</p>
-                      <p className="mt-1.5 font-display text-xl font-light tracking-[0.04em] text-prime-ink">
-                        {result.booking?.voucherNumber}
-                      </p>
-                    </div>
-                    <p className="text-[12px] font-light text-prime-muted">{t('bm.heldNote')}</p>
+                  <div className="mb-6 border border-prime-line px-5 py-4">
+                    <p className="text-[13px] text-prime-muted">{t('bm.heldNote')}</p>
                   </div>
                   <PaymentPanel
                     payment={result.payment}

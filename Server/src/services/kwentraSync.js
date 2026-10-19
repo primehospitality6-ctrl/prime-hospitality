@@ -352,7 +352,7 @@ async function pullUnitsMerged({ publishedOnly = true } = {}) {
 
 /* ——— Rates ——— */
 
-/** KWENTRA_RATE_MAP={"FLEX":12,"NRF":14} — website rate plan → Kwentra rate id */
+/** KWENTRA_RATE_MAP={"BB":12,"RO":14} — website rate plan → Kwentra rate id */
 function rateMap() {
   try {
     const parsed = JSON.parse(process.env.KWENTRA_RATE_MAP || '{}');
@@ -368,7 +368,7 @@ function mappedRateId(planCode) {
   return id != null && id !== '' ? String(id) : '';
 }
 
-/** KWENTRA_RATE_NAMES="Website,BAR" — rate codes the website sells on, in order of preference */
+/** KWENTRA_RATE_NAMES="Website,BAR" — fallback rate codes when a plan has no map / name match */
 function websiteRateNames() {
   return String(process.env.KWENTRA_RATE_NAMES || 'Website,BAR')
     .split(',')
@@ -381,10 +381,20 @@ const rateNameRank = (rate) => {
   return i < 0 ? Infinity : i;
 };
 
+function planNameHints(planCode) {
+  const plan = pms.findRatePlan(planCode);
+  return (plan?.kwentraNames || []).map((n) => String(n).toLowerCase());
+}
+
+function rateMatchesHints(rate, hints) {
+  if (!hints.length) return false;
+  const hay = `${rate?.rateCode || ''} ${rate?.name || ''} ${rate?.rateName || ''}`.toLowerCase();
+  return hints.some((h) => hay.includes(h));
+}
+
 /**
- * Kwentra rate a website plan is booked on: the plan's mapped rate, else the base rate —
- * KWENTRA_DEFAULT_RATE_ID → the rate mapped to FLEX → the rate named "Website", else "BAR"
- * (KWENTRA_RATE_NAMES) → the cheapest web=true rate → the first rate on the website channel → cheapest.
+ * Kwentra rate a website plan is booked on: the plan's mapped rate, else a rate whose name
+ * matches BB / Room Only, else KWENTRA_DEFAULT_RATE_ID → BB map → named Website/BAR → cheapest web.
  */
 function pickRate(rates = [], planCode) {
   const usable = rates.filter((r) => r.quote > 0);
@@ -392,10 +402,14 @@ function pickRate(rates = [], planCode) {
   const cheapest = (list) => [...list].sort((a, b) => a.quote - b.quote)[0];
   const own = byId(mappedRateId(planCode));
   if (own) return { ...own, mapped: true };
+  const hints = planNameHints(planCode);
+  const byName = hints.length ? usable.find((r) => rateMatchesHints(r, hints)) : null;
+  if (byName) return { ...byName, mapped: true };
   const named = [...usable].filter((r) => rateNameRank(r) < Infinity).sort((a, b) => rateNameRank(a) - rateNameRank(b))[0];
   const base =
     byId(process.env.KWENTRA_DEFAULT_RATE_ID) ||
-    byId(mappedRateId('FLEX')) ||
+    byId(mappedRateId('BB')) ||
+    byId(mappedRateId('RO')) ||
     named ||
     cheapest(usable.filter((r) => r.onWeb)) ||
     usable.find((r) => r.onChannel) ||
@@ -555,7 +569,7 @@ async function collectNightPrices(listing, arrival, departure, ctx, depth = 0) {
   let rate = null;
   try {
     const rates = await roomTypeRates(listing, { arrivalDate: arrival, departureDate: departure, ...ctx });
-    rate = pickRate(rates, 'FLEX');
+    rate = pickRate(rates, 'BB');
     if (rate) prices = nightsToPrices(arrival, rate.nights);
     } catch (err) {
     console.warn('[kwentra] rates lookup failed:', err.message);
