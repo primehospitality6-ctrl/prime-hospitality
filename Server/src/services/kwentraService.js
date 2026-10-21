@@ -615,56 +615,176 @@ async function webRateIds(tenantId) {
 }
 
 function money(value) {
+  if (value && typeof value === 'object') {
+    return money(value.amount ?? value.rate ?? value.gross_rate ?? value.gross ?? value.value ?? value.price);
+  }
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/,/g, '').trim();
+    if (!cleaned) return null;
+    const amount = Number(cleaned);
+    return Number.isFinite(amount) ? amount : null;
+  }
   const amount = Number(value);
   return Number.isFinite(amount) ? amount : null;
 }
 
-/** One rate-detail row: a date range, the room types it covers, and the occupancy columns. */
-function normalizeRateDetail(row = {}) {
-  const roomTypeIds = (row.room_types || [])
-    .map((t) => (t && typeof t === 'object' ? t.id : t))
+function isoDay(value) {
+  const match = String(value || '').match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : '';
+}
+
+function idsFrom(value) {
+  const list = Array.isArray(value) ? value : value != null && value !== '' ? [value] : [];
+  return list
+    .map((item) => (item && typeof item === 'object' ? item.id ?? item.room_type_id ?? item.roomTypeId : item))
     .filter((id) => id != null && id !== '')
     .map(String);
-  const adultAt = (n) =>
-    money(n === 1 ? (row.rate_for_1_adult ?? row._1_adults) : (row[`_${n}_adults`] ?? row[`rate_for_${n}_adults`]));
+}
+
+const ADULT_WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
+
+function adultColumn(row, n) {
+  if (Array.isArray(row.adults)) {
+    const fromList = money(row.adults[n - 1]);
+    if (fromList != null) return fromList;
+  }
+  if (row.adults && typeof row.adults === 'object' && !Array.isArray(row.adults)) {
+    const fromMap = money(row.adults[n] ?? row.adults[String(n)]);
+    if (fromMap != null) return fromMap;
+  }
+  const word = ADULT_WORDS[n];
+  const keys = [
+    `_${n}_adults`,
+    `_${n}_adult`,
+    `rate_for_${n}_adult`,
+    `rate_for_${n}_adults`,
+    `${n}_adults`,
+    `${n}_adult`,
+    `adult_${n}`,
+    `adults_${n}`,
+    `rate_${n}`,
+    `pax_${n}`,
+    word && `${word}_adult`,
+    word && `${word}_adults`,
+    word && `rate_for_${word}_adult`,
+  ].filter(Boolean);
+  for (const key of keys) {
+    if (row[key] == null || row[key] === '') continue;
+    const amount = money(row[key]);
+    if (amount != null) return amount;
+  }
+  return null;
+}
+
+function childColumn(row, n) {
+  if (Array.isArray(row.children)) {
+    const fromList = money(row.children[n - 1]);
+    if (fromList != null) return fromList;
+  }
+  const keys = [`child_range_${n}`, `child_${n}`, `children_${n}`, `rate_for_child_${n}`, `child_rate_${n}`];
+  for (const key of keys) {
+    if (row[key] == null || row[key] === '') continue;
+    const amount = money(row[key]);
+    if (amount != null) return amount;
+  }
+  return 0;
+}
+
+/** One rate-detail row: a date range, the room types it covers, and the occupancy columns. */
+function normalizeRateDetail(row = {}) {
+  const roomTypeIds = [
+    ...idsFrom(row.room_types),
+    ...idsFrom(row.room_type),
+    ...idsFrom(row.room_type_id),
+    ...idsFrom(row.room_type_ids),
+    ...idsFrom(row.roomTypeIds),
+  ].filter((id, index, all) => all.indexOf(id) === index);
   return {
     roomTypeIds,
-    start: row.start_date || '',
-    end: row.end_date || '',
-    adults: [1, 2, 3, 4, 5, 6].map(adultAt),
-    children: [1, 2, 3].map((n) => money(row[`child_range_${n}`]) ?? 0),
+    allTypes: roomTypeIds.length === 0,
+    start: isoDay(row.start_date || row.from_date || row.date_from || row.start || row.valid_from),
+    end: isoDay(row.end_date || row.to_date || row.date_to || row.end || row.valid_to),
+    adults: [1, 2, 3, 4, 5, 6].map((n) => adultColumn(row, n)),
+    children: [1, 2, 3].map((n) => childColumn(row, n) ?? 0),
   };
 }
 
+function ratePreference(rate, webIds, channelRateIds) {
+  const code = String(rate?.code || rate?.rate_code || rate?.name || rate?.description || '').toLowerCase();
+  const id = String(rate?.id ?? '');
+  if (/bed\s*&?\s*breakfast|\bbb\b|\bb&b\b/.test(code)) return 0;
+  if (/room\s*-?\s*only|\bro\b/.test(code)) return 1;
+  if (webIds.includes(id)) return 2;
+  if (channelRateIds.includes(id)) return 3;
+  if (/\bbar\b|website|rack/.test(code)) return 4;
+  return 8;
+}
+
+async function fetchRateBody(id, tenant) {
+  let last = null;
+  for (const path of [`/api/reservation/rate/v2/${id}/`, `/api/reservation/rate/v3/${id}/`]) {
+    try {
+      const data = await kwentraFetch(path, { tenantId: tenant });
+      const rate = data?.rate && (data.rate.rate_details || data.rate.details) ? data.rate : data?.rate || data;
+      if (rate?.id == null && data?.id == null) continue;
+      const body = rate?.id != null ? rate : data;
+      const details = body.rate_details || body.details || body.rateDetails || body.seasons || [];
+      last = { rate: body, details };
+      if (details.length) return last;
+    } catch (err) {
+      if (err.status && err.status !== 404) {
+        console.warn(`[kwentra] rate ${id} ${path} failed:`, err.message);
+      }
+    }
+  }
+  return last;
+}
+
 /**
- * Website rate definitions for a tenant, from GET /api/reservation/rate/v2/{id}/.
- * Order is the web=true rate first, then the rates on the website channel.
+ * Rate grids for a tenant. Prefer BB and Room Only, then web / website-channel rates,
+ * then BAR. Demo tenants often price those rates without flagging them web=true,
+ * so the full rate list is included when the channel list is thin.
  * Each row is the grid Kwentra shows: dates, room type, 1–6 adults, three child ranges.
  */
 async function rateDefinitions(tenantId) {
   const tenant = String(tenantId || getTenantId());
   return cached(`rate-grid:${tenant}`, async () => {
-    const [webIds, channel] = await Promise.all([webRateIds(tenant), websiteChannel(tenant)]);
-    const ids = [];
-    for (const id of [...webIds, ...(channel.rateIds || [])]) {
-      const key = String(id || '');
-      if (key && !ids.includes(key)) ids.push(key);
-    }
+    const [webIds, channel, listed] = await Promise.all([
+      webRateIds(tenant),
+      websiteChannel(tenant),
+      listRates({ tenantId: tenant }).catch((err) => {
+        console.warn('[kwentra] rate list failed:', err.message);
+        return [];
+      }),
+    ]);
+    const channelRateIds = channel.rateIds || [];
+    const ranked = [];
+    const push = (rate) => {
+      const id = String(rate?.id ?? '');
+      if (!id || ranked.some((r) => r.id === id)) return;
+      ranked.push({ id, code: rate.code || rate.rate_code || rate.name || '', score: ratePreference(rate, webIds, channelRateIds) });
+    };
+    for (const id of [...webIds, ...channelRateIds]) push({ id });
+    for (const rate of listed) push(rate);
+    ranked.sort((a, b) => a.score - b.score || a.code.localeCompare(b.code));
+
     const definitions = [];
-    for (const id of ids) {
-      const data = await kwentraFetch(`/api/reservation/rate/v2/${id}/`, { tenantId: tenant });
-      const rate = data?.rate && data.rate.rate_details ? data.rate : data;
-      if (rate?.id == null) continue;
+    for (const item of ranked.slice(0, 24)) {
+      const loaded = await fetchRateBody(item.id, tenant);
+      if (!loaded?.rate) continue;
+      const rate = loaded.rate;
       definitions.push({
-        rateId: String(rate.id),
-        rateCode: rate.code || '',
-        onWeb: webIds.includes(String(rate.id)),
-        onChannel: (channel.rateIds || []).includes(String(rate.id)),
-        rows: (rate.rate_details || [])
+        rateId: String(rate.id || item.id),
+        rateCode: rate.code || rate.rate_code || item.code || '',
+        onWeb: webIds.includes(String(rate.id || item.id)),
+        onChannel: channelRateIds.includes(String(rate.id || item.id)),
+        score: item.score,
+        rows: (loaded.details || [])
           .map(normalizeRateDetail)
-          .filter((row) => row.roomTypeIds.length && row.start && row.end),
+          .filter((row) => row.start && row.end && (row.allTypes || row.roomTypeIds.length)),
       });
     }
+    definitions.sort((a, b) => a.score - b.score);
     return definitions;
   });
 }

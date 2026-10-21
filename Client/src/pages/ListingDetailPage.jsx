@@ -215,7 +215,7 @@ export default function ListingDetailPage() {
       });
 
     api
-      .getListingPricing(slug, { from, to })
+      .getListingPricing(slug, { from, to, adults: seedAdults, children: seedChildren })
       .then((data) => {
         if (!cancelled) {
           setDailyPrices(data.prices || {});

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, Check, Loader2, X } from 'lucide-react';
+import api from '../../api/client';
 import { kwentraApi } from '../../services/api';
+import { GUEST_AVAILABILITY_MONTHS } from '../../constants/availability';
 import { formatMoney } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
 import { findBrand, useBrands } from '../../context/SiteContext';
@@ -83,10 +85,44 @@ export default function BookingModal({
 
   const nights = nightsBetween(stay.arrivalDate, stay.departureDate);
   const stayView = useMemo(() => ({ ...stay, nights }), [stay, nights]);
-  const calendarPrices = useMemo(
-    () => (Object.keys(occupancy || {}).length ? pricesForGuests(occupancy, stay.adults, stay.children) : dailyPrices),
-    [occupancy, stay.adults, stay.children, dailyPrices]
+  const [partyPrices, setPartyPrices] = useState(null);
+  const fromOccupancy = useMemo(
+    () => pricesForGuests(occupancy, stay.adults, stay.children),
+    [occupancy, stay.adults, stay.children]
   );
+  const calendarPrices = Object.keys(fromOccupancy).length
+    ? fromOccupancy
+    : partyPrices || dailyPrices;
+
+  // Occupancy grid is instant. When Kwentra didn't return adult columns, reload nightly rates for this party.
+  useEffect(() => {
+    if (!open || !listing?.slug || Object.keys(fromOccupancy).length) return undefined;
+    let cancelled = false;
+    const from = new Date();
+    const toDate = new Date();
+    toDate.setMonth(toDate.getMonth() + GUEST_AVAILABILITY_MONTHS);
+    const iso = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const timer = setTimeout(() => {
+      api
+        .getListingPricing(listing.slug, {
+          from: iso(from),
+          to: iso(toDate),
+          adults: stay.adults,
+          children: stay.children,
+        })
+        .then((data) => {
+          if (!cancelled) setPartyPrices(data?.prices && Object.keys(data.prices).length ? data.prices : null);
+        })
+        .catch(() => {
+          if (!cancelled) setPartyPrices(null);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, listing?.slug, stay.adults, stay.children, fromOccupancy]);
 
   // (Re)open: seed from the listing page, but resume an unpaid hold instead of creating a second one.
   useEffect(() => {
@@ -103,6 +139,7 @@ export default function BookingModal({
     });
     setGuest((g) => ({ ...EMPTY_GUEST, nationality: g.nationality || '', reservationCountry: 'EG' }));
     setRatePlanCode('BB');
+    setPartyPrices(null);
     setStep('stay');
     setReached(0);
     setErrors({});

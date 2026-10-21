@@ -434,7 +434,9 @@ function adultAmount(row, adults) {
 /** The row that covers this night. A later start date is the more specific override. */
 function coveringRow(rows, roomTypeId, date) {
   const id = String(roomTypeId || '');
-  const hits = (rows || []).filter((row) => row.roomTypeIds.includes(id) && row.start <= date && date <= row.end);
+  const hits = (rows || []).filter(
+    (row) => (row.allTypes || row.roomTypeIds.includes(id)) && row.start <= date && date <= row.end
+  );
   hits.sort((a, b) => b.start.localeCompare(a.start) || a.end.localeCompare(b.end));
   return hits[0] || null;
 }
@@ -444,12 +446,15 @@ function coveringRow(rows, roomTypeId, date) {
  * The web rate is tried first, then the other rates on the website channel.
  */
 function rateRowForNight(definitions, roomTypeId, date) {
+  let fallback = null;
   for (const definition of definitions || []) {
     const row = coveringRow(definition.rows, roomTypeId, date);
     if (!row) continue;
-    return { row, rateId: definition.rateId, rateCode: definition.rateCode };
+    const candidate = { row, rateId: definition.rateId, rateCode: definition.rateCode };
+    if ((row.adults || []).some((amount) => amount > 0)) return candidate;
+    if (!fallback) fallback = candidate;
   }
-  return null;
+  return fallback;
 }
 
 /**
@@ -477,7 +482,7 @@ function cardAmount(definitions, roomTypeId, adults, today) {
   for (const definition of definitions || []) {
     let best = null;
     for (const row of definition.rows || []) {
-      if (!row.roomTypeIds.includes(String(roomTypeId))) continue;
+      if (!row.allTypes && !row.roomTypeIds.includes(String(roomTypeId))) continue;
       const amount = adultAmount(row, adults);
       if (!(amount > 0)) continue;
       if (!best || row.end > best.end || (row.end === best.end && row.start > best.start)) {
@@ -773,6 +778,8 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
       ({ prices, occupancy, rate } = await pricesFromRateGrid(listing, window.from, window.to, { adults, children, tenantId }));
     } catch (err) {
       console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
+    }
+    if (!Object.keys(prices).length) {
       let cursor = window.from;
       const priceEnd = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
       while (cursor < priceEnd) {
