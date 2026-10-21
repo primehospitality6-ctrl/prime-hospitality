@@ -165,10 +165,14 @@ function validateBookingRequest(body = {}, listing = {}) {
   const rawOthers = Array.isArray(body.otherGuestNames) ? body.otherGuestNames : [];
   const otherGuestNames = rawOthers.map(cleanName).filter(Boolean);
   const maxOthers = Math.max(0, (adults || 1) + (children || 0) - 1);
-  if (otherGuestNames.length > maxOthers) {
+  if (!errors.adults && !errors.children && otherGuestNames.length < maxOthers) {
+    errors.otherGuestNames = 'bm.err.otherGuests';
+  } else if (otherGuestNames.length > maxOthers) {
     errors.otherGuestNames = `Up to ${maxOthers} additional guest name(s)`;
   } else if (otherGuestNames.some((n) => !NAME_RE.test(n) || n.length > 80)) {
-    errors.otherGuestNames = 'Guest names must use letters only';
+    errors.otherGuestNames = 'bm.err.nameLetters';
+  } else if (otherGuestNames.some((n) => n.split(' ').length < 2)) {
+    errors.otherGuestNames = 'bm.err.nameFull';
   }
 
   const nationality = String(body.nationality || '').toUpperCase();

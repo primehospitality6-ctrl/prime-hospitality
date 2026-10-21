@@ -453,7 +453,6 @@ export function GuestStep({ guest, setGuest, stay, errors, autoCountry, heading 
           <fieldset className="border border-prime-line p-4 sm:p-5">
             <legend className="px-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-muted">
               {t('bm.otherGuests')}
-              <Tag>{t('bm.optional')}</Tag>
             </legend>
             <p className="mb-4 text-[12px] text-prime-muted">{t('bm.otherGuestsHint')}</p>
             <div className="grid gap-3 sm:grid-cols-2">

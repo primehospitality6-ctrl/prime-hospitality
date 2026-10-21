@@ -131,13 +131,11 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
     try {
       const tenantId = await sync.tenantForUnit(listing);
       let availability = { blocked: [], checkoutDates: [] };
+      let soldOut = false;
       try {
-        availability = await kwentra.getAvailability(listing.kwentraRoomTypeId, {
-          from: arrivalDate,
-          to: departureDate,
-          tenantId,
-          fresh: freshAvailability,
-        });
+        const stayRoom = await sync.roomForStay(listing, arrivalDate, departureDate);
+        availability = { blocked: stayRoom.occupied, checkoutDates: [] };
+        soldOut = stayRoom.unavailable;
       } catch (err) {
         console.warn('[booking] Kwentra availability lookup failed:', err.message);
         if (strict) {
@@ -145,6 +143,9 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
           unavailable.status = 503;
           throw unavailable;
         }
+      }
+      if (soldOut && !availability.blocked?.length) {
+        availability.blocked = [arrivalDate];
       }
       const offered = await sync
         .roomTypeRates(listing, { arrivalDate, departureDate, adults, children, tenantId, fresh: strict })
@@ -313,7 +314,7 @@ async function bookDirect(req, res, next) {
     if (stay.occupied.length) {
       return res.status(409).json({
         error: 'Some of those nights were just booked — please choose other dates',
-        fields: { arrivalDate: 'Dates unavailable' },
+        fields: { arrivalDate: 'bm.err.soldOut' },
         occupied: stay.occupied,
       });
     }
@@ -419,7 +420,7 @@ async function bookDirect(req, res, next) {
       } else if (kwentraReservationPush.conflict) {
         return res.status(409).json({
           error: 'Those nights were just booked — please choose other dates',
-          fields: { arrivalDate: 'Dates unavailable' },
+          fields: { arrivalDate: 'bm.err.soldOut' },
         });
       } else if (kwentraReservationPush.error) {
         console.warn('[kwentra] reservation push failed:', kwentraReservationPush.error);

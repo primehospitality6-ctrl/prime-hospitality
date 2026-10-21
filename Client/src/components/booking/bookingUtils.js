@@ -101,15 +101,18 @@ export function validateRate(plan, nights) {
   return {};
 }
 
-export function validateGuest(guest) {
+export function validateGuest(guest, stay = {}) {
   const errors = {};
   const name = cleanName(guest.primaryGuestName);
   if (!name) errors.primaryGuestName = 'bm.err.name';
   else if (!NAME_RE.test(name)) errors.primaryGuestName = 'bm.err.nameLetters';
   else if (name.split(' ').length < 2) errors.primaryGuestName = 'bm.err.nameFull';
 
-  const others = guest.otherGuestNames.map(cleanName).filter(Boolean);
-  if (others.some((n) => !NAME_RE.test(n))) errors.otherGuestNames = 'bm.err.nameLetters';
+  const extra = Math.max(0, Number(stay.adults || 1) + Number(stay.children || 0) - 1);
+  const others = Array.from({ length: extra }, (_, i) => cleanName(guest.otherGuestNames?.[i]));
+  if (extra && others.some((n) => !n)) errors.otherGuestNames = 'bm.err.otherGuests';
+  else if (others.some((n) => n && !NAME_RE.test(n))) errors.otherGuestNames = 'bm.err.nameLetters';
+  else if (others.some((n) => n && n.split(' ').length < 2)) errors.otherGuestNames = 'bm.err.nameFull';
 
   const email = guest.email.trim();
   if (!email) errors.email = 'bm.err.email';

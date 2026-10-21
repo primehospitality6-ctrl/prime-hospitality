@@ -451,6 +451,7 @@ function collectAvailabilityDays(data) {
       avail,
       roomTypeId: extra.roomTypeId ? String(extra.roomTypeId) : '',
       roomId: extra.roomId ? String(extra.roomId) : '',
+      channel: extra.channel ? String(extra.channel) : '',
     });
   };
   const walk = (node, depth) => {
@@ -460,14 +461,30 @@ function collectAvailabilityDays(data) {
       return;
     }
     if (typeof node !== 'object') return;
-    const date = node.dt || node.date || node.day || node.night || node.start_date;
+    const fromDate = node.from_date || node.start_date;
+    const toDate = node.to_date || node.end_date || fromDate;
     const count = availabilityCount(node);
+    const roomTypeRaw = node.room_type_id ?? node.room_type ?? node.roomTypeId;
+    const roomTypeId = roomTypeRaw && typeof roomTypeRaw === 'object' ? roomTypeRaw.id : roomTypeRaw;
+    const roomRaw = node.room_id ?? node.room ?? node.room_number;
+    const roomId = roomRaw && typeof roomRaw === 'object' ? roomRaw.id : roomRaw;
+    if (fromDate && toDate && count != null && /^\d{4}-\d{2}-\d{2}/.test(String(fromDate))) {
+      const end = String(toDate).slice(0, 10);
+      for (let date = String(fromDate).slice(0, 10); date && date <= end; date = addDays(date, 1)) {
+        push(date, count, {
+          roomTypeId: roomTypeId != null && typeof roomTypeId !== 'object' ? roomTypeId : '',
+          roomId: roomId != null && typeof roomId !== 'object' ? roomId : '',
+          channel: node.channel != null ? String(node.channel?.id ?? node.channel) : '',
+        });
+      }
+      return;
+    }
+    const date = node.dt || node.date || node.day || node.night;
     if (date && count != null) {
-      const roomType = node.room_type_id ?? node.room_type?.id ?? node.roomTypeId;
-      const room = node.room_id ?? node.room?.id ?? node.room_number?.id ?? node.room_number;
       push(date, count, {
-        roomTypeId: roomType && typeof roomType === 'object' ? roomType.id : roomType,
-        roomId: room && typeof room === 'object' ? room.id : room,
+        roomTypeId: roomTypeId != null && typeof roomTypeId !== 'object' ? roomTypeId : '',
+        roomId: roomId != null && typeof roomId !== 'object' ? roomId : '',
+        channel: node.channel != null ? String(node.channel?.id ?? node.channel) : '',
       });
       return;
     }
@@ -480,7 +497,7 @@ function collectAvailabilityDays(data) {
       });
       return;
     }
-    for (const key of ['availability', 'days', 'dates', 'calendar', 'results', 'data', 'total', 'items']) {
+    for (const key of ['inventory_counts', 'availability', 'days', 'dates', 'calendar', 'results', 'data', 'total', 'items']) {
       if (node[key] != null) walk(node[key], depth + 1);
     }
   };
@@ -888,8 +905,76 @@ async function rateDefinitions(tenantId) {
       });
     }
     definitions.sort((a, b) => a.score - b.score);
-    return definitions;
+    const pushed = webhookRatePlans.get(tenant) || [];
+    const pushedIds = new Set(pushed.map((d) => d.rateId));
+    return [...pushed, ...definitions.filter((d) => !pushedIds.has(d.rateId))];
   });
+}
+
+/** Rate rows pushed by Kwentra `rate_plans` webhooks, keyed by tenant. USD rows only. */
+const webhookRatePlans = new Map();
+
+function preferredChannelId(tenantId) {
+  try {
+    const map = JSON.parse(process.env.KWENTRA_CHANNEL_IDS || '{}');
+    if (map?.[tenantId] != null && map[tenantId] !== '') return String(map[tenantId]);
+  } catch {
+    /* ignore bad JSON */
+  }
+  return String(process.env.KWENTRA_CHANNEL_ID || '').trim();
+}
+
+/**
+ * Collapse channel copies of the same room-type night.
+ * The website channel wins when it is configured; otherwise the highest avail
+ * (the type still has rooms if any channel can sell them).
+ */
+function collapseInventoryDays(days, tenantId) {
+  const preferred = preferredChannelId(tenantId);
+  const grouped = new Map();
+  for (const day of days) {
+    if (!day.roomTypeId || !day.date) continue;
+    const key = `${day.roomTypeId}|${day.date}`;
+    const prev = grouped.get(key);
+    if (!prev) {
+      grouped.set(key, day);
+      continue;
+    }
+    if (preferred && day.channel === preferred) grouped.set(key, day);
+    else if (preferred && prev.channel === preferred) continue;
+    else if (day.avail > prev.avail) grouped.set(key, day);
+  }
+  return [...grouped.values()];
+}
+
+/** Store rate_plans webhook rows so calendars price 1–6 adults without another Kwentra pull. */
+function rememberRatePlans(tenantId, payload) {
+  const tenant = String(tenantId || payload?.tenant_id || '');
+  if (!tenant) return { rates: 0, reason: 'missing_tenant' };
+  const rows = Array.isArray(payload) ? payload : payload?.rates || [];
+  if (!rows.length) return { rates: 0 };
+  const usd = rows.filter((row) => String(row.currency || 'USD').toUpperCase() === 'USD');
+  if (!usd.length) return { rates: 0, skipped: 'no_usd' };
+  const existing = new Map((webhookRatePlans.get(tenant) || []).map((d) => [d.rateId, d]));
+  for (const row of usd) {
+    const rateId = String(row.rate ?? row.rate_id ?? row.id ?? '');
+    if (!rateId) continue;
+    const detail = normalizeRateDetail(row);
+    if (!detail.start || !detail.end || (!detail.allTypes && !detail.roomTypeIds.length)) continue;
+    const prev = existing.get(rateId) || { rateId, rateCode: row.code || '', score: 0, onWeb: true, rows: [] };
+    const signature = `${detail.start}|${detail.end}|${detail.roomTypeIds.join(',')}`;
+    prev.rows = prev.rows.filter((r) => `${r.start}|${r.end}|${r.roomTypeIds.join(',')}` !== signature);
+    prev.rows.push(detail);
+    existing.set(rateId, prev);
+  }
+  const plans = [...existing.values()];
+  webhookRatePlans.set(tenant, plans);
+  lookupCache.delete(`rate-grid:${tenant}`);
+  return {
+    rates: plans.length,
+    rows: usd.length,
+    plans: plans.map((d) => ({ rateId: d.rateId, roomTypes: d.rows.flatMap((r) => r.roomTypeIds), adults: d.rows[0]?.adults || [] })),
+  };
 }
 
 /** Markets or sources of a tenant → [{id, code, description}] */
@@ -1063,6 +1148,8 @@ async function listPostings({ tenantId, accountId, windowId } = {}) {
 
 const UPDATE_INCLUDES = [
   'state.name',
+  'name',
+  'other_names',
   'room_nights.number_of_adults',
   'room_nights.number_of_children',
   'room_nights.room_number',
@@ -1175,9 +1262,21 @@ async function cancelReservation(id, reason = 'Cancelled from the website', { te
   return changeReservationState(id, 'Canceled', reason, { tenantId });
 }
 
-/** POST …/v2/{id}/note/ — type: internal | external | billing */
-async function addReservationNote(id, note, { type = 'internal', tenantId } = {}) {
-  return kwentraFetch(pathFor('reservationNote', id), { method: 'POST', body: { type, note }, tenantId });
+/** POST …/v2/{id}/note/ — shows in the reservation Notes panel. type: internal | external | billing */
+async function addReservationNote(id, note, { type = 'external', tenantId } = {}) {
+  const text = String(note || '').trim();
+  if (!text) return null;
+  const types = [...new Set([type, 'external', 'internal'].filter(Boolean))];
+  let last;
+  for (const noteType of types) {
+    try {
+      return await kwentraFetch(pathFor('reservationNote', id), { method: 'POST', body: { type: noteType, note: text }, tenantId });
+    } catch (err) {
+      last = err;
+      if (err.status && err.status !== 400) break;
+    }
+  }
+  throw last;
 }
 
 /* ——— Guest profiles ——— */
@@ -1338,6 +1437,8 @@ module.exports = {
   listRooms,
   getAvailability,
   collectAvailabilityDays,
+  collapseInventoryDays,
+  rememberRatePlans,
   listBlockingReservations,
   listRates,
   quoteTotalStay,

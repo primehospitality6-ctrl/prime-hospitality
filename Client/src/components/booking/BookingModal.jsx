@@ -219,7 +219,7 @@ export default function BookingModal({
           adults: stay.adults,
           children: stay.children,
         })
-        .then((q) => !cancelled && setServerQuote({ key: quoteKey, plans: q?.ratePlans || [] }))
+        .then((q) => !cancelled && setServerQuote({ key: quoteKey, plans: q?.ratePlans || [], available: q?.available !== false }))
         .catch(() => {});
     }, 300);
     return () => {
@@ -227,6 +227,16 @@ export default function BookingModal({
       clearTimeout(timer);
     };
   }, [open, quoteKey, listing?.slug]);
+
+  useEffect(() => {
+    if (!serverQuote || serverQuote.key !== quoteKey) return;
+    if (serverQuote.available === false) {
+      setErrors((prev) => ({ ...prev, arrivalDate: 'bm.err.soldOut' }));
+      setStep('stay');
+      return;
+    }
+    setErrors((prev) => (prev.arrivalDate === 'bm.err.soldOut' ? { ...prev, arrivalDate: undefined } : prev));
+  }, [serverQuote, quoteKey]);
 
   const plans = config?.ratePlans || [];
   const quotes = useMemo(
@@ -286,9 +296,14 @@ export default function BookingModal({
 
   function advance() {
     let stepErrors = {};
-    if (step === 'stay') stepErrors = validateStay(stay, maxGuests, brandMinNights);
+    if (step === 'stay') {
+      stepErrors = validateStay(stay, maxGuests, brandMinNights);
+      if (!stepErrors.arrivalDate && serverQuote?.key === quoteKey && serverQuote.available === false) {
+        stepErrors = { ...stepErrors, arrivalDate: 'bm.err.soldOut' };
+      }
+    }
     if (step === 'rate') stepErrors = validateRate(plan, nights);
-    if (step === 'guests') stepErrors = validateGuest(guest);
+    if (step === 'guests') stepErrors = validateGuest(guest, stay);
     setErrors(stepErrors);
     if (Object.keys(stepErrors).length) return;
     const next = STEPS[stepIndex + 1];
@@ -335,8 +350,12 @@ export default function BookingModal({
         const firstStep = STEPS.find((s) => Object.keys(fields).some((f) => STEP_OF_FIELD[f] === s));
         if (firstStep) setStep(firstStep);
       }
-      if (err.status === 409) onDatesTaken?.();
-      setSubmitError(err.message || 'bm.err.generic');
+      if (err.status === 409) {
+        onDatesTaken?.();
+        setSubmitError('bm.err.soldOut');
+      } else {
+        setSubmitError(err.message || 'bm.err.generic');
+      }
     } finally {
       setSubmitting(false);
     }
