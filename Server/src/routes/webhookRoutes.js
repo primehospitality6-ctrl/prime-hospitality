@@ -218,7 +218,7 @@ router.post('/kwentra', async (req, res, next) => {
       for (const item of items) reservations.push(await pullReservationEvent(item || {}, tenantId));
     }
 
-    const action = sync.onKwentraWebhook({ type, tenantId });
+    const action = sync.onKwentraWebhook({ type, tenantId, body });
     res.json({ received: true, type, tenant_id: tenantId, action, reservations });
   } catch (err) {
     next(err);

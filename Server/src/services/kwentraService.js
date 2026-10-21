@@ -426,27 +426,89 @@ function getAvailability(roomTypeId, { from, to, tenantId, fresh = false } = {})
   );
 }
 
+function availabilityCount(day) {
+  if (day == null) return null;
+  if (typeof day === 'number') return day;
+  const direct = Number(day.avail ?? day.available ?? day.availability ?? day.available_rooms ?? day.vacant ?? day.free ?? day.rooms_available);
+  if (Number.isFinite(direct)) return direct;
+  const rooms = Number(day.room_count ?? day.rooms ?? day.total_rooms);
+  const taken = Number(day.occupancy ?? day.occupied ?? day.sold ?? 0);
+  const ooo = Number(day.ooo ?? day.out_of_order ?? 0);
+  if (Number.isFinite(rooms)) return rooms - (Number.isFinite(taken) ? taken : 0) - (Number.isFinite(ooo) ? ooo : 0);
+  return null;
+}
+
+/** Pull nightly free-counts out of a Kwentra availability payload or webhook body. */
+function collectAvailabilityDays(data) {
+  const days = [];
+  const push = (date, raw, extra = {}) => {
+    const iso = String(date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+    const avail = availabilityCount(raw);
+    if (avail == null) return;
+    days.push({
+      date: iso,
+      avail,
+      roomTypeId: extra.roomTypeId ? String(extra.roomTypeId) : '',
+      roomId: extra.roomId ? String(extra.roomId) : '',
+    });
+  };
+  const walk = (node, depth) => {
+    if (node == null || depth > 6) return;
+    if (Array.isArray(node)) {
+      node.forEach((item) => walk(item, depth + 1));
+      return;
+    }
+    if (typeof node !== 'object') return;
+    const date = node.dt || node.date || node.day || node.night || node.start_date;
+    const count = availabilityCount(node);
+    if (date && count != null) {
+      const roomType = node.room_type_id ?? node.room_type?.id ?? node.roomTypeId;
+      const room = node.room_id ?? node.room?.id ?? node.room_number?.id ?? node.room_number;
+      push(date, count, {
+        roomTypeId: roomType && typeof roomType === 'object' ? roomType.id : roomType,
+        roomId: room && typeof room === 'object' ? room.id : room,
+      });
+      return;
+    }
+    const keys = Object.keys(node);
+    if (keys.length && keys.every((key) => /^\d{4}-\d{2}-\d{2}/.test(key))) {
+      keys.forEach((key) => {
+        const value = node[key];
+        if (value && typeof value === 'object') walk({ ...value, date: key.slice(0, 10) }, depth + 1);
+        else push(key, value);
+      });
+      return;
+    }
+    for (const key of ['availability', 'days', 'dates', 'calendar', 'results', 'data', 'total', 'items']) {
+      if (node[key] != null) walk(node[key], depth + 1);
+    }
+  };
+  walk(data, 0);
+  return days;
+}
+
 async function fetchAvailability(roomTypeId, { from, to, tenantId } = {}) {
   const data = await kwentraFetch(pathFor('availability', roomTypeId), {
     query: { start_date: from, end_date: to },
     tenantId,
   });
-  const days = extractList(data, ['availability', 'days', 'total']);
+  const days = collectAvailabilityDays(data);
   const free = new Map();
-  for (const day of days) {
-    const date = String(day?.dt || day?.date || '').slice(0, 10);
-    if (!date) continue;
-    const avail = Number(day.avail ?? day.available ?? day.availability);
-    free.set(date, Number.isFinite(avail) ? avail : 0);
-  }
+  for (const day of days) free.set(day.date, day.avail);
   if (!free.size && from && to && from < to) {
     const err = new Error('Kwentra returned no availability days for this room type');
     err.status = 502;
     throw err;
   }
-  // A night Kwentra did not report is treated as unavailable
-  for (let date = from; from && to && date < to; date = addDays(date, 1)) {
-    if (!free.has(date)) free.set(date, 0);
+  let expected = 0;
+  for (let date = from; from && to && date < to; date = addDays(date, 1)) expected += 1;
+  // Only fill gaps when Kwentra sent a real calendar. A short list is the blocked nights themselves.
+  const dense = expected > 0 && free.size >= expected * 0.8;
+  if (dense) {
+    for (let date = from; date < to; date = addDays(date, 1)) {
+      if (!free.has(date)) free.set(date, 0);
+    }
   }
   const blocked = [...free.entries()].filter(([, avail]) => avail <= 0).map(([date]) => date).sort();
   return {
@@ -455,7 +517,48 @@ async function fetchAvailability(roomTypeId, { from, to, tenantId } = {}) {
     roomsFree: Object.fromEntries(free),
     roomTypeId: roomTypeId || null,
     source: 'kwentra',
+    dense,
   };
+}
+
+/**
+ * In-house and expected reservations that occupy rooms. Pages through Kwentra so a webhook
+ * rebuild does not stop at the first page.
+ */
+async function listBlockingReservations({ tenantId, from, to } = {}) {
+  const includes = [
+    'state.name',
+    'arrival_date',
+    'departure_date',
+    'room_nights.date',
+    'room_nights.from_date',
+    'room_nights.to_date',
+    'room_nights.room_number',
+    'room_nights.room_type',
+    'room_nights.actual_room_type',
+  ];
+  const reservations = [];
+  let nextUrl = null;
+  for (let page = 0; page < 15; page += 1) {
+    let batch;
+    if (!nextUrl) {
+      batch = await listReservations({
+        tenantId,
+        arrivalGte: from ? addDays(from, -60) : undefined,
+        arrivalLte: to,
+        stateRegex: 'Checked In|Expected',
+        includes,
+        sort: 'arrival_date',
+      });
+    } else {
+      const data = await kwentraFetch(nextUrl, { tenantId });
+      batch = { reservations: extractReservations(data), next: data?.next || null };
+    }
+    reservations.push(...(batch.reservations || []));
+    if (!batch.next) break;
+    nextUrl = batch.next;
+  }
+  return reservations.filter((reservation) => !isCancelledReservation(reservation));
 }
 
 /* ——— Rates ——— */
@@ -1234,6 +1337,8 @@ module.exports = {
   listRoomTypes,
   listRooms,
   getAvailability,
+  collectAvailabilityDays,
+  listBlockingReservations,
   listRates,
   quoteTotalStay,
   listChannelProfiles,
