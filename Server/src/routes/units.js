@@ -1,7 +1,8 @@
 const { Router } = require('express');
-const { getPublicUnits, findUnit, findCompound } = require('../lib/cmsStore');
+const { getPublicUnits, findUnit, findCompound, updateUnit } = require('../lib/cmsStore');
 const { resolveWindow, buildPricing } = require('../lib/mockCalendar');
 const sync = require('../services/kwentraSync');
+const { normalizeOccupancies, occupancyMax } = require('../lib/occupancy');
 const { publicProperty } = sync;
 
 const router = Router();
@@ -31,7 +32,10 @@ function matchesFilters(listing, params = {}) {
   if (propertyType && propertyType !== 'All' && listing.propertyType !== propertyType) {
     return false;
   }
-  if (guests && listing.maxGuests < Number(guests)) return false;
+  if (guests) {
+    const cap = occupancyMax(listing.occupancies) || Number(listing.maxGuests) || 0;
+    if (cap < Number(guests)) return false;
+  }
   if (beds) {
     const n = Number(beds);
     if (n >= 5) {
@@ -132,8 +136,25 @@ router.get(
       currency: 'USD',
       prices: avail.prices || {},
       occupancy: avail.occupancy || {},
+      occupancies: normalizeOccupancies(item.occupancies),
       rows,
     });
+  })
+);
+
+/** Live adult/child combinations for this room type. Guests may only book one of these. */
+router.get(
+  '/:slug/occupancy',
+  wrap(async (req, res) => {
+    const item = await findUnit(req.params.slug);
+    if (!item?.live) return res.status(404).json({ error: 'Listing not found' });
+    const read = await sync.readOccupancy(item);
+    const occupancies = read.occupancies;
+    const maxGuests = occupancyMax(occupancies) || item.maxGuests || 2;
+    if (read.source === 'kwentra' && JSON.stringify(occupancies) !== JSON.stringify(normalizeOccupancies(item.occupancies))) {
+      updateUnit(item.id, { occupancies, maxGuests }).catch((err) => console.warn('[occupancy] save failed', err.message));
+    }
+    res.json({ slug: item.slug, source: read.source, occupancies, maxGuests });
   })
 );
 

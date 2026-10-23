@@ -79,7 +79,71 @@ export function pricesForGuests(occupancy, adults, children) {
 }
 
 /** Error values are LocaleContext keys; server messages pass through t() unchanged */
-export function validateStay(stay, maxGuests, minNights = 1) {
+export function normalizeOccupancies(rows) {
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const row of rows) {
+    const adults = Number(row?.adults ?? row?.number_of_adults);
+    const children = Number(row?.children ?? row?.number_of_children ?? 0);
+    if (!Number.isInteger(adults) || adults < 1) continue;
+    if (!Number.isInteger(children) || children < 0) continue;
+    const key = `${adults}:${children}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ adults, children });
+  }
+  return out.sort((a, b) => a.adults - b.adults || a.children - b.children);
+}
+
+export function partyFits(rows, adults, children) {
+  const list = normalizeOccupancies(rows);
+  if (!list.length) return true;
+  return list.some((row) => row.adults === Number(adults) && row.children === Number(children));
+}
+
+/** Snap a party onto an allowed row. With no scenarios, keep the count inside max guests. */
+export function clampParty(rows, adults, children, maxGuests = 8) {
+  const list = normalizeOccupancies(rows);
+  let a = Math.max(1, Number(adults) || 1);
+  let c = Math.max(0, Number(children) || 0);
+  if (!list.length) {
+    if (a > maxGuests) a = maxGuests;
+    if (a + c > maxGuests) c = Math.max(0, maxGuests - a);
+    return { adults: a, children: c };
+  }
+  if (list.some((row) => row.adults === a && row.children === c)) return { adults: a, children: c };
+  const sameAdults = list.filter((row) => row.adults === a);
+  const pool = sameAdults.length ? sameAdults : list;
+  return pool.reduce((pick, row) => {
+    const score = Math.abs(row.adults - a) * 100 + Math.abs(row.children - c);
+    const pickScore = Math.abs(pick.adults - a) * 100 + Math.abs(pick.children - c);
+    return score < pickScore ? row : pick;
+  });
+}
+
+/** Move one step to the next allowed adult or child count. Gaps in the scenario list are skipped. */
+export function stepParty(rows, adults, children, field, delta, maxGuests = 8) {
+  const list = normalizeOccupancies(rows);
+  const a = Number(adults) || 1;
+  const c = Number(children) || 0;
+  if (!list.length) {
+    if (field === 'adults') return { adults: Math.min(maxGuests - c, Math.max(1, a + delta)), children: c };
+    return { adults: a, children: Math.min(Math.max(0, maxGuests - a), Math.max(0, c + delta)) };
+  }
+  if (field === 'adults') {
+    const options = [...new Set(list.map((row) => row.adults))].sort((x, y) => x - y);
+    const next = delta > 0 ? options.find((n) => n > a) : [...options].reverse().find((n) => n < a);
+    if (next == null) return { adults: a, children: c };
+    return clampParty(list, next, c, maxGuests);
+  }
+  const options = list.filter((row) => row.adults === a).map((row) => row.children).sort((x, y) => x - y);
+  const next = delta > 0 ? options.find((n) => n > c) : [...options].reverse().find((n) => n < c);
+  if (next == null) return { adults: a, children: c };
+  return { adults: a, children: next };
+}
+
+export function validateStay(stay, maxGuests, minNights = 1, occupancies = []) {
   const errors = {};
   if (!stay.arrivalDate) errors.arrivalDate = 'bm.err.arrival';
   else if (stay.arrivalDate < todayIso()) errors.arrivalDate = 'bm.err.arrivalPast';
@@ -91,7 +155,10 @@ export function validateStay(stay, maxGuests, minNights = 1) {
     if (nights < brandMin) errors.departureDate = 'bm.err.minStay';
   }
   if (stay.adults < 1) errors.adults = 'bm.err.adults';
-  if (stay.adults + stay.children > maxGuests) errors.adults = 'bm.err.tooManyGuests';
+  const rows = normalizeOccupancies(occupancies);
+  if (rows.length) {
+    if (!partyFits(rows, stay.adults, stay.children)) errors.adults = 'bm.err.occupancy';
+  } else if (stay.adults + stay.children > maxGuests) errors.adults = 'bm.err.tooManyGuests';
   return errors;
 }
 

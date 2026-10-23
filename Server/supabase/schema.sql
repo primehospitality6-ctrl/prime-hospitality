@@ -99,6 +99,9 @@ alter table units add column if not exists kwentra_room_id text not null default
 alter table compounds add column if not exists kwentra_snapshot jsonb;
 alter table units add column if not exists kwentra_snapshot jsonb;
 
+-- Allowed adult/child pairs from Kwentra (roomtypeoccupancy_set). Guests can only book one of these.
+alter table units add column if not exists occupancies jsonb not null default '[]'::jsonb;
+
 -- Kwentra tenant (hotel) each property lives in — every PMS call for its units uses this tenant_id
 alter table compounds add column if not exists kwentra_tenant_id text not null default '';
 
@@ -181,6 +184,7 @@ alter table bookings add column if not exists average_nightly_rate numeric;
 alter table bookings add column if not exists external_ref text;
 alter table bookings add column if not exists kwentra_reservation_id text;
 alter table bookings add column if not exists kwentra_profile_id text;
+alter table bookings add column if not exists kwentra_account_id text;
 -- Something staff must fix by hand in Kwentra (e.g. paid after the hold was auto-cancelled)
 alter table bookings add column if not exists kwentra_issue text;
 

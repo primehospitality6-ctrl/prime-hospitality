@@ -2,6 +2,8 @@
  * Extra inventory attributes (from the property fact sheets / Kwentra) shared by both CMS backends.
  */
 
+const { normalizeOccupancies } = require('./occupancy');
+
 const COMPOUND_FIELDS = {
   text: ['description', 'address', 'mapsUrl', 'buildingNumber', 'phone', 'driveFolderUrl', 'factSheetUrl', 'kwentraTenantId'],
   num: ['latitude', 'longitude'],
@@ -14,6 +16,7 @@ const UNIT_FIELDS = {
   num: ['roomCount'],
   list: ['unitNumbers'],
   json: ['kwentraSnapshot'],
+  records: ['occupancies'],
 };
 
 const isPlainObject = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
@@ -48,6 +51,10 @@ function applyFields(target, body, spec) {
   for (const key of spec.json || []) {
     if (isPlainObject(body[key])) target[key] = body[key];
   }
+  for (const key of spec.records || []) {
+    if (body[key] === undefined) continue;
+    target[key] = key === 'occupancies' ? normalizeOccupancies(body[key]) : Array.isArray(body[key]) ? body[key] : [];
+  }
   return target;
 }
 
@@ -58,6 +65,7 @@ function defaults(spec) {
   spec.num.forEach((k) => (out[k] = null));
   spec.list.forEach((k) => (out[k] = []));
   (spec.json || []).forEach((k) => (out[k] = null));
+  (spec.records || []).forEach((k) => (out[k] = []));
   return out;
 }
 

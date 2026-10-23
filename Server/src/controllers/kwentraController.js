@@ -302,8 +302,26 @@ async function bookDirect(req, res, next) {
       { ...req.body, brandMinNights },
       { ...listing, brandMinNights }
     );
-    if (Object.keys(errors).length) {
-      return res.status(422).json({ error: 'Please check the highlighted booking details', fields: errors });
+    const fieldErrors = { ...errors };
+    const occupancyRejected = fieldErrors.adults === 'bm.err.occupancy';
+    if (occupancyRejected) delete fieldErrors.adults;
+    if (Object.keys(fieldErrors).length) {
+      return res.status(422).json({ error: 'Please check the highlighted booking details', fields: fieldErrors });
+    }
+    if (occupancyRejected) {
+      return res.status(422).json({
+        code: 'kwentra_rejected',
+        error: 'This room type cannot take that combination of adults and children',
+      });
+    }
+    if (sync.isLinked(listing)) {
+      const occupancies = await sync.occupancyRows(listing).catch(() => []);
+      if (!sync.partyFits(occupancies, value.adults, value.children)) {
+        return res.status(422).json({
+          code: 'kwentra_rejected',
+          error: 'This room type cannot take that combination of adults and children',
+        });
+      }
     }
 
     const stay = await resolveStay(listing, value.arrivalDate, value.departureDate, {
@@ -312,16 +330,19 @@ async function bookDirect(req, res, next) {
       strict: true,
     });
     if (stay.occupied.length) {
-      return res.status(409).json({
+      return res.status(422).json({
+        code: 'kwentra_rejected',
+        conflict: true,
         error: 'Some of those nights were just booked — please choose other dates',
-        fields: { arrivalDate: 'bm.err.soldOut' },
-        occupied: stay.occupied,
       });
     }
 
     const quote = priceForPlan(value.ratePlan, stay, listing, value.arrivalDate, value.departureDate);
     if (sync.isLinked(listing) && quote.nightly.some((night) => !(night.base > 0))) {
-      return res.status(409).json({ error: 'Kwentra has no rate for this room on those dates' });
+      return res.status(422).json({
+        code: 'kwentra_rejected',
+        error: 'Kwentra has no rate for this room on those dates',
+      });
     }
 
     const voucherNumber = pms.formatVoucher(await nextVoucherSerial());
@@ -379,9 +400,15 @@ async function bookDirect(req, res, next) {
     let kwentraGuest = null;
     let kwentraReservationPush = null;
 
-    // ON_HOLD mode only (KWENTRA_HOLD_UNTIL_PAID): reserve now, confirm after payment.
-    // Otherwise the reservation is created confirmed once the payment succeeds (see pushPaidBooking).
-    if (kwentra.isConfigured() && sync.isLinked(listing) && sync.holdUntilPaid()) {
+    // Kwentra must accept an ON_HOLD reservation (nights blocked, not confirmed) before Paymob opens.
+    // Payment confirms that same reservation. A refusal never starts payment.
+    if (!kwentra.isConfigured() || !sync.isLinked(listing)) {
+      return res.status(422).json({
+        code: 'kwentra_rejected',
+        error: 'Kwentra did not accept this reservation',
+      });
+    }
+    if (kwentra.isConfigured() && sync.isLinked(listing)) {
       const tenantId = await sync.tenantForUnit(listing);
       try {
         kwentraGuest = await kwentra.sendGuestFromWebsite(
@@ -414,28 +441,44 @@ async function bookDirect(req, res, next) {
         guestProfileId: booking.kwentraProfileId,
         ratePlan: value.ratePlan,
         rates: stay.rates,
+        hold: true,
       });
-      if (kwentraReservationPush.pushed) {
-        booking.kwentraReservationId = kwentraReservationPush.reservationId || null;
-      } else if (kwentraReservationPush.conflict) {
-        return res.status(409).json({
-          error: 'Those nights were just booked — please choose other dates',
-          fields: { arrivalDate: 'bm.err.soldOut' },
+      if (!kwentraReservationPush.pushed) {
+        console.warn('[kwentra] reservation push failed:', kwentraReservationPush.error || kwentraReservationPush.reason);
+        return res.status(422).json({
+          code: 'kwentra_rejected',
+          conflict: Boolean(kwentraReservationPush.conflict),
+          error: kwentraReservationPush.error || 'Kwentra did not accept this reservation',
         });
-      } else if (kwentraReservationPush.error) {
-        console.warn('[kwentra] reservation push failed:', kwentraReservationPush.error);
-        booking.kwentraIssue = `Not in Kwentra yet: ${kwentraReservationPush.error}`;
       }
+      booking.kwentraReservationId = kwentraReservationPush.reservationId || null;
+      booking.kwentraAccountId = kwentraReservationPush.accountId || null;
+      booking.status = 'pending_payment';
+    }
+
+    let paymentSession;
+    try {
+      paymentSession = await payment.createPaymentSession({
+        amount: booking.rateAmount,
+        currency: booking.rateCurrency,
+        merchantOrderId: externalRef,
+        billing: { name: booking.primaryGuestName, email: booking.email, phone: booking.phone },
+      });
+    } catch (err) {
+      console.warn('[payment] session failed after Kwentra hold:', err.message);
+      if (booking.kwentraReservationId) {
+        const tenantId = await sync.tenantForUnit(listing);
+        await kwentra.cancelReservation(booking.kwentraReservationId, 'Payment could not be opened', { tenantId }).catch((cancelErr) => {
+          console.warn('[kwentra] could not release the hold:', cancelErr.message);
+        });
+      }
+      return res.status(422).json({
+        code: 'kwentra_rejected',
+        error: 'Kwentra did not accept this reservation',
+      });
     }
 
     const saved = await createBooking(booking);
-
-    const paymentSession = await payment.createPaymentSession({
-      amount: booking.rateAmount,
-      currency: booking.rateCurrency,
-      merchantOrderId: externalRef,
-      billing: { name: booking.primaryGuestName, email: booking.email, phone: booking.phone },
-    });
 
     res.status(201).json({
       booking: publicBooking({ ...booking, ...saved }),

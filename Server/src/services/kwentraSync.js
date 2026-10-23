@@ -35,6 +35,7 @@ const {
 const { brandFromName } = require('../data/inventory');
 const { coordsFromMapsUrl } = require('../lib/fields');
 const { isLive } = require('../lib/unitCompleteness');
+const { normalizeOccupancies, partyFits: partyAllowed, occupancyMax: maxFromOccupancy } = require('../lib/occupancy');
 const pms = require('../lib/pms');
 
 const envPath = (name) => String(process.env[name] || '').trim();
@@ -151,8 +152,7 @@ function normalizeProject(raw = {}) {
 
 /** Largest party a room type takes, from its allowed adult/child combinations (roomtypeoccupancy_set) */
 function occupancyMax(set) {
-  if (!Array.isArray(set) || !set.length) return undefined;
-  return positive(Math.max(...set.map((o) => (Number(o?.number_of_adults) || 0) + (Number(o?.number_of_children) || 0))));
+  return maxFromOccupancy(set);
 }
 
 /**
@@ -177,6 +177,7 @@ function normalizeRoomType(raw = {}) {
       positive(raw.max_adults ?? raw.max_guests ?? raw.occupancy ?? raw.max_occupancy) ??
       occupancyMax(raw.roomtypeoccupancy_set) ??
       capacityOf(raw.capacity),
+    occupancies: normalizeOccupancies(raw.roomtypeoccupancy_set),
     areaSqm: positive(raw.area_sqm ?? raw.size ?? raw.area),
     description: raw.long_description || (raw.room_type || raw.name ? raw.description : '') || '',
     amenities: namesList(firstOf(raw.room_features, raw.amenities, raw.features, raw.facilities)),
@@ -797,6 +798,12 @@ async function refreshAvailabilitySnapshots(report, fail, onlyTenant = null) {
       try {
         const avail = await kwentra.getAvailability(typeId, { from, to, tenantId: target.tenantId, fresh: true });
         authoritative = true;
+        const inventoryKey = snapshotKey(target.tenantId, typeId);
+        const pushed = webhookInventory.get(inventoryKey) || new Map();
+        for (const [date, count] of Object.entries(avail.roomsFree || {})) {
+          if (date >= from && date < to) pushed.set(date, Number(count));
+        }
+        webhookInventory.set(inventoryKey, pushed);
         rememberAvailability(
           target.tenantId,
           typeId,
@@ -1140,6 +1147,46 @@ async function syncTypeInventoryForStay(tenantId, roomTypeId, arrivalDate, depar
 const isConflict = (err) => err?.status === 409 || /overbook|not available|no (vacant )?room/i.test(err?.message || '');
 
 /**
+ * Live occupation scenarios for one room type.
+ * Kwentra refuses a reservation unless the adult/child pair is one of these rows.
+ * Stored rows are only used when the live read fails.
+ */
+async function readOccupancy(listing, tenantId) {
+  const stored = normalizeOccupancies(listing?.occupancies);
+  const roomTypeId = String(listing?.kwentraRoomTypeId || '');
+  if (!roomTypeId || !kwentra.isConfigured()) {
+    return { occupancies: stored, source: stored.length ? 'stored' : 'none' };
+  }
+  try {
+    const types = await kwentra.listRoomTypes({ tenantId: tenantId || (await tenantForUnit(listing)) });
+    const type = types.find((item) => String(item.id) === roomTypeId);
+    const rawSet = type?.roomtypeoccupancy_set;
+    const live = normalizeOccupancies(rawSet);
+    if (Array.isArray(rawSet) && rawSet.length && !live.length) {
+      console.warn(
+        '[kwentra] occupancy set for room type',
+        roomTypeId,
+        'had no adult/child counts:',
+        JSON.stringify(rawSet).slice(0, 400)
+      );
+    }
+    if (live.length) return { occupancies: live, source: 'kwentra' };
+  } catch (err) {
+    console.warn('[kwentra] occupancy read failed:', err.message);
+  }
+  return { occupancies: stored, source: stored.length ? 'stored' : 'none' };
+}
+
+async function occupancyRows(listing, tenantId) {
+  const { occupancies } = await readOccupancy(listing, tenantId);
+  return occupancies;
+}
+
+function partyFits(rows, adults, children) {
+  return partyAllowed(rows, adults, children);
+}
+
+/**
  * Create the reservation in the unit's Kwentra tenant.
  * conflict: true when Kwentra has no room left for those dates (the booking must not go ahead).
  */
@@ -1162,6 +1209,15 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
         conflict: true,
         path,
         error: 'No vacant room of this type in Kwentra for those dates',
+      };
+    }
+    const occupancies = await occupancyRows(listing, tenantId).catch(() => []);
+    if (!partyFits(occupancies, booking.adults, booking.children)) {
+      const allowed = occupancies.map((row) => `${row.adults} adults${row.children ? ` + ${row.children} children` : ''}`).join(', ');
+      return {
+        pushed: false,
+        path,
+        error: `This room type does not allow ${booking.adults} adults and ${booking.children} children${allowed ? ` (Kwentra allows ${allowed})` : ''}`,
       };
     }
     const offered =
@@ -1215,7 +1271,12 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
       discountPct,
       hold,
     });
-    const { id } = await kwentra.createReservation(payload, { tenantId });
+    const { id, data } = await kwentra.createReservation(payload, { tenantId });
+    let accountId = kwentra.reservationAccountId(data);
+    if (!accountId && id) {
+      const created = await kwentra.getReservation(id, { tenantId, includes: ['account', 'state.name'] }).catch(() => null);
+      accountId = kwentra.reservationAccountId(created);
+    }
     kwentra.clearLiveCache(tenantId);
     patchRoomStay({
       tenantId,
@@ -1236,6 +1297,7 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
       path,
       tenantId,
       reservationId: id != null ? String(id) : null,
+      accountId: accountId != null ? String(accountId) : null,
       room: room.number,
       rateId: rate?.rateId || null,
       extras,
@@ -1245,46 +1307,41 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
   }
 }
 
-function configuredPaymentDepartment(tenantId) {
+/** Cash departments Kwentra assigned (Oct 2026). Tenant 394: 2 = cash EGP, 7 = cash USD. */
+const CASH_DEPARTMENTS = {
+  394: { USD: '7', EGP: '2' },
+};
+
+function departmentIdForCurrency(tenantId, currency) {
+  const cur = String(currency || 'USD').toUpperCase() === 'EGP' ? 'EGP' : 'USD';
+  let map = {};
   try {
-    const map = JSON.parse(process.env.KWENTRA_PAYMENT_DEPARTMENTS || '{}');
-    if (map && map[String(tenantId)] != null) return String(map[String(tenantId)]);
+    map = JSON.parse(process.env.KWENTRA_PAYMENT_DEPARTMENTS || '{}');
   } catch {
     console.warn('[kwentra] KWENTRA_PAYMENT_DEPARTMENTS is not valid JSON — ignoring it');
   }
-  return String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim();
+  const entry = map[String(tenantId)];
+  if (entry && typeof entry === 'object') {
+    const id = entry[cur] ?? entry[cur.toLowerCase()];
+    if (id != null && String(id) !== '') return String(id);
+  } else if (entry != null && String(entry) !== '' && cur === 'USD') {
+    return String(entry);
+  }
+  const known = CASH_DEPARTMENTS[String(tenantId)];
+  if (known?.[cur]) return known[cur];
+  const single = String(process.env.KWENTRA_PAYMENT_DEPARTMENT_ID || '').trim();
+  return cur === 'USD' ? single : '';
 }
 
 /**
- * Department online payments are posted to, per tenant → { id, name, type } or { id: '', reason }:
- * KWENTRA_PAYMENT_DEPARTMENTS={"394":1} / KWENTRA_PAYMENT_DEPARTMENT_ID, else the active department
- * named like KWENTRA_PAYMENT_DEPARTMENT_NAME (default Room / Rent Revenue). Prime's finance team posts
- * website payments on the room revenue debit department and offsets them with a credit when the bank
- * statement is reconciled, so debit departments are allowed; tax departments never are.
+ * Cash department for the currency the rate is set up in.
+ * Kwentra: post the payment in that currency, on the matching cash department.
  */
-async function paymentDepartment(tenantId) {
-  const forced = configuredPaymentDepartment(tenantId);
-  let departments = null;
-  try {
-    departments = (await kwentra.listDepartments({ tenantId })).filter((d) => d.active && d.type !== 'tax');
-  } catch (err) {
-    if (forced) return { id: forced, name: '', type: '' };
-    return { id: '', reason: `departments lookup failed (${err.message})` };
-  }
-  const found = (dept) => ({ id: dept.id, name: dept.name, type: dept.type });
-  if (forced) {
-    const dept = departments.find((d) => d.id === forced);
-    return dept ? found(dept) : { id: '', reason: `department ${forced} does not exist, is inactive or is a tax department in Kwentra` };
-  }
-  const wanted = new RegExp(process.env.KWENTRA_PAYMENT_DEPARTMENT_NAME || '^(room|rent)(al)? revenue$', 'i');
-  const matches = departments.filter((d) => wanted.test(String(d.name).trim()));
-  if (matches.length === 1) return found(matches[0]);
-  return {
-    id: '',
-    reason: matches.length
-      ? `several departments match (${matches.map((d) => d.name).join(', ')}) — set KWENTRA_PAYMENT_DEPARTMENTS`
-      : 'no Room / Rent Revenue department found — set KWENTRA_PAYMENT_DEPARTMENTS',
-  };
+function paymentDepartment(tenantId, currency = 'USD') {
+  const cur = String(currency || 'USD').toUpperCase() === 'EGP' ? 'EGP' : 'USD';
+  const id = departmentIdForCurrency(tenantId, cur);
+  if (!id) return { id: '', name: '', reason: `no ${cur} cash department is configured for tenant ${tenantId}` };
+  return { id, name: cur === 'EGP' ? 'cash' : 'cash USD', type: 'cash' };
 }
 
 /**
@@ -1332,6 +1389,7 @@ async function pushPaidBooking(booking, payment = {}) {
       };
     }
     reservationId = created.reservationId;
+    if (created.accountId) booking.kwentraAccountId = created.accountId;
     if (created.extras?.errors?.length) {
       const missing = created.extras.errors.join('; ');
       guestIssue = `Reservation ${reservationId} is in Kwentra but other guests or the special request were not saved (${missing}). Add them on the reservation before arrival.`;
@@ -1347,7 +1405,7 @@ async function pushPaidBooking(booking, payment = {}) {
  * hold date removed); one Kwentra already auto-cancelled is reinstated — the same reservation, never a
  * second booking. Then the payment is posted on the billing account (Billing API) with a billing note.
  */
-async function pushPayment({ booking, reservationId, amount, currency = 'USD', merchantOrderId, provider, transactionId, cardLast4, cardType }) {
+async function pushPayment({ booking, reservationId, amount, currency = 'USD', merchantOrderId, provider, transactionId }) {
   if (!kwentra.isConfigured() || !reservationId) {
     return { pushed: false, reason: !reservationId ? 'missing_reservation_id' : 'not_configured' };
   }
@@ -1362,10 +1420,16 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
     }
   };
 
-  const current = await kwentra.getReservation(reservationId, { tenantId }).catch((err) => {
-    result.errors.push(`lookup: ${err.message}`);
-    return null;
-  });
+  let current = null;
+  try {
+    current = await kwentra.getReservation(reservationId, { tenantId, includes: ['state.name', 'account'] });
+  } catch (err) {
+    current = await kwentra.getReservation(reservationId, { tenantId }).catch((fallbackErr) => {
+      result.errors.push(`lookup: ${fallbackErr.message}`);
+      return null;
+    });
+    if (!current) result.errors.push(`lookup: ${err.message}`);
+  }
   const wasCancelled = kwentra.isCancelledReservation(current);
   const onHold = String(current?.hold_status || '').toUpperCase() === 'ON_HOLD';
   if (wasCancelled) {
@@ -1385,11 +1449,12 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
   const ref = transactionId || merchantOrderId || '';
   const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`;
 
-  const { id: department, reason: noDepartment } = await paymentDepartment(tenantId);
+  const { id: department, reason: noDepartment } = paymentDepartment(tenantId, currency);
   if (department) {
     await attempt('posted', async () => {
-      const accountId = kwentra.reservationAccountId(await kwentra.getReservation(reservationId, { tenantId }));
-      if (!accountId) throw new Error('the reservation has no billing account id — set KWENTRA_RESERVATION_ACCOUNT_FIELD');
+      const accountId = Number(booking?.kwentraAccountId) || kwentra.reservationAccountId(current);
+      if (!accountId) throw new Error('the reservation response did not include a billing account');
+      result.accountId = String(accountId);
       await kwentra.postPayment({
         tenantId,
         accountId,
@@ -1397,8 +1462,6 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
         department,
         amount,
         comments: summary,
-        cardLast4,
-        cardType,
       });
     });
   } else {
@@ -1425,6 +1488,7 @@ async function recordPaymentResult(booking, result) {
     patch.kwentraReservationId = result.reservationId;
   }
   if (result.profileId && result.profileId !== booking.kwentraProfileId) patch.kwentraProfileId = result.profileId;
+  if (result.accountId && result.accountId !== booking.kwentraAccountId) patch.kwentraAccountId = result.accountId;
   if (result.issue) console.warn(`[kwentra] booking ${booking.voucherNumber || booking.id}: ${result.issue}`);
   return updateBooking(booking.id, patch);
 }
@@ -1456,6 +1520,7 @@ const UNIT_PMS_FIELDS = [
   'unitNumbers',
   'floor',
   'bedType',
+  'occupancies',
 ];
 
 /**
@@ -2020,6 +2085,50 @@ async function pullUnitsFromWebhook(tenants) {
   }
 }
 
+/**
+ * Write each room type's allowed adult/child pairs onto its listing.
+ * Called on boot and whenever Kwentra sends an availability or room webhook.
+ */
+async function refreshRoomTypeOccupancies(onlyTenant = null) {
+  if (!kwentra.isConfigured()) return { updated: 0, types: 0 };
+  const compounds = await listCmsCompounds();
+  const units = await listCmsUnits();
+  const tenantOf = new Map(compounds.map((c) => [c.id, String(c.kwentraTenantId || '').trim()]));
+  let updated = 0;
+  let types = 0;
+  for (const target of tenantTargets(compounds)) {
+    if (onlyTenant && String(target.tenantId) !== String(onlyTenant)) continue;
+    let rawTypes;
+    try {
+      rawTypes = await kwentra.listRoomTypes({ tenantId: target.tenantId });
+    } catch (err) {
+      console.warn('[kwentra] occupancy pull failed:', err.message);
+      continue;
+    }
+    const ownIds = new Set(target.compounds.map((c) => c.id));
+    const inScope = (unit) => (target.fallback ? !tenantOf.get(unit.compoundId) : ownIds.has(unit.compoundId));
+    for (const raw of rawTypes) {
+      const normalized = normalizeRoomType(raw);
+      if (!normalized.kwentraRoomTypeId || !normalized.occupancies.length) continue;
+      types += 1;
+      const unit = units.find(
+        (item) => inScope(item) && !roomIdOf(item) && String(item.kwentraRoomTypeId) === normalized.kwentraRoomTypeId
+      );
+      if (!unit) continue;
+      const patch = {};
+      if (!same(unit.occupancies, normalized.occupancies)) patch.occupancies = normalized.occupancies;
+      if (normalized.maxGuests && Number(unit.maxGuests) !== Number(normalized.maxGuests)) patch.maxGuests = normalized.maxGuests;
+      if (!Object.keys(patch).length) continue;
+      const saved = await updateUnit(unit.id, patch);
+      if (saved) Object.assign(unit, saved);
+      else Object.assign(unit, patch);
+      updated += 1;
+    }
+  }
+  if (updated) console.log(`[kwentra] occupancy — updated ${updated} room type(s)`);
+  return { updated, types };
+}
+
 async function pullAvailabilityFromWebhook(tenants) {
   if (!kwentra.isConfigured()) return;
   syncState.running = true;
@@ -2030,6 +2139,7 @@ async function pullAvailabilityFromWebhook(tenants) {
   };
   const ids = tenants.filter((id) => id && id !== '*');
   try {
+    await refreshRoomTypeOccupancies(ids.length === 1 ? ids[0] : null).catch((err) => fail('occupancy', err));
     if (!ids.length) await refreshAvailabilitySnapshots(report, fail);
     else for (const id of ids) await refreshAvailabilitySnapshots(report, fail, id);
   } finally {
@@ -2103,7 +2213,8 @@ function scheduleAvailabilityRefresh(tenantId) {
 /**
  * What a Kwentra webhook should do after the route handles the payload.
  * Reservation notices apply blocked nights instantly in the route (syncReservationAvailability).
- * Availability notices store room-type inventory (a date is closed only when avail is 0).
+ * Availability notices store the payload, then pull each room-type calendar from Kwentra.
+ * A date is closed only when that pull (or the payload) says the type has 0 rooms left.
  * Rate notices store USD occupancy columns. Room notices pull the room-type listing.
  */
 function onKwentraWebhook({ type, tenantId, body } = {}) {
@@ -2112,7 +2223,6 @@ function onKwentraWebhook({ type, tenantId, body } = {}) {
     kwentra.clearLiveCache(tenantId ?? undefined);
     const inline = ingestAvailabilityNotice(body, tenantId);
     showRoomTypesOnly().catch((err) => console.warn('[kwentra] room-type listings failed:', err.message));
-    if (inline.applied) return { action: 'availability', inline, queued: false };
     return { action: 'availability', inline, ...scheduleAvailabilityRefresh(tenantId) };
   }
   if (/room|unit|inventor/.test(type)) {
@@ -2124,8 +2234,8 @@ function onKwentraWebhook({ type, tenantId, body } = {}) {
     return { action: 'rates', inline, ...queueWebhook('rates', tenantId, pullRatesFromWebhook, 50) };
   }
   if (/reserv/.test(type)) {
-    // Blocked nights are patched instantly by syncReservationAvailability in the webhook route.
-    return { action: 'reservation', queued: false, instant: true };
+    kwentra.clearLiveCache(tenantId ?? undefined);
+    return { action: 'reservation', instant: true, ...scheduleAvailabilityRefresh(tenantId) };
   }
   return { action: 'ignored', queued: false };
 }
@@ -2146,6 +2256,12 @@ async function warmAvailability() {
       await showRoomTypesOnly();
     } catch (err) {
       console.warn('[kwentra] room-type listings failed:', err.message);
+    }
+    try {
+      const occupancy = await refreshRoomTypeOccupancies();
+      report.occupancy = occupancy;
+    } catch (err) {
+      console.warn('[kwentra] occupancy pull failed:', err.message);
     }
     await refreshAvailabilitySnapshots(report, fail);
   } catch (err) {
@@ -2215,6 +2331,9 @@ module.exports = {
   blockedNights,
   findVacantRoom,
   roomForStay,
+  occupancyRows,
+  readOccupancy,
+  partyFits,
   pricesFromRateGrid,
   applyDefinedRates,
   pullDestinations,

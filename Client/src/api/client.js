@@ -85,6 +85,10 @@ export const api = {
     return request(`/api/units/${encodeURIComponent(slug)}/pricing`, { params });
   },
 
+  getListingOccupancy(slug) {
+    return request(`/api/units/${encodeURIComponent(slug)}/occupancy`);
+  },
+
   getCompounds(params = {}) {
     return request('/api/compounds', { params });
   },

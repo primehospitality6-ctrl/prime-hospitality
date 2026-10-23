@@ -4,6 +4,8 @@
  * collects the guest-facing ones and the server derives / enforces the rest.
  */
 
+const { normalizeOccupancies, partyFits } = require('./occupancy');
+
 const CHANNEL = 'Website';
 
 /** source: guest = typed by booker · auto = computed by server · listing = from inventory · constant */
@@ -158,7 +160,10 @@ function validateBookingRequest(body = {}, listing = {}) {
   const maxGuests = Number(listing.maxGuests) || 8;
   if (!Number.isInteger(adults) || adults < 1) errors.adults = 'At least 1 adult is required';
   if (!Number.isInteger(children) || children < 0) errors.children = 'Children must be 0 or more';
-  if (!errors.adults && !errors.children && adults + children > maxGuests) {
+  const occupancies = normalizeOccupancies(listing.occupancies);
+  if (!errors.adults && !errors.children && occupancies.length && !partyFits(occupancies, adults, children)) {
+    errors.adults = 'bm.err.occupancy';
+  } else if (!errors.adults && !errors.children && adults + children > maxGuests) {
     errors.adults = `This unit type sleeps up to ${maxGuests} guests`;
   }
 

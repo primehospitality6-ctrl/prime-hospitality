@@ -5,7 +5,7 @@ import { formatMoney } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
 import { cn } from '../../utils/cn';
 import { countryName, countryOptions } from '../../utils/countries';
-import { formatIsoDate, formatTime } from './bookingUtils';
+import { formatIsoDate, formatTime, normalizeOccupancies, stepParty } from './bookingUtils';
 
 const labelCls = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-muted';
 
@@ -57,7 +57,9 @@ function inputCls(error) {
   return cn('prime-input', error && 'border-red-500 focus:border-red-500');
 }
 
-function Counter({ label, hint, value, min, max, onChange, decLabel, incLabel }) {
+function Counter({ label, hint, value, min, max, onChange, onDecrease, onIncrease, decreaseDisabled, increaseDisabled, decLabel, incLabel }) {
+  const decOff = decreaseDisabled ?? value <= min;
+  const incOff = increaseDisabled ?? value >= max;
   return (
     <div className="flex items-center justify-between gap-4 rounded-2xl bg-prime-mist/60 px-4 py-4">
       <div>
@@ -68,8 +70,8 @@ function Counter({ label, hint, value, min, max, onChange, decLabel, incLabel })
         <button
           type="button"
           aria-label={decLabel}
-          disabled={value <= min}
-          onClick={() => onChange(value - 1)}
+          disabled={decOff}
+          onClick={() => (onDecrease ? onDecrease() : onChange(value - 1))}
           className="grid h-11 w-11 place-items-center rounded-full border border-prime-line bg-prime-surface text-prime-ink transition hover:border-prime-gold active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Minus size={16} strokeWidth={1.75} />
@@ -80,8 +82,8 @@ function Counter({ label, hint, value, min, max, onChange, decLabel, incLabel })
         <button
           type="button"
           aria-label={incLabel}
-          disabled={value >= max}
-          onClick={() => onChange(value + 1)}
+          disabled={incOff}
+          onClick={() => (onIncrease ? onIncrease() : onChange(value + 1))}
           className="grid h-11 w-11 place-items-center rounded-full border border-prime-line bg-prime-surface text-prime-ink transition hover:border-prime-gold active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Plus size={16} strokeWidth={1.75} />
@@ -132,7 +134,15 @@ export function StayStep({
   heading,
 }) {
   const { t, term, localeTag } = useLocale();
-  const maxGuests = listing.maxGuests || 8;
+  const scenarios = normalizeOccupancies(listing.occupancies);
+  const limited = scenarios.length > 0;
+  const maxGuests = limited
+    ? Math.max(...scenarios.map((row) => row.adults + row.children))
+    : listing.maxGuests || 8;
+  const fewerAdults = stepParty(scenarios, stay.adults, stay.children, 'adults', -1, maxGuests);
+  const moreAdults = stepParty(scenarios, stay.adults, stay.children, 'adults', 1, maxGuests);
+  const fewerChildren = stepParty(scenarios, stay.adults, stay.children, 'children', -1, maxGuests);
+  const moreChildren = stepParty(scenarios, stay.adults, stay.children, 'children', 1, maxGuests);
   const brandMin = Math.max(1, Number(minNights) || 1);
   const checkIn = config?.standardCheckIn || '15:00';
   const checkOut = config?.standardCheckOut || '12:00';
@@ -213,8 +223,11 @@ export function StayStep({
               hint={t('bm.adultsHint')}
               value={stay.adults}
               min={1}
-              max={maxGuests - stay.children}
-              onChange={(adults) => setStay((s) => ({ ...s, adults }))}
+              max={maxGuests}
+              decreaseDisabled={fewerAdults.adults === stay.adults}
+              increaseDisabled={moreAdults.adults === stay.adults}
+              onDecrease={() => setStay((s) => ({ ...s, ...stepParty(scenarios, s.adults, s.children, 'adults', -1, maxGuests) }))}
+              onIncrease={() => setStay((s) => ({ ...s, ...stepParty(scenarios, s.adults, s.children, 'adults', 1, maxGuests) }))}
               decLabel={t('bm.decrease', { what: t('bm.adults') })}
               incLabel={t('bm.increase', { what: t('bm.adults') })}
             />
@@ -223,15 +236,44 @@ export function StayStep({
               hint={t('bm.childrenHint')}
               value={stay.children}
               min={0}
-              max={maxGuests - stay.adults}
-              onChange={(children) => setStay((s) => ({ ...s, children }))}
+              max={maxGuests}
+              decreaseDisabled={fewerChildren.children === stay.children}
+              increaseDisabled={moreChildren.children === stay.children}
+              onDecrease={() => setStay((s) => ({ ...s, ...stepParty(scenarios, s.adults, s.children, 'children', -1, maxGuests) }))}
+              onIncrease={() => setStay((s) => ({ ...s, ...stepParty(scenarios, s.adults, s.children, 'children', 1, maxGuests) }))}
               decLabel={t('bm.decrease', { what: t('bm.children') })}
               incLabel={t('bm.increase', { what: t('bm.children') })}
             />
           </div>
           <p className={cn('mt-2.5 text-[11px]', errors.adults ? 'font-medium text-red-600' : 'text-prime-muted')}>
-            {errors.adults ? t(errors.adults, { count: maxGuests }) : t('bm.sleepsUpTo', { count: maxGuests, type: term(listing.unitType) || '' })}
+            {errors.adults
+              ? t(errors.adults, { count: maxGuests })
+              : limited
+                ? t('bm.occupancyLead')
+                : t('bm.sleepsUpTo', { count: maxGuests, type: term(listing.unitType) || '' })}
           </p>
+          {limited && scenarios.length <= 18 ? (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {scenarios.map((row) => {
+                const active = stay.adults === row.adults && stay.children === row.children;
+                return (
+                  <button
+                    key={`${row.adults}-${row.children}`}
+                    type="button"
+                    onClick={() => setStay((s) => ({ ...s, adults: row.adults, children: row.children }))}
+                    className={cn(
+                      'rounded-full border px-2.5 py-1 text-[11px] font-medium transition',
+                      active
+                        ? 'border-prime-gold bg-prime-gold/15 text-prime-ink'
+                        : 'border-prime-line bg-prime-surface text-prime-muted hover:border-prime-gold'
+                    )}
+                  >
+                    {row.adults} {t('bm.adults')} · {row.children} {t('bm.children')}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
 
         <div>

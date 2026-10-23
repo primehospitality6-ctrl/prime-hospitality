@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowRight, Check, Loader2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, MessageCircle, X } from 'lucide-react';
 import api from '../../api/client';
 import { kwentraApi } from '../../services/api';
 import { GUEST_AVAILABILITY_MONTHS } from '../../constants/availability';
-import { formatMoney } from '../../theme/brand';
+import { formatMoney, whatsappHref } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
 import { findBrand, useBrands } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
@@ -22,6 +22,8 @@ import {
   validateGuest,
   validateRate,
   validateStay,
+  clampParty,
+  normalizeOccupancies,
 } from './bookingUtils';
 
 const EMPTY_GUEST = {
@@ -55,7 +57,6 @@ export default function BookingModal({
 }) {
   const { t, term } = useLocale();
   const brands = useBrands();
-  const maxGuests = listing?.maxGuests || 8;
   const brandMinNights = Math.max(
     1,
     Number(findBrand(brands, listing?.brand)?.minNights) || Number(listing?.minNights) || 1
@@ -82,6 +83,15 @@ export default function BookingModal({
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [problem, setProblem] = useState(false);
+  const [liveOccupancies, setLiveOccupancies] = useState([]);
+  const scenarios = useMemo(
+    () => (liveOccupancies.length ? liveOccupancies : normalizeOccupancies(listing?.occupancies)),
+    [liveOccupancies, listing?.occupancies]
+  );
+  const maxGuests = scenarios.length
+    ? Math.max(...scenarios.map((row) => row.adults + row.children))
+    : listing?.maxGuests || 8;
 
   const nights = nightsBetween(stay.arrivalDate, stay.departureDate);
   const stayView = useMemo(() => ({ ...stay, nights }), [stay, nights]);
@@ -128,12 +138,12 @@ export default function BookingModal({
   useEffect(() => {
     if (!open) return;
     if (result && result.booking?.paymentStatus !== 'paid') return;
-    const adults = Math.min(Math.max(1, initialAdults || 1), maxGuests);
+    const party = clampParty(scenarios, initialAdults || 1, initialChildren || 0, maxGuests);
     setStay({
       arrivalDate: initialCheckIn || '',
       departureDate: initialCheckOut || '',
-      adults,
-      children: Math.min(Math.max(0, initialChildren || 0), maxGuests - adults),
+      adults: party.adults,
+      children: party.children,
       checkInTime: '15:00',
       checkOutTime: '12:00',
     });
@@ -144,9 +154,33 @@ export default function BookingModal({
     setReached(0);
     setErrors({});
     setSubmitError('');
+    setProblem(false);
     setAgreed(false);
     setResult(null);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !listing?.slug) return undefined;
+    let cancelled = false;
+    api
+      .getListingOccupancy(listing.slug)
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.occupancies)) setLiveOccupancies(normalizeOccupancies(data.occupancies));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, listing?.slug]);
+
+  useEffect(() => {
+    if (!open || !scenarios.length) return;
+    setStay((current) => {
+      const next = clampParty(scenarios, current.adults, current.children, maxGuests);
+      if (next.adults === current.adults && next.children === current.children) return current;
+      return { ...current, adults: next.adults, children: next.children };
+    });
+  }, [open, scenarios, maxGuests]);
 
   useEffect(() => {
     if (!open || config) return;
@@ -297,7 +331,7 @@ export default function BookingModal({
   function advance() {
     let stepErrors = {};
     if (step === 'stay') {
-      stepErrors = validateStay(stay, maxGuests, brandMinNights);
+      stepErrors = validateStay(stay, maxGuests, brandMinNights, scenarios);
       if (!stepErrors.arrivalDate && serverQuote?.key === quoteKey && serverQuote.available === false) {
         stepErrors = { ...stepErrors, arrivalDate: 'bm.err.soldOut' };
       }
@@ -341,10 +375,16 @@ export default function BookingModal({
         notes: guest.notes.trim(),
       });
       setResult(res);
+      setProblem(false);
       setReached(STEPS.length - 1);
       setStep('pay');
     } catch (err) {
       const fields = err.data?.fields || {};
+      if (err.data?.code === 'kwentra_rejected') {
+        if (err.data.conflict) onDatesTaken?.();
+        setProblem(true);
+        return;
+      }
       if (Object.keys(fields).length) {
         setErrors(fields);
         const firstStep = STEPS.find((s) => Object.keys(fields).some((f) => STEP_OF_FIELD[f] === s));
@@ -410,7 +450,7 @@ export default function BookingModal({
         tabIndex={-1}
         className="relative flex h-dvh-100 w-full flex-col overflow-hidden bg-prime-sand shadow-premium-lg outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:h-dvh-modal sm:max-w-[48rem] sm:rounded-2xl sm:border sm:border-prime-line/70 lg:max-w-[76rem] lg:flex-row"
       >
-        <SummaryPanel {...summaryProps} className="hidden w-[24rem] shrink-0 lg:flex" />
+        <SummaryPanel {...summaryProps} className={cn('hidden w-[24rem] shrink-0 lg:flex', problem && '!hidden')} />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-prime-surface">
           <header className="shrink-0 border-b border-prime-line/70 px-5 pb-4 pt-5 sm:px-8 sm:pt-6">
@@ -431,7 +471,7 @@ export default function BookingModal({
               </button>
             </div>
 
-            <div className="relative mt-5" aria-label={t('bm.progress')}>
+            <div className={cn('relative mt-5', problem && 'hidden')} aria-label={t('bm.progress')}>
               <div className="absolute start-4 end-4 top-[15px] h-[2px] bg-prime-line" aria-hidden />
               <div
                 className="absolute start-4 top-[15px] h-[2px] origin-left bg-prime-gold transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -479,9 +519,32 @@ export default function BookingModal({
             </div>
           </header>
 
-          <MobileSummary {...summaryProps} className="shrink-0 lg:hidden" />
+          <MobileSummary {...summaryProps} className={cn('shrink-0 lg:hidden', problem && 'hidden')} />
 
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8">
+            {problem ? (
+              <section className="mx-auto max-w-md py-8 text-center">
+                <h3 className="font-display text-[1.65rem] font-bold leading-tight tracking-[-0.03em] text-prime-ink sm:text-3xl">
+                  {t('bm.problemTitle')}
+                </h3>
+                <p className="mt-3 text-[15px] font-light leading-relaxed text-prime-muted">{t('bm.problemBody')}</p>
+                <a
+                  href={whatsappHref(
+                    t('bm.problemWhatsappMsg', {
+                      title: listing.title,
+                      arrival: stay.arrivalDate,
+                      departure: stay.departureDate,
+                    })
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="prime-btn mt-8 inline-flex min-h-[48px] items-center gap-2 rounded-full px-7"
+                >
+                  <MessageCircle size={16} aria-hidden />
+                  {t('bm.problemWhatsapp')}
+                </a>
+              </section>
+            ) : (
             <div key={step} className="animate-[primeStepSlide_0.4s_var(--prime-ease)_both]">
               {step === 'stay' && (
                 <StayStep
@@ -490,7 +553,7 @@ export default function BookingModal({
                   guest={guest}
                   setGuest={setGuest}
                   errors={errors}
-                  listing={listing}
+                  listing={{ ...listing, occupancies: scenarios.length ? scenarios : listing?.occupancies }}
                   config={config}
                   blockedDates={blockedDates}
                   checkoutDates={checkoutDates}
@@ -562,9 +625,10 @@ export default function BookingModal({
                 </p>
               )}
             </div>
+            )}
           </div>
 
-          {step !== 'pay' && (
+          {!problem && step !== 'pay' && (
             <footer className="flex shrink-0 items-center gap-3 border-t border-prime-line bg-prime-sand/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-8">
               {stepIndex > 0 ? (
                 <button

@@ -133,6 +133,7 @@ function unitFromRow(row) {
     unitNumbers: list(row.unit_numbers),
     floor: row.floor || '',
     bedType: row.bed_type || '',
+    occupancies: Array.isArray(row.occupancies) ? row.occupancies : [],
     kwentraSnapshot: row.kwentra_snapshot || null,
   };
 }
@@ -176,6 +177,7 @@ function unitToRow(item) {
     unit_numbers: list(item.unitNumbers),
     floor: item.floor || '',
     bed_type: item.bedType || '',
+    occupancies: Array.isArray(item.occupancies) ? item.occupancies : [],
     kwentra_snapshot: item.kwentraSnapshot || null,
     updated_at: new Date().toISOString(),
   };
@@ -273,6 +275,7 @@ function bookingFromRow(row) {
     externalRef: row.external_ref || '',
     kwentraReservationId: row.kwentra_reservation_id || null,
     kwentraProfileId: row.kwentra_profile_id || null,
+    kwentraAccountId: row.kwentra_account_id || null,
     kwentraIssue: row.kwentra_issue || '',
   };
 }
@@ -319,6 +322,7 @@ function bookingToRow(b) {
     external_ref: b.externalRef || null,
     kwentra_reservation_id: b.kwentraReservationId || null,
     kwentra_profile_id: b.kwentraProfileId || null,
+    kwentra_account_id: b.kwentraAccountId || null,
     kwentra_issue: b.kwentraIssue || null,
   };
 }

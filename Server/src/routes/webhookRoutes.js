@@ -192,7 +192,7 @@ async function pullReservationEvent(body, tenantId = null) {
 /**
  * Kwentra webhooks — POST JSON envelope { event_id, tenant_id, data_type, event_time, data }:
  *   reservation  → pull reservation, update website booking, instantly patch blocked nights
- *   availability → pull blocked nights for that tenant
+ *   availability → store the notice, then pull each room-type calendar from Kwentra
  *   room / room type / inventory → pull units for that tenant
  *   rates → drop cached rate lookups
  * Website bookings push to Kwentra and block calendars immediately.

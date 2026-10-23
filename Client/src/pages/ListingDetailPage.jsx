@@ -4,6 +4,7 @@ import { ArrowUpRight, Check, Heart, MapPin, X } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import BookingModal from '../components/booking/BookingModal';
+import { clampParty } from '../components/booking/bookingUtils';
 import ListingCard from '../components/ListingCard';
 import Img from '../components/ui/Img';
 import PageHeader from '../components/ui/PageHeader';
@@ -145,6 +146,7 @@ export default function ListingDetailPage() {
 
   const seedAdults = Number(searchParams.get('adults') || searchParams.get('guests')) || 2;
   const seedChildren = Number(searchParams.get('children')) || 0;
+  const party = clampParty(listing?.occupancies, seedAdults, seedChildren, listing?.maxGuests || 8);
   const seedCheckIn = searchParams.get('checkIn') || '';
   const seedCheckOut = searchParams.get('checkOut') || '';
   const autoOpen = searchParams.get('book') === '1';
@@ -190,6 +192,25 @@ export default function ListingDetailPage() {
   }, [slug]);
 
   useEffect(() => {
+    if (!slug) return undefined;
+    let cancelled = false;
+    api
+      .getListingOccupancy(slug)
+      .then((data) => {
+        if (cancelled || !Array.isArray(data?.occupancies) || !data.occupancies.length) return;
+        setListing((current) =>
+          current && current.slug === slug
+            ? { ...current, occupancies: data.occupancies, maxGuests: data.maxGuests || current.maxGuests }
+            : current
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  useEffect(() => {
     if (!listing) return undefined;
     let cancelled = false;
     const from = localISO(new Date());
@@ -215,7 +236,7 @@ export default function ListingDetailPage() {
       });
 
     api
-      .getListingPricing(slug, { from, to, adults: seedAdults, children: seedChildren })
+      .getListingPricing(slug, { from, to, adults: party.adults, children: party.children })
       .then((data) => {
         if (!cancelled) {
           setDailyPrices(data.prices || {});
@@ -727,8 +748,8 @@ export default function ListingDetailPage() {
         occupancy={occupancy}
         initialCheckIn={seedCheckIn}
         initialCheckOut={seedCheckOut}
-        initialAdults={seedAdults}
-        initialChildren={seedChildren}
+        initialAdults={party.adults}
+        initialChildren={party.children}
         onBooked={handleBooked}
         onDatesTaken={() => setAvailabilityVersion((v) => v + 1)}
       />

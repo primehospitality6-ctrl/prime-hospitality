@@ -44,6 +44,7 @@ const PATHS = {
   payment: ['KWENTRA_PATH_PAYMENT', '/api/income/payment/'],
   postings: ['KWENTRA_PATH_POSTINGS', '/api/income/posting/'],
   departments: ['KWENTRA_PATH_DEPARTMENTS', '/api/income/department/v3/'],
+  currencies: ['KWENTRA_PATH_CURRENCIES', '/api/currencies/currency/'],
 };
 
 function pathFor(key, id) {
@@ -142,12 +143,20 @@ function authHeader() {
 }
 
 /** DRF error bodies: {detail}, {message}, or {field: [messages]} */
+function describeKwentraValue(value) {
+  if (Array.isArray(value)) return value.map((item) => (item && typeof item === 'object' ? JSON.stringify(item) : String(item))).join(' ');
+  if (value && typeof value === 'object') return JSON.stringify(value);
+  return String(value ?? '');
+}
+
 function errorMessage(data, status) {
   if (data && typeof data === 'object') {
-    if (data.detail || data.message || data.error) return String(data.detail || data.message || data.error);
+    if (typeof data.detail === 'string' || typeof data.message === 'string' || typeof data.error === 'string') {
+      return String(data.detail || data.message || data.error);
+    }
     const parts = Object.entries(data)
       .slice(0, 4)
-      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? JSON.stringify(v) : v}`);
+      .map(([key, value]) => `${key}: ${describeKwentraValue(value)}`);
     if (parts.length) return parts.join(' · ');
   }
   return `Kwentra ${status}`;
@@ -1117,30 +1126,51 @@ const isCancelledReservation = (reservation) => /cancel/i.test(String(reservatio
 
 /** Billing account of a reservation — the field Kwentra uses is configurable (KWENTRA_RESERVATION_ACCOUNT_FIELD) */
 function reservationAccountId(reservation) {
+  if (!reservation || typeof reservation !== 'object') return null;
+  const nested = reservation.reservation;
+  if (nested && typeof nested === 'object' && nested !== reservation) {
+    const fromNested = reservationAccountId({ ...nested, reservation: null });
+    if (fromNested) return fromNested;
+  }
   const fields = [process.env.KWENTRA_RESERVATION_ACCOUNT_FIELD, 'billing_account', 'account_id', 'reservation_account', 'account'].filter(Boolean);
   for (const field of fields) {
-    const v = reservation?.[field];
-    const id = v && typeof v === 'object' ? v.id : v;
+    const v = reservation[field];
+    const id = v && typeof v === 'object' ? v.id ?? v.pk : v;
     if (id != null && id !== '' && Number.isFinite(Number(id))) return Number(id);
   }
   return null;
 }
 
 /**
- * Billing API — POST /api/income/payment/?account={id}&window_number={n} (or ?window={id}) with
- * [{ department, amount, comments, credit_card_number?, cc_type? }]. Prime posts on its room revenue
- * department (finance offsets it at bank reconciliation). Allowed while the reservation is Expected or
- * Checked In, and only for an API user that is a cashier.
+ * Billing API — POST /api/income/payment/?account={id}&window_number={n}
+ * [{ department, amount, comments }]. Kwentra: do not send card number or card type.
+ * Comments are limited to 350 characters. The account id comes from the reservation.
  */
-async function postPayment({ tenantId, accountId, windowId, windowNumber = 1, department, amount, comments, cardLast4, cardType } = {}) {
+async function postPayment({ tenantId, accountId, windowId, windowNumber = 1, department, amount, comments } = {}) {
   const query = windowId ? { window: windowId } : { account: accountId, window_number: windowNumber };
-  const posting = { department: Number(department), amount: Number(amount), comments: comments || '' };
-  if (/^\d{4}$/.test(String(cardLast4 || ''))) posting.credit_card_number = String(cardLast4);
-  if (cardType) posting.cc_type = String(cardType);
+  const posting = {
+    department: Number(department),
+    amount: Number(amount),
+    comments: String(comments || '').slice(0, 350),
+  };
   return kwentraFetch(pathFor('payment'), { method: 'POST', query, body: [posting], tenantId });
 }
 
-/** GET /api/income/posting/?account={id} — postings on a billing account */
+/** GET /api/currencies/currency/ — code, description, and factor (EGP factor is 1). */
+async function listCurrencies({ tenantId } = {}) {
+  const data = await kwentraFetch(pathFor('currencies'), {
+    tenantId,
+    query: { 'include[]': ['code', 'description', 'factor', 'is_active', 'is_default'] },
+  });
+  return extractList(data, ['currencies']).map((row) => ({
+    id: row.id,
+    code: String(row.code || '').toUpperCase(),
+    description: row.description || '',
+    factor: Number(row.factor),
+    active: row.is_active !== false,
+    isDefault: Boolean(row.is_default),
+  }));
+}
 async function listPostings({ tenantId, accountId, windowId } = {}) {
   const data = await kwentraFetch(pathFor('postings'), { query: { account: accountId, window: windowId }, tenantId });
   return extractList(data, ['postings']);
@@ -1448,6 +1478,7 @@ module.exports = {
   webRateIds,
   rateDefinitions,
   listDepartments,
+  listCurrencies,
   listLookup,
   websiteMarketSource,
   clearLookupCache,
