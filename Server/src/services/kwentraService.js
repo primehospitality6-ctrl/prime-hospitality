@@ -707,10 +707,18 @@ const lookupCache = new Map();
 
 async function cached(key, fn) {
   const hit = lookupCache.get(key);
-  if (hit && Date.now() - hit.at < CHANNEL_TTL_MS) return hit.value;
-  const value = await fn();
-  lookupCache.set(key, { at: Date.now(), value });
-  return value;
+  if (hit?.value !== undefined && Date.now() - hit.at < CHANNEL_TTL_MS) return hit.value;
+  if (hit?.pending) return hit.pending;
+  const pending = Promise.resolve().then(fn);
+  lookupCache.set(key, { at: 0, pending });
+  try {
+    const value = await pending;
+    lookupCache.set(key, { at: Date.now(), value });
+    return value;
+  } catch (err) {
+    if (lookupCache.get(key)?.pending === pending) lookupCache.delete(key);
+    throw err;
+  }
 }
 
 function clearLookupCache() {

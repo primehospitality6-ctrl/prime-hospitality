@@ -877,7 +877,9 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
     } catch (err) {
       console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
     }
-    if (!Object.keys(prices).length) {
+    const span = Math.round((Date.parse(`${window.to}T00:00:00Z`) - Date.parse(`${window.from}T00:00:00Z`)) / 86400000);
+    // A year-long calendar uses the rate grid already in memory. Total-stay is only for a short quote.
+    if (!Object.keys(prices).length && span > 0 && span <= 14) {
       let cursor = window.from;
       const priceEnd = window.to < addDays(window.from, PRICE_WINDOW_NIGHTS) ? window.to : addDays(window.from, PRICE_WINDOW_NIGHTS);
       while (cursor < priceEnd) {
@@ -1307,9 +1309,10 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
   }
 }
 
-/** Cash departments Kwentra assigned (Oct 2026). Tenant 394: 2 = cash EGP, 7 = cash USD. */
+/** Cash departments. Test tenant 394: EGP 2, USD 7. Production tenant 87: EGP 2, USD 3. */
 const CASH_DEPARTMENTS = {
   394: { USD: '7', EGP: '2' },
+  87: { USD: '3', EGP: '2' },
 };
 
 function departmentIdForCurrency(tenantId, currency) {
@@ -2240,6 +2243,81 @@ function onKwentraWebhook({ type, tenantId, body } = {}) {
   return { action: 'ignored', queued: false };
 }
 
+function syncEveryMinutes() {
+  const minutes = Number(process.env.KWENTRA_SYNC_MINUTES);
+  return Number.isFinite(minutes) && minutes >= 1 ? minutes : 3.5;
+}
+
+/** Load each tenant's rate grid into memory so a guest calendar does not wait on Kwentra. */
+async function warmRateGrid(report, fail) {
+  const compounds = await listCmsCompounds();
+  for (const target of tenantTargets(compounds)) {
+    try {
+      await kwentra.rateDefinitions(target.tenantId);
+      const priced = await applyDefinedRates(target.tenantId);
+      report.rates = { ...(report.rates || {}), [target.tenantId]: priced.updated };
+    } catch (err) {
+      fail(`rates — tenant ${target.tenantId}`, err);
+    }
+  }
+}
+
+/**
+ * Room types, occupancy, blocked nights, and the rate grid.
+ * Runs on a timer so a missed Sync click does not leave the calendar stale.
+ */
+async function scheduledSync() {
+  if (!kwentra.isConfigured() || syncState.running) return { ok: false, reason: syncState.running ? 'already_running' : 'not_configured' };
+  syncState.running = true;
+  syncState.lastTrigger = { reason: 'interval', at: new Date().toISOString() };
+  const report = {
+    ok: true,
+    kind: 'interval',
+    errors: [],
+    startedAt: new Date().toISOString(),
+    tenants: [],
+    units: { created: 0, updated: 0, unchanged: 0 },
+  };
+  const fail = (kind, err) => {
+    report.errors.push({ kind, message: err.message });
+    report.ok = false;
+  };
+  try {
+    const compounds = await listCmsCompounds();
+    for (const target of tenantTargets(compounds)) {
+      await syncTenant(target, compounds, report, fail);
+    }
+    try {
+      report.occupancy = await refreshRoomTypeOccupancies();
+    } catch (err) {
+      fail('occupancy', err);
+    }
+    await refreshAvailabilitySnapshots(report, fail);
+    await warmRateGrid(report, fail);
+  } catch (err) {
+    fail('interval', err);
+  } finally {
+    report.finishedAt = new Date().toISOString();
+    syncState.running = false;
+    syncState.last = report;
+    console.log(
+      `[kwentra] interval sync — ${report.availability?.refreshed ?? 0} room calendar(s), units +${report.units.created} ~${report.units.updated}${report.errors.length ? `, ${report.errors.length} error(s)` : ''}`
+    );
+  }
+  return report;
+}
+
+function startAutoSync() {
+  if (syncState.timer) clearInterval(syncState.timer);
+  const ms = syncEveryMinutes() * 60 * 1000;
+  syncState.timer = setInterval(() => {
+    scheduledSync().catch((err) => console.warn('[kwentra] interval sync failed:', err.message));
+  }, ms);
+  syncState.timer.unref?.();
+  console.log(`[kwentra] auto sync every ${syncEveryMinutes()} minutes`);
+  return { minutes: syncEveryMinutes() };
+}
+
 /** Fill room blocked-night snapshots once the API is up (webhooks alone are not enough). */
 async function warmAvailability() {
   if (!kwentra.isConfigured()) return { ok: false, reason: 'not_configured' };
@@ -2264,6 +2342,7 @@ async function warmAvailability() {
       console.warn('[kwentra] occupancy pull failed:', err.message);
     }
     await refreshAvailabilitySnapshots(report, fail);
+    await warmRateGrid(report, fail);
   } catch (err) {
     fail('availability', err);
   } finally {
@@ -2284,7 +2363,7 @@ async function syncStatus() {
   return {
     configured,
     running: syncState.running,
-    autoSyncMinutes: 0,
+    autoSyncMinutes: syncEveryMinutes(),
     last: syncState.last,
     lastTrigger: syncState.lastTrigger,
     loginPaused: kwentra.authStatus(),
@@ -2362,6 +2441,7 @@ module.exports = {
   syncStatus,
   syncFromKwentra,
   warmAvailability,
+  startAutoSync,
   onKwentraWebhook,
   syncReservationAvailability,
   patchRoomStay,

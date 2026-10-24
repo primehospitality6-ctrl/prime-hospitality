@@ -13,9 +13,9 @@ bootApp()
       // Pull blocked nights into memory so guest calendars work before the first webhook.
       setImmediate(() => {
         try {
-          require('./services/kwentraSync')
-            .warmAvailability()
-            .catch((err) => console.warn('[kwentra] boot availability failed:', err.message));
+          const sync = require('./services/kwentraSync');
+          sync.startAutoSync();
+          sync.warmAvailability().catch((err) => console.warn('[kwentra] boot availability failed:', err.message));
         } catch (err) {
           console.warn('[kwentra] boot availability skipped:', err.message);
         }

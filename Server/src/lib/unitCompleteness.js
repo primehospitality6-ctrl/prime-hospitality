@@ -35,15 +35,18 @@ function checkUnit(unit) {
   return { complete: missing.length === 0, missing };
 }
 
-/** Published by the admin and passes the completeness check */
+/** Published by the admin and passes the completeness check.
+ * A room type linked from Kwentra is shown as soon as it is published. Photos and size are added in admin. */
 function isLive(unit) {
-  return Boolean(unit) && unit.published !== false && checkUnit(unit).complete;
+  if (!unit || unit.published === false) return false;
+  if (String(unit.kwentraRoomTypeId || '').trim()) return true;
+  return checkUnit(unit).complete;
 }
 
 function withCompleteness(unit) {
   if (!unit) return unit;
   const completeness = checkUnit(unit);
-  return { ...unit, completeness, live: unit.published !== false && completeness.complete };
+  return { ...unit, completeness, live: isLive(unit) };
 }
 
 module.exports = {
