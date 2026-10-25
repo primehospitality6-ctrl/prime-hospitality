@@ -29,6 +29,7 @@ const PATHS = {
   roomTypes: ['KWENTRA_PATH_ROOM_TYPES', '/api/reservation/roomtype/'],
   roomType: ['KWENTRA_PATH_ROOM_TYPE', '/api/reservation/roomtype/:id/'],
   rooms: ['KWENTRA_PATH_ROOMS', '/api/reservation/room/v2/'],
+  roomRack: ['KWENTRA_PATH_ROOM_RACK', '/api/reservation/roomrack/'],
   availability: ['KWENTRA_PATH_AVAILABILITY', '/api/reservation/rooms/availability/:id/'],
   rates: ['KWENTRA_PATH_RATES', '/api/reservation/rate/v3/'],
   totalStay: ['KWENTRA_PATH_TOTAL_STAY', '/api/reservation/rate/v2/totalstay/'],
@@ -371,6 +372,15 @@ async function listRoomTypes({ tenantId } = {}) {
   });
 }
 
+/** Rooms on the Kwentra room rack. Inventory room types with no rack room cannot be booked. */
+async function listRoomRack({ tenantId } = {}) {
+  return listAll(pathFor('roomRack'), {
+    tenantId,
+    query: { per_page: 200 },
+    keys: ['results', 'rooms'],
+  });
+}
+
 /** Physical rooms; with from/to + vacantOnly → rooms free on every night from `from` to `to` (to = the last night, not departure) */
 async function listRooms({ tenantId, roomTypeId, from, to, vacantOnly = false } = {}) {
   const query = {};
@@ -552,13 +562,13 @@ async function fetchAvailability(roomTypeId, { from, to, tenantId } = {}) {
  * rebuild does not stop at the first page.
  */
 async function listBlockingReservations({ tenantId, from, to } = {}) {
+  // Production rejects include[] of room_nights.from_date / to_date ("not a valid field
+  // name") and drops the whole list. Those dates still come back on each night.
   const includes = [
     'state.name',
     'arrival_date',
     'departure_date',
     'room_nights.date',
-    'room_nights.from_date',
-    'room_nights.to_date',
     'room_nights.room_number',
     'room_nights.room_type',
     'room_nights.actual_room_type',
@@ -1473,6 +1483,7 @@ module.exports = {
   listAll,
   listRoomTypes,
   listRooms,
+  listRoomRack,
   getAvailability,
   collectAvailabilityDays,
   collapseInventoryDays,

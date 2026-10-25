@@ -147,14 +147,18 @@ function KwentraCard({ onChanged }) {
       {status?.configured ? (
         <div className="mt-4 space-y-1 text-sm text-prime-muted">
           <p>
-            Reservation changes patch blocked nights instantly both ways. Room types and the full-year calendar also
-            refresh automatically
-            {status.autoSyncMinutes ? ` every ${status.autoSyncMinutes} minutes` : ''}.
+            Every sync pulls Kwentra availability and blocked nights for every room type. That step always runs
+            {status.autoSyncMinutes ? `, every ${status.autoSyncMinutes} minutes` : ''}. Reservation changes patch
+            blocked nights as well.
           </p>
           <p>
             {last ? `Last sync ${formatTime(last.finishedAt)}` : 'No sync yet since the API started'}
             {status.lastTrigger ? ` · last trigger: ${status.lastTrigger.reason}` : ''}
-            {last?.availability?.refreshed != null ? ` · ${last.availability.refreshed} room calendar(s)` : ''}.
+            {last?.availability?.roomTypes != null
+              ? ` · availability ${last.availability.roomTypes}/${last.availability.roomTypesExpected ?? last.availability.roomTypes} room type(s)`
+              : last?.availability?.refreshed != null
+                ? ` · ${last.availability.refreshed} room calendar(s)`
+                : ''}.
           </p>
         </div>
       ) : null}
