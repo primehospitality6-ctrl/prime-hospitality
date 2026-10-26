@@ -29,29 +29,29 @@ const PMS_FIELDS = [
   { no: 17, key: 'rateCurrency', label: 'Rate Currency', type: 'Currency', required: true, source: 'listing' },
 ];
 
-/** Website only sells these two Kwentra rate families (map ids via KWENTRA_RATE_MAP). */
+/** Website only sells these two Kwentra rates, matched by their exact rate name. */
 const RATE_PLANS = [
   {
     code: 'BB',
-    name: 'Bed & Breakfast',
+    name: 'Bed and Breakfast',
     nameAr: 'إفطار وإقامة',
     description: 'Room with breakfast included.',
     descriptionAr: 'الغرفة مع الإفطار.',
     adjustmentPct: 0,
     minNights: 1,
     refundable: true,
-    kwentraNames: ['bb', 'bed and breakfast', 'bed & breakfast', 'b&b'],
+    kwentraNames: ['hotel website bb'],
   },
   {
     code: 'RO',
-    name: 'Room Only',
+    name: 'Room only',
     nameAr: 'غرفة فقط',
     description: 'Room only — meals not included.',
     descriptionAr: 'الغرفة فقط — بدون وجبات.',
     adjustmentPct: 0,
     minNights: 1,
     refundable: true,
-    kwentraNames: ['ro', 'room only', 'room-only', 'accommodation only'],
+    kwentraNames: ['hotel website bed only'],
   },
 ];
 
@@ -104,6 +104,13 @@ function todayIso() {
 
 function findRatePlan(code) {
   return RATE_PLANS.find((p) => p.code === String(code || '').toUpperCase()) || null;
+}
+
+/** Exact Kwentra rate name → website plan. Other channel rates are not sold. */
+function planCodeForKwentraRate(code) {
+  const name = String(code || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!name) return '';
+  return RATE_PLANS.find((plan) => (plan.kwentraNames || []).includes(name))?.code || '';
 }
 
 function ratePlansForStay(nights) {
@@ -286,6 +293,7 @@ module.exports = {
   countryName,
   nightsBetween,
   findRatePlan,
+  planCodeForKwentraRate,
   ratePlansForStay,
   priceStay,
   formatVoucher,

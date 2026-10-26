@@ -154,9 +154,16 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
           return [];
         });
       rates = offered;
+      const planPrices = {};
       let grid = null;
       try {
-        grid = await sync.pricesFromRateGrid(listing, arrivalDate, departureDate, { adults, children, tenantId });
+        const [bb, ro] = await Promise.all([
+          sync.pricesFromRateGrid(listing, arrivalDate, departureDate, { adults, children, tenantId, planCode: 'BB' }),
+          sync.pricesFromRateGrid(listing, arrivalDate, departureDate, { adults, children, tenantId, planCode: 'RO' }),
+        ]);
+        planPrices.BB = bb.prices || {};
+        planPrices.RO = ro.prices || {};
+        grid = bb;
       } catch (err) {
         console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
       }
@@ -166,6 +173,7 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
         blocked: availability.blocked,
         checkoutDates: availability.checkoutDates,
         prices: grid ? grid.prices : base ? sync.nightsToPrices(arrivalDate, base.nights) : {},
+        planPrices,
         currency: 'USD',
       };
     } catch (err) {
@@ -190,28 +198,32 @@ async function resolveStay(listing, arrivalDate, departureDate, { adults = 2, ch
     source: avail.source,
     occupied,
     prices,
+    planPrices: avail.planPrices || {},
     rates,
     currency: 'USD',
   };
 }
 
 /**
- * Price one website rate plan. A plan mapped to its own Kwentra rate (KWENTRA_RATE_MAP) uses that
- * rate's nightly amounts as-is; name-matched BB / Room Only rates count the same way.
+ * Price one website plan from its Hotel Website rate.
+ * Bed and Breakfast is Hotel Website BB. Room only is Hotel Website Bed Only.
  */
 function priceForPlan(plan, stay, listing, arrivalDate, departureDate) {
-  const mappedId = sync.mappedRateId(plan.code);
-  let mapped = mappedId && stay.rates?.find((r) => r.rateId === mappedId && r.quote > 0);
-  if (!mapped && stay.rates?.length) {
-    const picked = sync.pickRate(stay.rates, plan.code);
-    if (picked?.mapped) mapped = picked;
-  }
+  const picked = sync.pickRate(stay.rates, plan.code);
+  const fromGrid = stay.planPrices?.[plan.code];
+  const nightlyPrices = picked
+    ? sync.nightsToPrices(arrivalDate, picked.nights)
+    : fromGrid && Object.keys(fromGrid).length
+      ? fromGrid
+      : plan.code === 'BB'
+        ? stay.prices
+        : {};
   return pms.priceStay({
     arrivalDate,
     departureDate,
-    nightlyPrices: mapped ? sync.nightsToPrices(arrivalDate, mapped.nights) : stay.prices,
+    nightlyPrices,
     fallbackNightly: stay.source === 'kwentra' ? 0 : listing.pricePerNight,
-    ratePlan: mapped ? { ...plan, adjustmentPct: 0 } : plan,
+    ratePlan: { ...plan, adjustmentPct: 0 },
     currency: stay.currency,
   });
 }

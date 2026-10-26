@@ -372,53 +372,16 @@ function mappedRateId(planCode) {
   return id != null && id !== '' ? String(id) : '';
 }
 
-/** KWENTRA_RATE_NAMES="Website,BAR" — fallback rate codes when a plan has no map / name match */
-function websiteRateNames() {
-  return String(process.env.KWENTRA_RATE_NAMES || 'Website,BAR')
-    .split(',')
-    .map((n) => n.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-const rateNameRank = (rate) => {
-  const i = websiteRateNames().indexOf(String(rate?.rateCode || '').trim().toLowerCase());
-  return i < 0 ? Infinity : i;
-};
-
-function planNameHints(planCode) {
-  const plan = pms.findRatePlan(planCode);
-  return (plan?.kwentraNames || []).map((n) => String(n).toLowerCase());
-}
-
-function rateMatchesHints(rate, hints) {
-  if (!hints.length) return false;
-  const hay = `${rate?.rateCode || ''} ${rate?.name || ''} ${rate?.rateName || ''}`.toLowerCase();
-  return hints.some((h) => hay.includes(h));
-}
-
 /**
- * Kwentra rate a website plan is booked on: the plan's mapped rate, else a rate whose name
- * matches BB / Room Only, else KWENTRA_DEFAULT_RATE_ID → BB map → named Website/BAR → cheapest web.
+ * The Hotel Website rate for this plan. Another channel's rate is never used.
  */
 function pickRate(rates = [], planCode) {
-  const usable = rates.filter((r) => r.quote > 0);
-  const byId = (id) => (id ? usable.find((r) => r.rateId === String(id)) : null);
-  const cheapest = (list) => [...list].sort((a, b) => a.quote - b.quote)[0];
-  const own = byId(mappedRateId(planCode));
-  if (own) return { ...own, mapped: true };
-  const hints = planNameHints(planCode);
-  const byName = hints.length ? usable.find((r) => rateMatchesHints(r, hints)) : null;
-  if (byName) return { ...byName, mapped: true };
-  const named = [...usable].filter((r) => rateNameRank(r) < Infinity).sort((a, b) => rateNameRank(a) - rateNameRank(b))[0];
-  const base =
-    byId(process.env.KWENTRA_DEFAULT_RATE_ID) ||
-    byId(mappedRateId('BB')) ||
-    byId(mappedRateId('RO')) ||
-    named ||
-    cheapest(usable.filter((r) => r.onWeb)) ||
-    usable.find((r) => r.onChannel) ||
-    cheapest(usable);
-  return base ? { ...base, mapped: false } : null;
+  const code = String(planCode || '').toUpperCase();
+  const usable = rates.filter((rate) => rate.quote > 0 && pms.planCodeForKwentraRate(rate.rateCode) === code);
+  const mapped = mappedRateId(code);
+  const own = mapped ? usable.find((rate) => rate.rateId === mapped) : null;
+  const match = own || usable[0];
+  return match ? { ...match, mapped: true } : null;
 }
 
 const nightsToPrices = (arrivalDate, nights = []) =>
@@ -445,13 +408,17 @@ function coveringRow(rows, roomTypeId, date) {
   return hits[0] || null;
 }
 
+function ratesForPlan(definitions, planCode = 'BB') {
+  const code = String(planCode || 'BB').toUpperCase();
+  return (definitions || []).filter((definition) => (definition.plan || pms.planCodeForKwentraRate(definition.rateCode)) === code);
+}
+
 /**
- * The row of the rate the website sells for this night.
- * The web rate is tried first, then the other rates on the website channel.
+ * The row of the Hotel Website rate for this plan and night.
  */
-function rateRowForNight(definitions, roomTypeId, date) {
+function rateRowForNight(definitions, roomTypeId, date, planCode = 'BB') {
   let fallback = null;
-  for (const definition of definitions || []) {
+  for (const definition of ratesForPlan(definitions, planCode)) {
     const row = coveringRow(definition.rows, roomTypeId, date);
     if (!row) continue;
     const candidate = { row, rateId: definition.rateId, rateCode: definition.rateCode };
@@ -477,13 +444,14 @@ function guestAmount(row, adults, children) {
  * When nothing covers today, the latest row still defined for that room type —
  * so a leftover placeholder is not what the listing shows.
  */
-function cardAmount(definitions, roomTypeId, adults, today) {
-  const current = rateRowForNight(definitions, roomTypeId, today);
+function cardAmount(definitions, roomTypeId, adults, today, planCode = 'BB') {
+  const defs = ratesForPlan(definitions, planCode);
+  const current = rateRowForNight(defs, roomTypeId, today, planCode);
   if (current) {
     const amount = guestAmount(current.row, adults, 0);
     if (amount > 0) return amount;
   }
-  for (const definition of definitions || []) {
+  for (const definition of defs) {
     let best = null;
     for (const row of definition.rows || []) {
       if (!row.allTypes && !row.roomTypeIds.includes(String(roomTypeId))) continue;
@@ -507,7 +475,7 @@ function localToday() {
  * Prices for [arrival, departure) from Kwentra's rate grid.
  * A night with no row is left out — it is not given a made-up amount.
  */
-async function pricesFromRateGrid(listing, arrival, departure, { adults = 2, children = 0, tenantId } = {}) {
+async function pricesFromRateGrid(listing, arrival, departure, { adults = 2, children = 0, tenantId, planCode = 'BB' } = {}) {
   const roomTypeId = String(listing?.kwentraRoomTypeId || '');
   if (!roomTypeId || !arrival || !departure || arrival >= departure) return { prices: {}, occupancy: {}, rate: null };
   const definitions = await kwentra.rateDefinitions(tenantId);
@@ -515,7 +483,7 @@ async function pricesFromRateGrid(listing, arrival, departure, { adults = 2, chi
   const occupancy = {};
   let rate = null;
   for (let date = arrival; date < departure; date = addDays(date, 1)) {
-    const hit = rateRowForNight(definitions, roomTypeId, date);
+    const hit = rateRowForNight(definitions, roomTypeId, date, planCode);
     if (!hit) continue;
     occupancy[date] = { adults: hit.row.adults, children: hit.row.children };
     const amount = guestAmount(hit.row, adults, children);
@@ -532,16 +500,14 @@ function defaultChildAges(children) {
 }
 
 /**
- * Kwentra rates offered for this unit's room type over [arrival, departure).
- * When the tenant flags rates web=true, only those (plus explicitly mapped rates) are sold.
- * Returns [] when Kwentra has no rates for the period.
+ * Hotel Website BB and Hotel Website Bed Only for this room type over [arrival, departure).
+ * Returns [] when those rates have no price for the period.
  */
 async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, children = 0, tenantId, fresh = false } = {}) {
   const roomTypeId = String(listing?.kwentraRoomTypeId || '');
   if (!roomTypeId) return [];
   const tenant = tenantId ?? (await tenantForUnit(listing));
-  const [channel, webIds] = await Promise.all([kwentra.websiteChannel(tenant), kwentra.webRateIds(tenant)]);
-  const allowed = new Set([...webIds, ...Object.values(rateMap()).map(String), String(process.env.KWENTRA_DEFAULT_RATE_ID || '')]);
+  const channel = await kwentra.websiteChannel(tenant);
   const rates = await kwentra.quoteTotalStay({
     tenantId: tenant,
     arrivalDate,
@@ -551,15 +517,10 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
     channel: channel.id || undefined,
     fresh,
   });
-  const order = (r) => {
-    const i = channel.rateIds.indexOf(r.rateId);
-    return i < 0 ? Infinity : i;
-  };
   return rates
-    .filter((r) => r.roomTypeId === roomTypeId)
-    .filter((r) => !webIds.length || allowed.has(r.rateId) || rateNameRank(r) < Infinity)
-    .map((r) => ({ ...r, onWeb: webIds.includes(r.rateId), onChannel: channel.rateIds.includes(r.rateId) }))
-    .sort((a, b) => order(a) - order(b));
+    .filter((rate) => rate.roomTypeId === roomTypeId && pms.planCodeForKwentraRate(rate.rateCode))
+    .map((rate) => ({ ...rate, onWeb: true, onChannel: channel.rateIds.includes(rate.rateId) }))
+    .sort((a, b) => (pms.planCodeForKwentraRate(a.rateCode) === 'BB' ? 0 : 1) - (pms.planCodeForKwentraRate(b.rateCode) === 'BB' ? 0 : 1));
 }
 
 /* ——— Availability ——— */
@@ -1333,10 +1294,11 @@ async function pushReservation({ booking, listing, guestProfileId, ratePlan, rat
         adults: booking.adults,
         children: booking.children,
         tenantId,
+        planCode: ratePlan?.code,
       }).catch(() => null);
       if (grid?.rate?.rateId) rate = { ...grid.rate, mapped: false };
     }
-    const rateId = rate?.rateId || process.env.KWENTRA_DEFAULT_RATE_ID;
+    const rateId = rate?.rateId;
     if (!rateId) {
       return {
         pushed: false,

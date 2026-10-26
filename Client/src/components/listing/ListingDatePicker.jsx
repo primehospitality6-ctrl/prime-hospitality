@@ -250,6 +250,7 @@ export default function ListingDatePicker({
             localeTag={localeTag}
             allowPastDates={allowPastDates}
             showMonthLabel={monthCount > 1}
+            convert={convert}
           />
         ))}
       </div>
@@ -336,6 +337,7 @@ function Month({
   localeTag,
   allowPastDates = false,
   showMonthLabel = false,
+  convert,
 }) {
   const { t } = useLocale();
   const y = month.getFullYear();

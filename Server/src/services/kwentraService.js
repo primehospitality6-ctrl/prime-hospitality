@@ -21,6 +21,8 @@
  * Guest browser NEVER calls these — only our Node gateway does.
  */
 
+const { planCodeForKwentraRate } = require('../lib/pms');
+
 const DEFAULT_BASE = 'https://manage.kwentra.com';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -860,17 +862,6 @@ function normalizeRateDetail(row = {}) {
   };
 }
 
-function ratePreference(rate, webIds, channelRateIds) {
-  const code = String(rate?.code || rate?.rate_code || rate?.name || rate?.description || '').toLowerCase();
-  const id = String(rate?.id ?? '');
-  if (/bed\s*&?\s*breakfast|\bbb\b|\bb&b\b/.test(code)) return 0;
-  if (/room\s*-?\s*only|\bro\b/.test(code)) return 1;
-  if (webIds.includes(id)) return 2;
-  if (channelRateIds.includes(id)) return 3;
-  if (/\bbar\b|website|rack/.test(code)) return 4;
-  return 8;
-}
-
 async function fetchRateBody(id, tenant) {
   let last = null;
   for (const path of [`/api/reservation/rate/v2/${id}/`, `/api/reservation/rate/v3/${id}/`]) {
@@ -892,53 +883,51 @@ async function fetchRateBody(id, tenant) {
 }
 
 /**
- * Rate grids for a tenant. Prefer BB and Room Only, then web / website-channel rates,
- * then BAR. Demo tenants often price those rates without flagging them web=true,
- * so the full rate list is included when the channel list is thin.
- * Each row is the grid Kwentra shows: dates, room type, 1–6 adults, three child ranges.
+ * Rate grids the website sells: Hotel Website BB and Hotel Website Bed Only, in USD.
+ * Other channel rates (Agoda, Booking.com, BAR, and the rest) are not loaded.
  */
 async function rateDefinitions(tenantId) {
   const tenant = String(tenantId || getTenantId());
   return cached(`rate-grid:${tenant}`, async () => {
-    const [webIds, channel, listed] = await Promise.all([
-      webRateIds(tenant),
-      websiteChannel(tenant),
-      listRates({ tenantId: tenant }).catch((err) => {
-        console.warn('[kwentra] rate list failed:', err.message);
-        return [];
-      }),
-    ]);
-    const channelRateIds = channel.rateIds || [];
-    const ranked = [];
-    const push = (rate) => {
+    const listed = await listRates({ tenantId: tenant }).catch((err) => {
+      console.warn('[kwentra] rate list failed:', err.message);
+      return [];
+    });
+    const chosen = [];
+    for (const rate of listed) {
       const id = String(rate?.id ?? '');
-      if (!id || ranked.some((r) => r.id === id)) return;
-      ranked.push({ id, code: rate.code || rate.rate_code || rate.name || '', score: ratePreference(rate, webIds, channelRateIds) });
-    };
-    for (const id of [...webIds, ...channelRateIds]) push({ id });
-    for (const rate of listed) push(rate);
-    ranked.sort((a, b) => a.score - b.score || a.code.localeCompare(b.code));
+      const code = rate.code || rate.rate_code || rate.name || rate.description || '';
+      const plan = planCodeForKwentraRate(code);
+      if (!id || !plan || chosen.some((item) => item.id === id)) continue;
+      chosen.push({ id, code, plan });
+    }
 
     const definitions = [];
-    for (const item of ranked.slice(0, 24)) {
+    for (const item of chosen) {
       const loaded = await fetchRateBody(item.id, tenant);
       if (!loaded?.rate) continue;
       const rate = loaded.rate;
+      const code = rate.code || rate.rate_code || item.code || '';
+      const plan = planCodeForKwentraRate(code) || item.plan;
+      if (!plan) continue;
+      const currency = String(rate.currency?.code || rate.currency_code || (typeof rate.currency === 'string' ? rate.currency : '') || 'USD').toUpperCase();
+      if (currency && currency !== 'USD') continue;
       definitions.push({
         rateId: String(rate.id || item.id),
-        rateCode: rate.code || rate.rate_code || item.code || '',
-        onWeb: webIds.includes(String(rate.id || item.id)),
-        onChannel: channelRateIds.includes(String(rate.id || item.id)),
-        score: item.score,
+        rateCode: code,
+        plan,
+        onWeb: true,
+        onChannel: true,
+        score: plan === 'BB' ? 0 : 1,
         rows: (loaded.details || [])
           .map(normalizeRateDetail)
           .filter((row) => row.start && row.end && (row.allTypes || row.roomTypeIds.length)),
       });
     }
-    definitions.sort((a, b) => a.score - b.score);
-    const pushed = webhookRatePlans.get(tenant) || [];
-    const pushedIds = new Set(pushed.map((d) => d.rateId));
-    return [...pushed, ...definitions.filter((d) => !pushedIds.has(d.rateId))];
+    definitions.sort((a, b) => a.score - b.score || a.rateCode.localeCompare(b.rateCode));
+    const pushed = (webhookRatePlans.get(tenant) || []).filter((definition) => planCodeForKwentraRate(definition.rateCode));
+    const pushedIds = new Set(pushed.map((definition) => definition.rateId));
+    return [...pushed, ...definitions.filter((definition) => !pushedIds.has(definition.rateId))];
   });
 }
 
