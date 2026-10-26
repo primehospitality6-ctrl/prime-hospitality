@@ -6,7 +6,8 @@
  *
  * PULL on a timer (and on webhook):
  *  - Every sync reads each linked room type's availability. That step always runs.
- *  - Room-type notices → one published listing per unit type (physical rooms stay hidden)
+ *  - Room-type notices → one published listing per unit type that is on the room rack and has its own rate.
+ *    A type with no rate is never created, and an existing one is removed. A failed rack or rate read does not publish anything new.
  *  - Availability notices → blocked nights for that room type (avail 0)
  *  - Reservation notices → the matching website booking
  * LIVE:
@@ -1946,18 +1947,37 @@ function rackTypeName(row) {
   return norm(name);
 }
 
+/** Room type ids named on a rate row with a positive adult amount. A row that names no type does not price every type. */
+function pricedRoomTypeIds(definitions) {
+  const ids = new Set();
+  for (const definition of definitions || []) {
+    for (const row of definition.rows || []) {
+      if (!(row.adults || []).some((amount) => Number(amount) > 0)) continue;
+      for (const id of row.roomTypeIds || []) ids.add(String(id));
+    }
+  }
+  return ids;
+}
+
 /**
- * Room types that have at least one room on the Kwentra room rack.
- * Types that exist only in inventory are old and cannot be booked.
- * Throws when the rack cannot be read, so a failed call does not hide the site.
+ * Room types that are on the room rack and have a Kwentra rate.
+ * Inventory-only types, and rack types with no rate, cannot be booked.
+ * Throws when the rack or the rate grid cannot be read, so a failed call does not hide the site.
  */
 async function bookableRoomTypes(tenantId) {
-  const [rawTypes, rack] = await Promise.all([
+  const [rawTypes, rack, definitions] = await Promise.all([
     kwentra.listRoomTypes({ tenantId, fresh: true }),
     kwentra.listRoomRack({ tenantId }),
+    kwentra.rateDefinitions(tenantId),
   ]);
   if (!rack.length) {
     const err = new Error('Kwentra room rack returned no rooms');
+    err.status = 502;
+    throw err;
+  }
+  const priced = pricedRoomTypeIds(definitions);
+  if (!definitions.length || !priced.size) {
+    const err = new Error('Kwentra returned no room type rates');
     err.status = 502;
     throw err;
   }
@@ -1971,7 +1991,12 @@ async function bookableRoomTypes(tenantId) {
   }
   const types = rawTypes
     .map(normalizeRoomType)
-    .filter((type) => type.kwentraRoomTypeId && numbersByName.has(norm(type.title)));
+    .filter(
+      (type) =>
+        type.kwentraRoomTypeId &&
+        numbersByName.has(norm(type.title)) &&
+        priced.has(type.kwentraRoomTypeId)
+    );
   for (const type of types) {
     const numbers = numbersByName.get(norm(type.title)) || [];
     if (!numbers.length) continue;
@@ -1982,7 +2007,7 @@ async function bookableRoomTypes(tenantId) {
 }
 
 /**
- * Guests see one listing per room type that is on the room rack.
+ * Guests see one listing per room type that is on the room rack and has a rate.
  * Physical Kwentra rooms are unpublished. Photos and details that only lived on a room
  * are copied onto the type so the category stays bookable.
  */
@@ -2009,7 +2034,7 @@ async function showRoomTypesOnly() {
     const ofType = rooms.filter((u) => String(u.kwentraRoomTypeId) === typeId);
     const donor = ofType.slice().sort((a, b) => copyKeys.filter((key) => hasListingValue(b[key])).length - copyKeys.filter((key) => hasListingValue(a[key])).length)[0];
     let template = units.find((u) => !roomIdOf(u) && String(u.kwentraRoomTypeId) === typeId);
-    if (!template && donor && (!rackIds || rackIds.has(typeId))) {
+    if (!template && donor && rackIds?.has(typeId)) {
       const title = String(donor.title || '').replace(/\s·\s.*$/, '').trim() || donor.propertyType || donor.title;
       const saved = await updateUnit(donor.id, { kwentraRoomId: '', title, published: true });
       if (saved) {
@@ -2022,7 +2047,7 @@ async function showRoomTypesOnly() {
       for (const key of copyKeys) {
         if (!hasListingValue(template[key]) && hasListingValue(donor[key])) patch[key] = donor[key];
       }
-      if (template.published === false && (!rackIds || rackIds.has(typeId))) patch.published = true;
+      if (template.published === false && rackIds?.has(typeId)) patch.published = true;
       if (Object.keys(patch).length) {
         const saved = await updateUnit(template.id, patch);
         if (saved) Object.assign(template, saved);

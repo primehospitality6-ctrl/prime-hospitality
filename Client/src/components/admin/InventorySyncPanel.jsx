@@ -14,7 +14,6 @@ function formatTime(iso) {
 function KwentraCard({ onChanged }) {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState('');
-  const [syncing, setSyncing] = useState(false);
   const lastFinished = useRef(null);
   const onChangedRef = useRef(onChanged);
   onChangedRef.current = onChanged;
@@ -40,21 +39,6 @@ function KwentraCard({ onChanged }) {
     };
   }, []);
 
-  async function runSync() {
-    setSyncing(true);
-    setError('');
-    try {
-      const report = await api.adminKwentraSync();
-      setStatus((s) => ({ ...s, last: report, running: false, lastTrigger: { reason: 'admin', at: report.finishedAt } }));
-      onChangedRef.current?.();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSyncing(false);
-      api.adminKwentraStatus().then(setStatus).catch(() => {});
-    }
-  }
-
   const last = status?.last;
   const webhookUrl = status?.webhook ? status.webhook.url || `https://YOUR-API-DOMAIN${status.webhook.path}` : '';
   return (
@@ -63,28 +47,18 @@ function KwentraCard({ onChanged }) {
         <div>
           <h2 className="font-display text-lg font-bold">Kwentra PMS</h2>
           <p className="mt-1 max-w-xl text-sm text-prime-muted">
-            Every reservation change syncs both ways immediately. Room types, blocked nights, and rates also refresh
-            from Kwentra every few minutes, so the calendar stays current without Sync now.
+            Room types, blocked nights, and rates refresh from Kwentra on their own while the site is running.
+            Reservation changes sync both ways as they happen.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {status?.configured ? (
-            <button
-              type="button"
-              onClick={runSync}
-              disabled={syncing || status.running}
-              className="border border-prime-ink bg-prime-ink px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-prime-sand transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {syncing || status.running ? 'Syncing…' : 'Sync now'}
-            </button>
-          ) : null}
           <span
             className={cn(
               'border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
               status?.configured ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-prime-line bg-prime-mist text-prime-muted'
             )}
           >
-            {status ? (status.configured ? (status.running || syncing ? 'Syncing…' : 'Connected') : 'Not connected') : '…'}
+            {status ? (status.configured ? (status.running ? 'Syncing…' : 'Connected') : 'Not connected') : '…'}
           </span>
         </div>
       </div>

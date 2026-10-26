@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Bath, BedDouble, Eye, EyeOff, Globe, Home, LayoutGrid, Layers, List, Pencil, Plus, RefreshCw, Ruler, Star, Users } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Bath, BedDouble, Eye, EyeOff, Globe, Home, LayoutGrid, Layers, List, Pencil, Plus, Ruler, Star, Users } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, MoveButtons, reorderList } from '../../components/admin/AdminUi';
 import { Badge, ConfirmDialog, EmptyState, SearchInput, StatusChips, Tabs, useToast } from '../../components/admin/kit';
@@ -314,14 +314,9 @@ export default function AdminUnitsPage() {
         title="Unit types"
         lede={`${items.length} unit types · ${items.filter(STATUS.live).length} live · ${items.filter(STATUS.incomplete).length} incomplete (hidden until every field is filled). Details come from Kwentra; photos, visibility and ordering are website-only.`}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link to="/admin/sync" className="prime-btn-outline">
-              <RefreshCw size={14} /> Kwentra sync
-            </Link>
-            <button type="button" className="prime-btn" onClick={() => setEditor({ open: true, unit: null })}>
-              <Plus size={14} /> Add unit type
-            </button>
-          </div>
+          <button type="button" className="prime-btn" onClick={() => setEditor({ open: true, unit: null })}>
+            <Plus size={14} /> Add unit type
+          </button>
         }
       />
 
