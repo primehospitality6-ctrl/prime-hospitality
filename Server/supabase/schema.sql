@@ -190,6 +190,8 @@ alter table bookings add column if not exists kwentra_issue text;
 alter table bookings add column if not exists charge_amount numeric;
 alter table bookings add column if not exists charge_currency text;
 alter table bookings add column if not exists fx_rate numeric;
+alter table bookings add column if not exists locale text;
+alter table bookings add column if not exists confirmation_email_sent_at timestamptz;
 
 create index if not exists bookings_external_ref_idx on bookings (external_ref);
 

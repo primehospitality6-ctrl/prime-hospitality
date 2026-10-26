@@ -64,6 +64,7 @@ export default function DateRangePicker({
     const seed = checkin || checkout;
     return seed ? new Date(`${seed}T00:00:00`) : new Date();
   });
+  const [hoverIso, setHoverIso] = useState('');
   const isHero = variant === 'hero';
 
   useLayoutEffect(() => {
@@ -246,7 +247,10 @@ export default function DateRangePicker({
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center font-medium">
+        <div
+          className="prime-cal grid grid-cols-7 text-center font-medium"
+          onMouseLeave={() => setHoverIso('')}
+        >
           {(localeTag.startsWith('ar') ? WEEKDAYS_AR : WEEKDAYS).map((weekday) => (
             <span
               key={weekday}
@@ -259,13 +263,16 @@ export default function DateRangePicker({
           {calendarDays.map((day) => {
             const inCurrentMonth = day.getMonth() === calendarMonth.getMonth();
             const isDisabled = isBeforeDay(day, today);
+            const dayIso = toIsoLocal(day);
+            const endIso = checkout || (hoverIso > checkin ? hoverIso : '');
             const isSelectedStart = arriveDate && isSameDay(day, arriveDate);
             const isSelectedEnd = departDate && isSameDay(day, departDate);
-            const isInRange =
-              arriveDate &&
-              departDate &&
-              isAfterDay(day, arriveDate) &&
-              isBeforeDay(day, departDate);
+            const isInRange = Boolean(checkin && endIso && dayIso > checkin && dayIso < endIso);
+            const preview = !checkout && isInRange;
+            const isPreviewEnd = !checkout && hoverIso === dayIso && dayIso > checkin;
+            const nightsFromStart = checkin && dayIso > checkin
+              ? Math.round((new Date(`${dayIso}T00:00:00`) - new Date(`${checkin}T00:00:00`)) / 86_400_000)
+              : 0;
 
             return (
               <button
@@ -273,19 +280,47 @@ export default function DateRangePicker({
                 type="button"
                 disabled={isDisabled}
                 onClick={() => handleSelect(day)}
+                onMouseEnter={() => {
+                  if (checkin && !checkout && !isDisabled && arriveDate && isAfterDay(day, arriveDate)) setHoverIso(dayIso);
+                }}
                 className={[
-                  'mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[13px] transition-colors',
-                  isDisabled
-                    ? 'cursor-not-allowed text-prime-muted/35'
-                    : 'cursor-pointer text-prime-ink hover:bg-prime-mist',
+                  'relative flex h-10 w-full items-center justify-center overflow-hidden text-[13px]',
+                  isDisabled ? 'cursor-not-allowed text-prime-muted/35' : 'cursor-pointer text-prime-ink',
                   !inCurrentMonth ? 'opacity-35' : '',
-                  isInRange ? 'bg-prime-mist text-prime-ink' : '',
-                  isSelectedStart || isSelectedEnd
-                    ? 'bg-prime-ink font-bold text-prime-sand hover:bg-prime-ink'
-                    : '',
                 ].join(' ')}
               >
-                {day.getDate()}
+                {isInRange && (
+                  <span
+                    aria-hidden
+                    className={`pointer-events-none absolute inset-y-1 inset-x-0 ${
+                      preview ? 'bg-prime-gold/20' : 'bg-prime-gold/35 animate-[primeStayFill_0.5s_var(--prime-ease)_both]'
+                    }`}
+                    style={
+                      preview
+                        ? undefined
+                        : {
+                            animationDelay: `${Math.min(nightsFromStart, 24) * 36}ms`,
+                            transformOrigin: localeTag.startsWith('ar') ? 'right center' : 'left center',
+                          }
+                    }
+                  />
+                )}
+                {isSelectedStart && endIso ? (
+                  <span aria-hidden className="pointer-events-none absolute inset-y-1 start-1/2 end-0 bg-prime-gold/35" />
+                ) : null}
+                {(isSelectedEnd || isPreviewEnd) && checkin ? (
+                  <span aria-hidden className={`pointer-events-none absolute inset-y-1 start-0 end-1/2 ${preview || isPreviewEnd ? 'bg-prime-gold/20' : 'bg-prime-gold/35'}`} />
+                ) : null}
+                <span
+                  className={[
+                    'relative z-[1] flex h-8 w-8 items-center justify-center rounded-full',
+                    !isDisabled && !isSelectedStart && !isSelectedEnd ? 'hover:bg-prime-mist' : '',
+                    isSelectedStart || isSelectedEnd ? 'bg-prime-ink font-bold text-prime-sand' : '',
+                    isPreviewEnd ? 'ring-2 ring-prime-gold' : '',
+                  ].join(' ')}
+                >
+                  {day.getDate()}
+                </span>
               </button>
             );
           })}

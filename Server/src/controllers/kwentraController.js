@@ -35,10 +35,6 @@ function pmsRoomTypeId(listing, explicit) {
   );
 }
 
-function pmsProfileId(listing, explicit) {
-  return explicit || listing?.kwentraProfileId || null;
-}
-
 /** PULL units: Kwentra details + CMS Drive photos */
 async function getUnits(req, res, next) {
   try {
@@ -298,8 +294,9 @@ function publicBooking(b) {
 
 /**
  * POST /api/book-direct
- * Website booking engine → validates every PMS data field, holds in Kwentra (when configured),
- * stores the booking and opens an embedded payment session. Guest never leaves our React app.
+ * Website booking engine → validates every PMS data field, stores a pending booking,
+ * and opens payment. Kwentra gets the reservation only after payment succeeds, so unpaid
+ * checkouts never hold or block nights.
  */
 async function bookDirect(req, res, next) {
   try {
@@ -399,6 +396,7 @@ async function bookDirect(req, res, next) {
       averageNightlyRate: quote.averageNightlyRate,
       rateCurrency: quote.currency,
       notes: value.notes || null,
+      locale: req.body?.locale === 'ar' ? 'ar' : 'en',
       pricePerNight: listing.pricePerNight,
       externalRef,
       kwentraReservationId: null,
@@ -412,63 +410,11 @@ async function bookDirect(req, res, next) {
       currency: quote.currency,
     };
 
-    let kwentraGuest = null;
-    let kwentraReservationPush = null;
-
-    // Kwentra must accept an ON_HOLD reservation (nights blocked, not confirmed) before Paymob opens.
-    // Payment confirms that same reservation. A refusal never starts payment.
     if (!kwentra.isConfigured() || !sync.isLinked(listing)) {
       return res.status(422).json({
         code: 'kwentra_rejected',
         error: 'Kwentra did not accept this reservation',
       });
-    }
-    if (kwentra.isConfigured() && sync.isLinked(listing)) {
-      const tenantId = await sync.tenantForUnit(listing);
-      try {
-        kwentraGuest = await kwentra.sendGuestFromWebsite(
-          {
-            profileId: req.body?.profileId || null,
-            name: booking.primaryGuestName,
-            email: booking.email,
-            phone: booking.phone,
-            notes: [`Voucher: ${voucherNumber}`, `Unit: ${listing.title}`, booking.notes || '']
-              .filter(Boolean)
-              .join(' | '),
-            nationality: booking.nationality || booking.reservationCountry,
-            country: booking.reservationCountry,
-            address: '',
-            city: listing.city || '',
-          },
-          { tenantId }
-        );
-      } catch (err) {
-        console.warn('[kwentra] guest profile push failed:', err.message);
-        kwentraGuest = { action: 'failed', error: err.message };
-      }
-
-      const profileId = kwentraGuest?.profile?.id ?? pmsProfileId(listing, req.body?.profileId);
-      booking.kwentraProfileId = profileId != null ? String(profileId) : null;
-
-      kwentraReservationPush = await sync.pushReservation({
-        booking,
-        listing,
-        guestProfileId: booking.kwentraProfileId,
-        ratePlan: value.ratePlan,
-        rates: stay.rates,
-        hold: true,
-      });
-      if (!kwentraReservationPush.pushed) {
-        console.warn('[kwentra] reservation push failed:', kwentraReservationPush.error || kwentraReservationPush.reason);
-        return res.status(422).json({
-          code: 'kwentra_rejected',
-          conflict: Boolean(kwentraReservationPush.conflict),
-          error: kwentraReservationPush.error || 'Kwentra did not accept this reservation',
-        });
-      }
-      booking.kwentraReservationId = kwentraReservationPush.reservationId || null;
-      booking.kwentraAccountId = kwentraReservationPush.accountId || null;
-      booking.status = 'pending_payment';
     }
 
     let paymentSession;
@@ -480,16 +426,10 @@ async function bookDirect(req, res, next) {
         billing: { name: booking.primaryGuestName, email: booking.email, phone: booking.phone },
       });
     } catch (err) {
-      console.warn('[payment] session failed after Kwentra hold:', err.message);
-      if (booking.kwentraReservationId) {
-        const tenantId = await sync.tenantForUnit(listing);
-        await kwentra.cancelReservation(booking.kwentraReservationId, 'Payment could not be opened', { tenantId }).catch((cancelErr) => {
-          console.warn('[kwentra] could not release the hold:', cancelErr.message);
-        });
-      }
+      console.warn('[payment] session failed:', err.message);
       return res.status(422).json({
         code: 'kwentra_rejected',
-        error: 'Kwentra did not accept this reservation',
+        error: 'Payment could not be opened',
       });
     }
 
@@ -504,21 +444,8 @@ async function bookDirect(req, res, next) {
       pms: pms.toPmsRows(booking),
       payment: paymentSession,
       kwentra: {
-        guest: kwentraGuest
-          ? {
-              action: kwentraGuest.action,
-              profileId: kwentraGuest.profile?.id || null,
-              error: kwentraGuest.error || null,
-            }
-          : null,
-        reservation: kwentraReservationPush
-          ? {
-              pushed: Boolean(kwentraReservationPush.pushed),
-              reservationId: kwentraReservationPush.reservationId || null,
-              reason: kwentraReservationPush.reason || null,
-              error: kwentraReservationPush.error || null,
-            }
-          : null,
+        guest: null,
+        reservation: null,
       },
       experience: {
         zeroRedirect: true,

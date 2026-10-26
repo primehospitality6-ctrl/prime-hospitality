@@ -280,6 +280,8 @@ function bookingFromRow(row) {
     chargeAmount: row.charge_amount != null ? num(row.charge_amount) : null,
     chargeCurrency: row.charge_currency || null,
     fxRate: row.fx_rate != null ? num(row.fx_rate) : null,
+    locale: row.locale === 'ar' ? 'ar' : 'en',
+    confirmationEmailSentAt: row.confirmation_email_sent_at || null,
   };
 }
 
@@ -330,6 +332,8 @@ function bookingToRow(b) {
     charge_amount: b.chargeAmount ?? null,
     charge_currency: b.chargeCurrency || null,
     fx_rate: b.fxRate ?? null,
+    locale: b.locale === 'ar' ? 'ar' : 'en',
+    confirmation_email_sent_at: b.confirmationEmailSentAt || null,
   };
 }
 

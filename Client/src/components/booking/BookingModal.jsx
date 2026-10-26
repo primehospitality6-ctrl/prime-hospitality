@@ -56,7 +56,7 @@ export default function BookingModal({
   onBooked,
   onDatesTaken,
 }) {
-  const { t, term } = useLocale();
+  const { t, term, locale } = useLocale();
   const { format, refresh } = useCurrency();
   useEffect(() => {
     if (open) refresh(true);
@@ -378,6 +378,7 @@ export default function BookingModal({
         email: guest.email.trim(),
         phone: guest.phone.trim(),
         notes: guest.notes.trim(),
+        locale,
       });
       setResult(res);
       setProblem(false);

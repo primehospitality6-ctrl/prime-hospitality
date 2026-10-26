@@ -339,6 +339,7 @@ function Month({
   showMonthLabel = false,
   convert,
 }) {
+  const [hoverIso, setHoverIso] = useState('');
   const { t } = useLocale();
   const y = month.getFullYear();
   const mo = month.getMonth();
@@ -347,6 +348,10 @@ function Month({
   const startDay = (first.getDay() + 6) % 7;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const startIso = value.start ? dateToIso(value.start) : '';
+  const endIso = value.end ? dateToIso(value.end) : '';
+  const activeEndIso = endIso || (hoverIso > startIso ? hoverIso : '');
+  const rangeOrigin = localeTag?.startsWith('ar') ? 'right center' : 'left center';
 
   const cells = [];
   for (let i = 0; i < startDay; i += 1) {
@@ -381,7 +386,10 @@ function Month({
 
     const isStart = value.start && +date === +value.start;
     const isEnd = value.end && +date === +value.end;
-    const between = value.start && value.end && date > value.start && date < value.end;
+    const between = Boolean(startIso && activeEndIso && iso > startIso && iso < activeEndIso);
+    const preview = !endIso && between;
+    const isPreviewEnd = !endIso && hoverIso === iso && iso > startIso;
+    const nightsFromStart = value.start ? Math.max(0, Math.round((+date - +value.start) / 86_400_000)) : 0;
     const disabled = pastLocked || (choosingCheckout ? !validCheckout : blocked || violatesMin);
     const showPrice = !pastLocked && !blocked && dailyPrices?.[iso] != null;
     const price = showPrice ? convert(dailyPrices[iso]) : undefined;
@@ -391,6 +399,9 @@ function Month({
         type="button"
         key={d}
         onClick={() => !disabled && onPick(date)}
+        onMouseEnter={() => {
+          if (choosingCheckout && validCheckout) setHoverIso(iso);
+        }}
         disabled={disabled}
         title={
           turnoverOpen
@@ -402,17 +413,17 @@ function Month({
                 : undefined
         }
         className={cn(
-          'group relative flex min-h-[4.1rem] flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-center transition duration-200',
+          'group relative flex min-h-[4.1rem] flex-col items-center justify-center gap-0.5 overflow-hidden px-0.5 py-1.5 text-center transition duration-200',
           pastLocked && 'cursor-not-allowed text-prime-muted/30',
           !pastLocked && !disabled && !isStart && !isEnd && !between && 'cursor-pointer hover:bg-prime-gold/15',
           blocked && 'cursor-not-allowed text-prime-muted/40',
           violatesMin && !blocked && 'cursor-not-allowed bg-prime-mist/50 text-prime-muted/35',
-          between && 'bg-prime-gold/22 text-prime-ink',
           (isStart || isEnd) && 'z-[1] bg-prime-ink text-prime-sand',
           isStart && value.end && 'rounded-s-2xl',
           isEnd && value.start && 'rounded-e-2xl',
           isStart && !value.end && 'rounded-2xl animate-[primeDayPop_0.35s_var(--prime-ease)_both]',
           isEnd && 'animate-[primeDayPop_0.35s_var(--prime-ease)_both]',
+          isPreviewEnd && 'ring-2 ring-inset ring-prime-gold',
           choosingCheckout &&
             validCheckout &&
             !isStart &&
@@ -422,6 +433,23 @@ function Month({
           turnoverOpen && !isStart && !isEnd && !between && 'ring-2 ring-inset ring-prime-gold/55'
         )}
       >
+        {between && (
+          <span
+            aria-hidden
+            className={cn(
+              'pointer-events-none absolute inset-0',
+              preview ? 'bg-prime-gold/25' : 'bg-prime-gold/40 animate-[primeStayFill_0.55s_var(--prime-ease)_both]'
+            )}
+            style={
+              preview
+                ? undefined
+                : {
+                    animationDelay: `${Math.min(nightsFromStart, 24) * 42}ms`,
+                    transformOrigin: rangeOrigin,
+                  }
+            }
+          />
+        )}
         {blocked && (
           <span
             aria-hidden
@@ -446,7 +474,7 @@ function Month({
         )}
         <span
           className={cn(
-            'relative text-[14px] font-semibold leading-none tabular-nums',
+            'relative text-[14px] font-semibold leading-none tabular-nums z-[1]',
             pastLocked && 'line-through',
             blocked && 'text-prime-muted/50',
             (isStart || isEnd) && 'text-prime-sand'
@@ -461,8 +489,8 @@ function Month({
         ) : price !== undefined ? (
           <span
             className={cn(
-              'relative text-[11px] font-medium leading-none tracking-wide tabular-nums',
-              isStart || isEnd ? 'text-prime-sand/80' : between ? 'text-prime-gold-deep' : 'text-prime-muted'
+              'relative z-[1] text-[11px] font-medium leading-none tracking-wide tabular-nums',
+              isStart || isEnd ? 'text-prime-sand/80' : between ? 'text-prime-ink' : 'text-prime-muted'
             )}
           >
             {compactPrice(price)}
@@ -496,7 +524,7 @@ function Month({
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-7 overflow-hidden rounded-2xl bg-prime-surface ring-1 ring-prime-line/80">{cells}</div>
+      <div className="grid grid-cols-7 overflow-hidden rounded-2xl bg-prime-surface ring-1 ring-prime-line/80" onMouseLeave={() => setHoverIso('')}>{cells}</div>
     </div>
   );
 }

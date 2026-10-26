@@ -578,6 +578,7 @@ async function updateBooking(id, patch) {
   if (patch.kwentraIssue !== undefined) row.kwentra_issue = patch.kwentraIssue || null;
   if (patch.kwentraProfileId !== undefined) row.kwentra_profile_id = patch.kwentraProfileId;
   if (patch.kwentraAccountId !== undefined) row.kwentra_account_id = patch.kwentraAccountId;
+  if (patch.confirmationEmailSentAt !== undefined) row.confirmation_email_sent_at = patch.confirmationEmailSentAt;
   if (!UUID_RE.test(String(id))) return null;
   return bookingFromRow(await updateRow('bookings', id, row));
 }
