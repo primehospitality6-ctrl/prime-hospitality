@@ -9,9 +9,6 @@ function preferredCurrency() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return saved.toUpperCase();
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    const lang = navigator.language || '';
-    if (tz === 'Africa/Cairo' || /^ar/i.test(lang)) return 'EGP';
   } catch {
     /* private mode */
   }

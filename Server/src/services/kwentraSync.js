@@ -25,6 +25,7 @@ const {
   listDestinations: listCmsDestinations,
   findUnit,
   updateUnit,
+  deleteUnit,
   createUnit,
   createCompound,
   updateCompound,
@@ -1996,6 +1997,7 @@ async function showRoomTypesOnly() {
     }
   } catch (err) {
     console.warn('[kwentra] room rack lookup failed:', err.message);
+    rackIds = null;
   }
   const units = await listCmsUnits();
   const rooms = units.filter((u) => roomIdOf(u) && u.kwentraRoomTypeId);
@@ -2035,13 +2037,11 @@ async function showRoomTypesOnly() {
       hidden += 1;
     }
   }
-  if (rackIds) {
+  if (rackIds?.size) {
     for (const unit of units) {
-      if (roomIdOf(unit)) continue;
       const typeId = String(unit.kwentraRoomTypeId || '').trim();
-      if (!typeId || rackIds.has(typeId) || unit.published === false) continue;
-      const saved = await updateUnit(unit.id, { published: false });
-      if (saved) unit.published = false;
+      if (!typeId || rackIds.has(typeId)) continue;
+      await deleteUnit(unit.id);
       hidden += 1;
     }
   }
@@ -2134,14 +2134,13 @@ async function syncTenant(target, compounds, report, fail) {
     }
   }
 
-  for (const unit of units) {
-    if (roomIdOf(unit)) continue;
-    const typeId = String(unit.kwentraRoomTypeId || '').trim();
-    if (!typeId || rackIds.has(typeId) || unit.published === false) continue;
-    const saved = await updateUnit(unit.id, { published: false });
-    if (saved) Object.assign(unit, saved);
-    else unit.published = false;
-    report.units.updated += 1;
+  if (rackIds.size) {
+    for (const unit of units) {
+      const typeId = String(unit.kwentraRoomTypeId || '').trim();
+      if (!typeId || rackIds.has(typeId)) continue;
+      await deleteUnit(unit.id);
+      report.units.updated += 1;
+    }
   }
 }
 
