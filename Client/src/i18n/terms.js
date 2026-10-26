@@ -14,9 +14,10 @@ export function setActiveLocale(locale) {
   activeLocale = locale;
 }
 
-export function currencyLabel(_code = 'USD') {
-  // Website displays USD only.
-  return activeLocale === 'ar' ? CURRENCY_AR.USD : 'USD';
+export function currencyLabel(code = 'USD') {
+  const c = String(code || 'USD').toUpperCase();
+  if (activeLocale === 'ar') return CURRENCY_AR[c] || c;
+  return c;
 }
 
 const EXACT_EN_AR = {

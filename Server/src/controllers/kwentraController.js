@@ -278,6 +278,9 @@ function publicBooking(b) {
     amount: b.rateAmount,
     rateCurrency: b.rateCurrency,
     currency: b.rateCurrency,
+    chargeAmount: b.chargeAmount ?? null,
+    chargeCurrency: b.chargeCurrency || null,
+    fxRate: b.fxRate ?? null,
   };
 }
 
@@ -477,6 +480,10 @@ async function bookDirect(req, res, next) {
         error: 'Kwentra did not accept this reservation',
       });
     }
+
+    booking.chargeAmount = paymentSession.chargeAmount ?? null;
+    booking.chargeCurrency = paymentSession.chargeCurrency || null;
+    booking.fxRate = paymentSession.fxRate ?? null;
 
     const saved = await createBooking(booking);
 

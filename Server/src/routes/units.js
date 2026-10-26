@@ -8,6 +8,25 @@ const { publicProperty } = sync;
 const router = Router();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
+/** Published catalog. A short memory cache keeps a burst of browsers off Postgres. */
+const CATALOG_MS = 15_000;
+let catalog = { at: 0, promise: null };
+
+function publicCatalog() {
+  if (catalog.promise && Date.now() - catalog.at < CATALOG_MS) return catalog.promise;
+  catalog.at = Date.now();
+  catalog.promise = getPublicUnits({ publishedOnly: true }).catch((err) => {
+    catalog.promise = null;
+    catalog.at = 0;
+    throw err;
+  });
+  return catalog.promise;
+}
+
+function byOrder(field) {
+  return (a, b) => (Number(a[field]) || 0) - (Number(b[field]) || 0);
+}
+
 /** Room numbers, Drive links and sync bookkeeping are for staff only */
 function publicUnit(unit) {
   const { unitNumbers: _n, kwentraSnapshot: _s, driveFolderUrl: _d, completeness: _c, live: _l, ...rest } = unit;
@@ -66,7 +85,8 @@ router.get(
   wrap(async (req, res) => {
     const featuredOnly = req.query.featured === true || req.query.featured === 'true';
     // Kwentra details reach the store via the background sync, so listings never wait on the PMS
-    let items = await getPublicUnits({ featuredOnly, publishedOnly: true });
+    let items = [...(await publicCatalog())];
+    items.sort(byOrder(featuredOnly ? 'homeOrder' : 'searchOrder'));
 
     items = items.filter((l) => matchesFilters(l, req.query));
     if (featuredOnly) items = items.filter((l) => l.featured);
@@ -75,6 +95,7 @@ router.get(
     const limit = req.query.limit ? Number(req.query.limit) : items.length;
     const offset = req.query.offset ? Number(req.query.offset) : 0;
     items = items.slice(offset, offset + limit).map(publicUnit);
+    res.set('Cache-Control', 'public, max-age=15');
     res.json({ items, total });
   })
 );
@@ -94,6 +115,7 @@ router.get(
       console.warn('[availability]', item.slug, err.message);
       avail = { source: 'kwentra-unreachable', blocked: [], checkoutDates: [] };
     }
+    res.set('Cache-Control', 'no-store');
     res.json({
       id: item.id,
       slug: item.slug,
@@ -127,6 +149,7 @@ router.get(
       avail = { source: 'kwentra-unreachable', prices: {}, currency: 'USD' };
     }
     const { rows } = buildPricing(item, from, to);
+    res.set('Cache-Control', 'no-store');
     res.json({
       id: item.id,
       slug: item.slug,
@@ -154,6 +177,7 @@ router.get(
     if (read.source === 'kwentra' && JSON.stringify(occupancies) !== JSON.stringify(normalizeOccupancies(item.occupancies))) {
       updateUnit(item.id, { occupancies, maxGuests }).catch((err) => console.warn('[occupancy] save failed', err.message));
     }
+    res.set('Cache-Control', 'no-store');
     res.json({ slug: item.slug, source: read.source, occupancies, maxGuests });
   })
 );

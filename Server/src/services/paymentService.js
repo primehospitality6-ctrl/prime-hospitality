@@ -3,15 +3,16 @@
  * NEVER return a top-level redirect URL for the guest to leave our domain.
  * Paymob iframe is rendered inside PaymentModal on our React app.
  *
- * Site amounts are usually USD. Paymob can charge USD (if the integration is USD)
- * or the live EGP equivalent (PAYMOB_CURRENCY=EGP).
+ * Site amounts are USD. Paymob charges EGP only. Each booking reads Kwentra's
+ * currency factor again and charges USD × that factor. No other rate is used.
  */
 
 const https = require('https');
 const crypto = require('crypto');
+const kwentra = require('./kwentraService');
 
 const PAYMOB_BASE = process.env.PAYMOB_BASE_URL || 'https://accept.paymob.com/api';
-/** Guest website is USD-only. Paymob may still charge EGP via PAYMOB_CURRENCY. */
+/** Rates on the website are USD. Paymob's charge is always EGP. */
 const SITE_CURRENCY = 'USD';
 
 function isPaymobConfigured() {
@@ -32,10 +33,9 @@ function activeProvider() {
   return 'mock';
 }
 
-/** Currency the Paymob integration is set up for (USD or EGP). Defaults to USD. */
+/** Paymob accepts EGP only. */
 function paymobChargeCurrency() {
-  const v = String(process.env.PAYMOB_CURRENCY || 'USD').toUpperCase();
-  return v === 'EGP' ? 'EGP' : 'USD';
+  return 'EGP';
 }
 
 function requestJson(method, urlString, body, headers = {}) {
@@ -73,54 +73,10 @@ function requestJson(method, urlString, body, headers = {}) {
   });
 }
 
-function getJson(urlString) {
-  return requestJson('GET', urlString);
-}
-
 /**
- * Live FX: 1 unit of `from` in `to`. Cached briefly.
- * Override with PAYMOB_USD_EGP_RATE (fixed) or PAYMOB_FX_URL.
+ * EGP Paymob will charge for this stay. The factor is read from Kwentra at this moment.
+ * A missing factor fails the payment instead of using another source.
  */
-const fxCache = { at: 0, rate: null };
-const FX_TTL_MS = 30 * 60_000;
-
-async function exchangeRate(from, to) {
-  const a = String(from).toUpperCase();
-  const b = String(to).toUpperCase();
-  if (a === b) return 1;
-
-  const fixed = Number(process.env.PAYMOB_USD_EGP_RATE);
-  if (a === 'USD' && b === 'EGP' && Number.isFinite(fixed) && fixed > 0) return fixed;
-  if (a === 'EGP' && b === 'USD' && Number.isFinite(fixed) && fixed > 0) return 1 / fixed;
-
-  if (fxCache.rate && Date.now() - fxCache.at < FX_TTL_MS && fxCache.from === a && fxCache.to === b) {
-    return fxCache.rate;
-  }
-
-  const custom = process.env.PAYMOB_FX_URL;
-  let rate;
-  if (custom) {
-    const url = custom.replace('{from}', a).replace('{to}', b);
-    const { data, status } = await getJson(url);
-    if (status >= 400) throw new Error(`FX lookup failed: ${status}`);
-    rate = Number(data?.rate ?? data?.rates?.[b] ?? data?.result);
-  } else {
-    // Frankfurter (ECB) — free, no key
-    const { data, status } = await getJson(`https://api.frankfurter.app/latest?from=${a}&to=${b}`);
-    if (status >= 400 || !data?.rates?.[b]) {
-      throw new Error(`FX lookup failed: ${JSON.stringify(data)}`);
-    }
-    rate = Number(data.rates[b]);
-  }
-  if (!(rate > 0)) throw new Error(`Invalid FX rate ${a}→${b}`);
-  fxCache.at = Date.now();
-  fxCache.from = a;
-  fxCache.to = b;
-  fxCache.rate = rate;
-  return rate;
-}
-
-/** Convert booking amount into what Paymob will charge. */
 async function amountForPaymob(amount, bookingCurrency) {
   const from = String(bookingCurrency || SITE_CURRENCY).toUpperCase();
   const to = paymobChargeCurrency();
@@ -138,14 +94,14 @@ async function amountForPaymob(amount, bookingCurrency) {
     };
   }
 
-  const fxRate = await exchangeRate(from, to);
-  const chargeAmount = Math.round(value * fxRate * 100) / 100;
+  const quote = await kwentra.currencyRate({ from, to, fresh: true });
+  const chargeAmount = Math.round(value * quote.rate * 100) / 100;
   return {
     chargeAmount,
     chargeCurrency: to,
     displayAmount: value,
     displayCurrency: from,
-    fxRate,
+    fxRate: quote.rate,
     converted: true,
   };
 }
@@ -300,14 +256,25 @@ async function initializeStripeEmbedded({ amount, merchantOrderId, billing, curr
 }
 
 /** Dev / offline: mock embedded session so UI can be tested without gateways */
-function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE_CURRENCY }) {
+async function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE_CURRENCY }) {
+  let priced = null;
+  try {
+    priced = await amountForPaymob(amount, currency);
+  } catch (err) {
+    console.warn('[payment] Kwentra exchange rate unavailable:', err.message);
+  }
+  const displayCurrency = String(currency || SITE_CURRENCY).toUpperCase();
   return {
     provider: 'mock',
     mode: 'embedded_mock',
-    amountCents: Math.round(Number(amount) * 100),
-    currency: String(currency || SITE_CURRENCY).toUpperCase(),
+    amountCents: priced ? Math.round(Number(priced.chargeAmount) * 100) : Math.round(Number(amount) * 100),
+    currency: priced?.chargeCurrency || displayCurrency,
     displayAmount: Number(amount),
-    displayCurrency: String(currency || SITE_CURRENCY).toUpperCase(),
+    displayCurrency,
+    chargeAmount: priced?.chargeAmount ?? null,
+    chargeCurrency: priced?.chargeCurrency || null,
+    fxRate: priced?.fxRate ?? null,
+    converted: Boolean(priced?.converted),
     merchantOrderId,
     providerOrderId: `mock_${merchantOrderId}`,
     iframeSrc: null,

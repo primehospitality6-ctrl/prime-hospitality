@@ -36,7 +36,7 @@ async function checkTenant(tenantId) {
   let roomTypes = [];
 
   const ok = await step('room types', async () => {
-    roomTypes = await kwentra.listRoomTypes({ tenantId });
+    roomTypes = await kwentra.listRoomTypes({ tenantId, fresh: true });
     if (roomTypes[0]) console.log(`    fields: ${Object.keys(roomTypes[0]).join(', ')}`);
     return `${roomTypes.length} → ${roomTypes.slice(0, 10).map((t) => `${t.id}:${t.room_type || t.name || t.code}`).join(', ')}`;
   });

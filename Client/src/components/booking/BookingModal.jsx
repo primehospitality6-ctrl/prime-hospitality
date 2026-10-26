@@ -4,7 +4,8 @@ import { ArrowLeft, ArrowRight, Check, Loader2, MessageCircle, X } from 'lucide-
 import api from '../../api/client';
 import { kwentraApi } from '../../services/api';
 import { GUEST_AVAILABILITY_MONTHS } from '../../constants/availability';
-import { formatMoney, whatsappHref } from '../../theme/brand';
+import { whatsappHref } from '../../theme/brand';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useLocale } from '../../context/LocaleContext';
 import { findBrand, useBrands } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
@@ -56,6 +57,10 @@ export default function BookingModal({
   onDatesTaken,
 }) {
   const { t, term } = useLocale();
+  const { format, refresh } = useCurrency();
+  useEffect(() => {
+    if (open) refresh(true);
+  }, [open, refresh]);
   const brands = useBrands();
   const brandMinNights = Math.max(
     1,
@@ -428,7 +433,7 @@ export default function BookingModal({
     rate: t('bm.toGuests'),
     guests: t('bm.toReview'),
     review: price?.rateAmount
-      ? t('bm.confirmPay', { amount: formatMoney(price.rateAmount, listing.currency) })
+      ? t('bm.confirmPay', { amount: format(price.rateAmount) })
       : t('bm.confirm'),
   }[step];
 

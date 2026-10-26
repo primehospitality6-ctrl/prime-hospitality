@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useLocale } from '../../context/LocaleContext';
 import { cn } from '../../utils/cn';
 
@@ -44,6 +45,7 @@ export default function ListingDatePicker({
   months: monthsProp,
 }) {
   const { t, localeTag } = useLocale();
+  const { convert } = useCurrency();
   const monthCount = monthsProp ?? (inline ? 2 : 2);
   const [view, setView] = useState(() => {
     const base = value?.start ?? new Date();
@@ -380,7 +382,7 @@ function Month({
     const between = value.start && value.end && date > value.start && date < value.end;
     const disabled = pastLocked || (choosingCheckout ? !validCheckout : blocked || violatesMin);
     const showPrice = !pastLocked && !blocked && dailyPrices?.[iso] != null;
-    const price = showPrice ? dailyPrices[iso] : undefined;
+    const price = showPrice ? convert(dailyPrices[iso]) : undefined;
 
     cells.push(
       <button

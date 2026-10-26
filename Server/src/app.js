@@ -1,4 +1,5 @@
 const express = require('express');
+const zlib = require('zlib');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -38,9 +39,33 @@ function createApp() {
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  app.use('/api/', (_req, res, next) => {
+  app.use('/api/', (req, res, next) => {
     const json = res.json.bind(res);
-    res.json = (body) => json(normalizeImageUrls(body));
+    res.json = (body) => {
+      const normalized = normalizeImageUrls(body);
+      let payload;
+      try {
+        payload = Buffer.from(JSON.stringify(normalized));
+      } catch {
+        return json(normalized);
+      }
+      const gzip = payload.length >= 1024 && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+      if (!gzip || res.headersSent) return json(normalized);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Vary', 'Accept-Encoding');
+      zlib.gzip(payload, (err, buf) => {
+        if (err || res.headersSent) {
+          if (!res.headersSent) {
+            res.removeHeader('Content-Encoding');
+            json(normalized);
+          }
+          return;
+        }
+        res.setHeader('Content-Length', buf.length);
+        res.end(buf);
+      });
+    };
     next();
   });
 

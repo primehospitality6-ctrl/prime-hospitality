@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Star } from 'lucide-react';
 import Img from './ui/Img';
-import { formatMoney, subBrand } from '../theme/brand';
+import api from '../api/client';
+import { subBrand } from '../theme/brand';
+import { useCurrency } from '../context/CurrencyContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useLocale } from '../context/LocaleContext';
 import { findBrand, useBrands } from '../context/SiteContext';
@@ -34,7 +36,11 @@ function CardMedia({ listing, href, sizes, priority, className }) {
       className={cn('absolute inset-0 block', className)}
       tabIndex={-1}
       aria-hidden
-      onPointerEnter={(e) => e.pointerType === 'mouse' && second && setArmed(true)}
+      onPointerEnter={(e) => {
+        if (e.pointerType !== 'mouse') return;
+        if (second) setArmed(true);
+        api.getListingBySlug(listing.slug).catch(() => {});
+      }}
     >
       <Img
         src={listing.images?.[0]}
@@ -109,6 +115,7 @@ function Rating({ listing, light }) {
 
 function Price({ listing, light }) {
   const { t } = useLocale();
+  const { format } = useCurrency();
   if (!Number(listing.pricePerNight)) {
     return <p className={cn('prime-label', light && 'text-white/70')}>{t('listing.priceOnRequest')}</p>;
   }
@@ -117,7 +124,7 @@ function Price({ listing, light }) {
       <span className={cn('text-[10px] font-medium uppercase tracking-[0.2em]', light ? 'text-white/60' : 'text-prime-muted')}>
         {t('card.from')}{' '}
       </span>
-      <span className="font-medium tabular-nums tracking-tight">{formatMoney(listing.pricePerNight, listing.currency)}</span>
+      <span className="font-medium tabular-nums tracking-tight">{format(listing.pricePerNight)}</span>
       <span className={cn('text-[12px]', light ? 'text-white/55' : 'text-prime-muted')}> {t('card.perNight')}</span>
     </p>
   );
@@ -150,7 +157,7 @@ export function ListingRow({ listing, priority = false }) {
   const specs = specsOf(listing, t);
   const amenities = (listing.amenities || []).slice(0, 4);
   return (
-    <article className="group grid min-w-0 grid-cols-1 gap-6 border-t border-prime-line pt-10 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-12 lg:gap-16">
+    <article className="prime-card group grid min-w-0 grid-cols-1 gap-6 border-t border-prime-line pt-10 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-12 lg:gap-16">
       <div className="relative aspect-[4/3] overflow-hidden bg-prime-mist">
         <CardMedia listing={listing} href={href} priority={priority} sizes="(min-width: 768px) 42vw, 100vw" />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
@@ -211,7 +218,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
   const specs = specsOf(listing, t);
 
   return (
-    <article className={cn('group relative min-w-0', className)}>
+    <article className={cn('prime-card group relative min-w-0', className)}>
       <div
         className={cn(
           'relative overflow-hidden bg-brand-black',

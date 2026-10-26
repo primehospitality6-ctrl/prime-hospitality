@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Check, Loader2, MapPin, Minus, Pencil, Plus } from 'lucide-react';
 import ListingDatePicker, { isoToLocalDate, localDateToIso } from '../listing/ListingDatePicker';
-import { formatMoney } from '../../theme/brand';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useLocale } from '../../context/LocaleContext';
 import { cn } from '../../utils/cn';
 import { countryName, countryOptions } from '../../utils/countries';
@@ -311,8 +311,9 @@ export function StayStep({
 
 /* ─── Step 2 · Rate plan ─── */
 
-export function RateStep({ quotes, selected, onSelect, error, currency, loading, planName, planDescription, heading }) {
+export function RateStep({ quotes, selected, onSelect, error, currency: _currency, loading, planName, planDescription, heading }) {
   const { t } = useLocale();
+  const { format } = useCurrency();
   if (loading) {
     return (
       <section>
@@ -368,11 +369,11 @@ export function RateStep({ quotes, selected, onSelect, error, currency, loading,
                   <span className="text-end">
                     {price.discount > 0 && (
                       <span className="me-2 text-xs tabular-nums text-prime-muted line-through">
-                        {formatMoney(price.baseTotal, currency)}
+                        {format(price.baseTotal)}
                       </span>
                     )}
                     <span className="font-display text-2xl font-bold tabular-nums tracking-[-0.03em] text-prime-ink">
-                      {formatMoney(price.rateAmount, currency)}
+                      {format(price.rateAmount)}
                     </span>
                   </span>
                 </span>
@@ -396,7 +397,7 @@ export function RateStep({ quotes, selected, onSelect, error, currency, loading,
                   )}
                   {eligible && price.nights > 0 && (
                     <span className="ms-auto text-[11px] text-prime-muted">
-                      {t('bm.avgNight', { amount: formatMoney(price.averageNightlyRate, currency) })}
+                      {t('bm.avgNight', { amount: format(price.averageNightlyRate) })}
                     </span>
                   )}
                 </span>
@@ -566,6 +567,7 @@ function ReviewGroup({ title, onEdit, rows }) {
 }
 
 export function ReviewStep({ listing, stay, guest, plan, planName, price, config, goTo, agreed, setAgreed, error, heading }) {
+  const { format } = useCurrency();
   const { t, term, localeTag } = useLocale();
   const none = <span className="text-prime-muted">—</span>;
   const others = guest.otherGuestNames.map((n) => n.trim()).filter(Boolean);
@@ -611,7 +613,7 @@ export function ReviewStep({ listing, stay, guest, plan, planName, price, config
             { label: t('bm.property'), value: term(listing.compound) || none },
             { label: t('bm.roomType'), value: term(listing.unitType || listing.propertyType) || none },
             { label: t('bm.ratePlan'), value: plan ? planName(plan) : none },
-            { label: t('bm.rateAmount'), value: formatMoney(price?.rateAmount, listing.currency) },
+            { label: t('bm.rateAmount'), value: format(price?.rateAmount) },
             { label: t('bm.rateCurrency'), value: 'USD' },
           ]}
         />

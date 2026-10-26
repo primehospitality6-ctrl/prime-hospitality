@@ -170,7 +170,10 @@ function buildConfirmationText(booking, business = {}) {
     `Arrival: ${booking.arrivalDate} from ${booking.checkInTime || '15:00'}`,
     `Departure: ${booking.departureDate} by ${booking.checkOutTime || '12:00'}`,
     `Guests: ${booking.adults || 0} adults${booking.children ? `, ${booking.children} children` : ''}`,
-    `Total paid: ${money(booking.rateAmount ?? booking.amount, booking.rateCurrency || booking.currency)}`,
+    `Stay total: ${money(booking.rateAmount ?? booking.amount, booking.rateCurrency || booking.currency)}`,
+    booking.chargeAmount
+      ? `Charged: ${money(booking.chargeAmount, booking.chargeCurrency || 'EGP')} at Kwentra's rate (${booking.fxRate})`
+      : '',
     booking.voucherNumber ? `Confirmation no.: ${booking.voucherNumber}` : '',
     '',
     'Check-in 3:00 PM · Check-out 12:00 PM. Any lateness might cause extra charges.',

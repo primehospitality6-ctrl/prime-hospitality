@@ -3,6 +3,7 @@ const { getContent, getSlideshow, getSettings, getSite } = require('../lib/cmsSt
 const { UNIT_TYPES } = require('../data/inventory');
 const { publicSite } = require('../lib/siteContent');
 const defaults = require('../data/mock');
+const kwentra = require('../services/kwentraService');
 
 /** Items saved before Arabic existed pick up the built-in Arabic when their English is still the default */
 function withDefaultArabic(items, builtIn, enKey, arKeys) {
@@ -76,6 +77,22 @@ router.get(
       gtmId: s.gtmId || '',
       ga4Id: site.tracking.ga4Id || '',
     });
+  })
+);
+
+router.get(
+  '/exchange',
+  wrap(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!kwentra.isConfigured()) {
+      return res.json({ source: 'unavailable', currencies: [] });
+    }
+    const fresh = req.query.fresh === '1' || req.query.fresh === 'true';
+    const rows = await kwentra.listCurrencies({ fresh });
+    const currencies = rows
+      .filter((row) => row.active && row.factor > 0)
+      .map((row) => ({ code: row.code, factor: row.factor, isDefault: row.isDefault }));
+    res.json({ source: 'kwentra', base: 'EGP', currencies, fetchedAt: new Date().toISOString() });
   })
 );
 

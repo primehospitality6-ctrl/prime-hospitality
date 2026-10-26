@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BadgeCheck, ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react';
-import { formatMoney } from '../../theme/brand';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useLocale } from '../../context/LocaleContext';
 import { cn } from '../../utils/cn';
 import { formatIsoDate, formatTime } from './bookingUtils';
@@ -48,8 +48,9 @@ function Crumbs({ listing, className }) {
   );
 }
 
-function Total({ price, currency, tone = 'dark' }) {
+function Total({ price, tone = 'dark' }) {
   const { t } = useLocale();
+  const { format } = useCurrency();
   if (!price?.nights) return null;
   const muted = tone === 'dark' ? 'text-white/55' : 'text-prime-muted';
   return (
@@ -58,21 +59,21 @@ function Total({ price, currency, tone = 'dark' }) {
         <div>
           <p className={cn('text-[11px] font-semibold uppercase tracking-[0.2em]', muted)}>{t('bm.total')}</p>
           <p className={cn('mt-1 text-xs', muted)}>
-            {t('bm.avgNight', { amount: formatMoney(price.averageNightlyRate, currency) })}
+            {t('bm.avgNight', { amount: format(price.averageNightlyRate) })}
           </p>
         </div>
         <div className="text-end">
           {price.discount > 0 && (
-            <p className={cn('text-xs tabular-nums line-through', muted)}>{formatMoney(price.baseTotal, currency)}</p>
+            <p className={cn('text-xs tabular-nums line-through', muted)}>{format(price.baseTotal)}</p>
           )}
           <p className="font-display text-[1.85rem] font-extralight leading-none tabular-nums tracking-[-0.03em]">
-            {formatMoney(price.rateAmount, currency)}
+            {format(price.rateAmount)}
           </p>
         </div>
       </div>
       {price.discount > 0 && (
         <p className="mt-2 text-end text-[11px] font-semibold text-prime-gold">
-          {t('bm.youSave', { amount: formatMoney(price.discount, currency) })}
+          {t('bm.youSave', { amount: format(price.discount) })}
         </p>
       )}
     </div>
@@ -155,6 +156,7 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
 
 export function MobileSummary({ listing, stay, plan, planName, price, config, className }) {
   const { t, term } = useLocale();
+  const { format } = useCurrency();
   const [open, setOpen] = useState(false);
   const rows = useSummaryRows({ stay, plan, planName, config });
   const cover = listing.images?.[0] || listing.image;
@@ -179,7 +181,7 @@ export function MobileSummary({ listing, stay, plan, planName, price, config, cl
         <span className="text-end">
           {price?.nights ? (
             <span className="block font-display text-base font-bold tabular-nums text-prime-ink">
-              {formatMoney(price.rateAmount, listing.currency)}
+              {format(price.rateAmount)}
             </span>
           ) : null}
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-muted">

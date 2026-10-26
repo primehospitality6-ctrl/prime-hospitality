@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { ArrowUpRight, Heart, Moon, Sun, X } from 'lucide-react';
 import { brand, whatsappHref } from '../../theme/brand';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useLocale } from '../../context/LocaleContext';
 import { activeAnnouncement, useSite } from '../../context/SiteContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -18,6 +19,28 @@ const MENU = [
   { labelKey: 'nav.faq', to: '/faq' },
   { labelKey: 'nav.contact', to: '/contact' },
 ];
+
+function CurrencySelect({ className }) {
+  const { t } = useLocale();
+  const { currency, setCurrency, currencies } = useCurrency();
+  if (currencies.length < 2) return null;
+  return (
+    <label className={cn('inline-flex items-center', className)}>
+      <span className="sr-only">{t('nav.currency')}</span>
+      <select
+        value={currencies.includes(currency) ? currency : 'USD'}
+        onChange={(e) => setCurrency(e.target.value)}
+        className="cursor-pointer bg-transparent text-[11px] font-semibold uppercase tracking-[0.18em] opacity-80 outline-none"
+      >
+        {currencies.map((code) => (
+          <option key={code} value={code} className="text-prime-ink">
+            {code}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme();
@@ -210,6 +233,7 @@ export default function Header({ overHero = false }) {
           </Link>
 
           <div className="flex items-center justify-end gap-1 sm:gap-3">
+            <CurrencySelect className="hidden md:inline-flex" />
             <button
               type="button"
               onClick={toggleLocale}
@@ -323,6 +347,7 @@ export default function Header({ overHero = false }) {
                     <ArrowUpRight size={13} />
                   </Link>
                 </div>
+                <CurrencySelect />
                 <button type="button" onClick={toggleLocale} className="transition hover:text-white">
                   {locale === 'en' ? 'عربي' : 'English'}
                 </button>

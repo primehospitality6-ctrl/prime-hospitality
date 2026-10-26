@@ -187,6 +187,9 @@ alter table bookings add column if not exists kwentra_profile_id text;
 alter table bookings add column if not exists kwentra_account_id text;
 -- Something staff must fix by hand in Kwentra (e.g. paid after the hold was auto-cancelled)
 alter table bookings add column if not exists kwentra_issue text;
+alter table bookings add column if not exists charge_amount numeric;
+alter table bookings add column if not exists charge_currency text;
+alter table bookings add column if not exists fx_rate numeric;
 
 create index if not exists bookings_external_ref_idx on bookings (external_ref);
 

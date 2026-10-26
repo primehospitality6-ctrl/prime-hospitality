@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Check, Heart, MapPin, X } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
-import BookingModal from '../components/booking/BookingModal';
+const BookingModal = lazy(() => import('../components/booking/BookingModal'));
 import { clampParty } from '../components/booking/bookingUtils';
 import ListingCard from '../components/ListingCard';
 import Img from '../components/ui/Img';
 import PageHeader from '../components/ui/PageHeader';
 import api from '../api/client';
 import { GUEST_AVAILABILITY_MONTHS } from '../constants/availability';
-import { formatMoney, listingWhatsAppMessage, whatsappHref } from '../theme/brand';
+import { listingWhatsAppMessage, whatsappHref } from '../theme/brand';
+import { useCurrency } from '../context/CurrencyContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSite } from '../context/SiteContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -130,11 +131,13 @@ export default function ListingDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { t, term, locale, localeTag } = useLocale();
+  const { format } = useCurrency();
   const { has, toggle } = useWishlist();
   const [listing, setListing] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingArmed, setBookingArmed] = useState(false);
   const [lightbox, setLightbox] = useState(false);
   const [blocked, setBlocked] = useState([]);
   const [checkoutDates, setCheckoutDates] = useState([]);
@@ -210,16 +213,23 @@ export default function ListingDetailPage() {
     };
   }, [slug]);
 
-  useEffect(() => {
-    if (!listing) return undefined;
-    let cancelled = false;
-    const from = localISO(new Date());
-    const toDate = new Date();
-    toDate.setMonth(toDate.getMonth() + GUEST_AVAILABILITY_MONTHS);
-    const to = localISO(toDate);
+  const listingReady = Boolean(listing && listing.slug === slug);
+  const similarSlug = listing?.slug || '';
+  const similarCompound = listing?.compoundId || listing?.compound || '';
+  const stayFrom = localISO(new Date());
+  const stayTo = localISO(
+    (() => {
+      const toDate = new Date();
+      toDate.setMonth(toDate.getMonth() + GUEST_AVAILABILITY_MONTHS);
+      return toDate;
+    })()
+  );
 
+  useEffect(() => {
+    if (!listingReady) return undefined;
+    let cancelled = false;
     api
-      .getListingAvailability(slug, { from, to })
+      .getListingAvailability(slug, { from: stayFrom, to: stayTo })
       .then((data) => {
         if (cancelled) return;
         const nights = (data.blocked || []).map((b) => b.date);
@@ -234,9 +244,16 @@ export default function ListingDetailPage() {
           setCheckoutDates([]);
         }
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, listingReady, stayFrom, stayTo, availabilityVersion]);
 
+  useEffect(() => {
+    if (!listingReady) return undefined;
+    let cancelled = false;
     api
-      .getListingPricing(slug, { from, to, adults: party.adults, children: party.children })
+      .getListingPricing(slug, { from: stayFrom, to: stayTo, adults: party.adults, children: party.children })
       .then((data) => {
         if (!cancelled) {
           setDailyPrices(data.prices || {});
@@ -249,20 +266,19 @@ export default function ListingDetailPage() {
           setOccupancy({});
         }
       });
-
     return () => {
       cancelled = true;
     };
-  }, [slug, listing, availabilityVersion]);
+  }, [slug, listingReady, stayFrom, stayTo, party.adults, party.children, availabilityVersion]);
 
   useEffect(() => {
-    if (!listing) return undefined;
+    if (!similarSlug) return undefined;
     let cancelled = false;
     api
-      .getListings({ compound: listing.compoundId || listing.compound, limit: 6 })
+      .getListings({ compound: similarCompound, limit: 6 })
       .then((res) => {
         if (cancelled) return;
-        const items = (res.items || []).filter((l) => l.slug !== listing.slug).slice(0, 3);
+        const items = (res.items || []).filter((l) => l.slug !== similarSlug).slice(0, 3);
         setSimilar(items);
       })
       .catch(() => {
@@ -271,7 +287,15 @@ export default function ListingDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [listing]);
+  }, [similarSlug, similarCompound]);
+
+  useEffect(() => {
+    if (!listingReady) return undefined;
+    const idle = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 400));
+    const cancel = window.cancelIdleCallback || window.clearTimeout;
+    const id = idle(() => setBookingArmed(true));
+    return () => cancel(id);
+  }, [listingReady]);
 
   useEffect(() => {
     if (!lightbox) return undefined;
@@ -672,7 +696,7 @@ export default function ListingDetailPage() {
               {hasPrice ? (
                 <>
                   <p className="mt-5 font-display text-[2.85rem] font-extralight leading-none tracking-[-0.03em] tabular-nums text-white">
-                    {formatMoney(displayFromPrice, listing.currency)}
+                    {format(displayFromPrice)}
                   </p>
                   <p className="mt-3 text-[13px] font-light text-white/50">{t('listing.perNightNote')}</p>
                 </>
@@ -724,7 +748,7 @@ export default function ListingDetailPage() {
               <>
                 <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-white/45">{t('card.from')}</p>
                 <p className="truncate font-display text-[1.45rem] font-extralight leading-tight tabular-nums text-white">
-                  {formatMoney(displayFromPrice, listing.currency)}
+                  {format(displayFromPrice)}
                   <span className="ms-1 font-sans text-[12px] font-light text-white/45">{t('card.perNight')}</span>
                 </p>
               </>
@@ -738,21 +762,25 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      <BookingModal
-        open={bookingOpen}
-        onClose={() => setBookingOpen(false)}
-        listing={listing}
-        blockedDates={blocked}
-        checkoutDates={checkoutDates}
-        dailyPrices={dailyPrices}
-        occupancy={occupancy}
-        initialCheckIn={seedCheckIn}
-        initialCheckOut={seedCheckOut}
-        initialAdults={party.adults}
-        initialChildren={party.children}
-        onBooked={handleBooked}
-        onDatesTaken={() => setAvailabilityVersion((v) => v + 1)}
-      />
+      {listing && (bookingOpen || bookingArmed) ? (
+        <Suspense fallback={bookingOpen ? <div className="fixed inset-0 z-[80] bg-prime-night/40" aria-busy="true" /> : null}>
+          <BookingModal
+            open={bookingOpen}
+            onClose={() => setBookingOpen(false)}
+            listing={listing}
+            blockedDates={blocked}
+            checkoutDates={checkoutDates}
+            dailyPrices={dailyPrices}
+            occupancy={occupancy}
+            initialCheckIn={seedCheckIn}
+            initialCheckOut={seedCheckOut}
+            initialAdults={party.adults}
+            initialChildren={party.children}
+            onBooked={handleBooked}
+            onDatesTaken={() => setAvailabilityVersion((v) => v + 1)}
+          />
+        </Suspense>
+      ) : null}
 
       {lightbox && (
         <div

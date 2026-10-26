@@ -103,8 +103,15 @@ export default function BookingSuccessPage() {
               </dl>
               <div className="flex items-baseline justify-between gap-4 py-7">
                 <span className="text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/45">{t('bs.paid')}</span>
-                <span className="font-display text-[2.4rem] font-extralight tabular-nums tracking-[-0.02em] text-prime-gold-soft">
-                  {formatMoney(booking.rateAmount, booking.rateCurrency)}
+                <span className="text-end">
+                  <span className="block font-display text-[2.4rem] font-extralight tabular-nums tracking-[-0.02em] text-prime-gold-soft">
+                    {formatMoney(booking.chargeAmount || booking.rateAmount, booking.chargeCurrency || booking.rateCurrency)}
+                  </span>
+                  {booking.chargeAmount ? (
+                    <span className="mt-1 block text-[12px] font-light text-white/55">
+                      {formatMoney(booking.rateAmount, booking.rateCurrency || 'USD')}
+                    </span>
+                  ) : null}
                 </span>
               </div>
             </div>

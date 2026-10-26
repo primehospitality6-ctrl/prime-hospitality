@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminAuthProvider } from './context/AdminAuthContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import { LocaleProvider } from './context/LocaleContext';
 import { SiteProvider, isPreviewFrame } from './context/SiteContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -72,6 +73,7 @@ export default function App() {
       <BrowserRouter>
         <SiteProvider>
         <LocaleProvider>
+          <CurrencyProvider>
           <ThemeProvider>
             <WishlistProvider>
               <ScrollToTop />
@@ -129,6 +131,7 @@ export default function App() {
               <WhatsAppFAB />
             </WishlistProvider>
           </ThemeProvider>
+          </CurrencyProvider>
         </LocaleProvider>
         </SiteProvider>
       </BrowserRouter>

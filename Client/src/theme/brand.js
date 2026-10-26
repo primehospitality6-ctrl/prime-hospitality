@@ -68,10 +68,12 @@ export function listingWhatsAppMessage(pathnameOrUrl) {
   return `Hi Prime — I'd like to inquire about this stay:\n${listingUrl}`;
 }
 
-/** Guest site sells in USD only — ignore any other code passed in. */
+/** Rates are stored in USD. Pass the currency you are actually printing. */
 export const SITE_CURRENCY = 'USD';
 
-export function formatMoney(amount, _currency = SITE_CURRENCY) {
+export function formatMoney(amount, currency = SITE_CURRENCY) {
   const n = Number(amount) || 0;
-  return `${n.toLocaleString('en-US')} ${currencyLabel(SITE_CURRENCY)}`;
+  const code = String(currency || SITE_CURRENCY).toUpperCase();
+  const text = n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return `${text} ${currencyLabel(code)}`;
 }

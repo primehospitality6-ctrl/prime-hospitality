@@ -50,12 +50,13 @@ function adminRequest(path, options = {}) {
 
 const publicCache = new Map();
 const PUBLIC_TTL_MS = 60_000;
+const CATALOG_TTL_MS = 30_000;
 
 /** Site content several components ask for on the same page — fetch once per minute. */
-function cachedRequest(path, params) {
+function cachedRequest(path, params, ttl = PUBLIC_TTL_MS) {
   const key = `${path}?${JSON.stringify(params || {})}`;
   const hit = publicCache.get(key);
-  if (hit && Date.now() - hit.at < PUBLIC_TTL_MS) return hit.promise;
+  if (hit && Date.now() - hit.at < ttl) return hit.promise;
   const promise = request(path, { params }).catch((err) => {
     publicCache.delete(key);
     throw err;
@@ -70,11 +71,11 @@ export const api = {
   },
 
   getListings(params = {}) {
-    return request('/api/units', { params });
+    return cachedRequest('/api/units', params, CATALOG_TTL_MS);
   },
 
   getListingBySlug(slug) {
-    return request(`/api/units/${encodeURIComponent(slug)}`);
+    return cachedRequest(`/api/units/${encodeURIComponent(slug)}`, null, CATALOG_TTL_MS);
   },
 
   getListingAvailability(slug, params = {}) {
@@ -90,7 +91,7 @@ export const api = {
   },
 
   getCompounds(params = {}) {
-    return request('/api/compounds', { params });
+    return cachedRequest('/api/compounds', params, CATALOG_TTL_MS);
   },
 
   getDestinations(params = {}) {
@@ -127,6 +128,11 @@ export const api = {
 
   getSite() {
     return request('/api/content/site');
+  },
+
+  getExchange({ fresh = false } = {}) {
+    if (fresh) return request('/api/content/exchange', { params: { fresh: '1' } });
+    return cachedRequest('/api/content/exchange', {}, 60_000);
   },
 
   async getFeatured(limit = 8) {

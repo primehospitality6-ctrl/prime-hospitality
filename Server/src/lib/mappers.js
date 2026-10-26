@@ -277,6 +277,9 @@ function bookingFromRow(row) {
     kwentraProfileId: row.kwentra_profile_id || null,
     kwentraAccountId: row.kwentra_account_id || null,
     kwentraIssue: row.kwentra_issue || '',
+    chargeAmount: row.charge_amount != null ? num(row.charge_amount) : null,
+    chargeCurrency: row.charge_currency || null,
+    fxRate: row.fx_rate != null ? num(row.fx_rate) : null,
   };
 }
 
@@ -324,6 +327,9 @@ function bookingToRow(b) {
     kwentra_profile_id: b.kwentraProfileId || null,
     kwentra_account_id: b.kwentraAccountId || null,
     kwentra_issue: b.kwentraIssue || null,
+    charge_amount: b.chargeAmount ?? null,
+    charge_currency: b.chargeCurrency || null,
+    fx_rate: b.fxRate ?? null,
   };
 }
 

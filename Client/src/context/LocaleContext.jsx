@@ -11,6 +11,7 @@ export const defaultCopy = {
     'nav.menu': 'Menu',
     'nav.close': 'Close',
     'nav.book': 'Book a stay',
+    'nav.currency': 'Currency',
     'nav.about': 'About',
     'nav.faq': 'FAQ',
     'nav.becomePartner': 'Become a Partner',
@@ -447,6 +448,8 @@ export const defaultCopy = {
     'bm.cardPayment': 'Card payment',
     'bm.mockGateway': 'Test gateway — confirm payment without leaving Prime.',
     'bm.payNow': 'Pay {amount}',
+    'bm.stayTotal': 'Stay total {amount}',
+    'bm.fxNote': 'The card is charged in Egyptian pounds using Kwentra’s exchange rate at the moment you pay.',
     'bm.problemTitle': 'There’s a problem with this reservation',
     'bm.problemBody': 'We couldn’t complete this booking right now. Message us on WhatsApp and the team will take it from here.',
     'bm.problemWhatsapp': 'Message us on WhatsApp',
@@ -493,6 +496,7 @@ export const defaultCopy = {
     'nav.menu': 'القائمة',
     'nav.close': 'إغلاق',
     'nav.book': 'احجز إقامتك',
+    'nav.currency': 'العملة',
     'nav.about': 'من نحن',
     'nav.faq': 'الأسئلة',
     'nav.becomePartner': 'كن شريكًا',
@@ -926,6 +930,8 @@ export const defaultCopy = {
     'bm.cardPayment': 'الدفع بالبطاقة',
     'bm.mockGateway': 'بوابة تجريبية — أكّد الدفع دون مغادرة برايم.',
     'bm.payNow': 'ادفع {amount}',
+    'bm.stayTotal': 'إجمالي الإقامة {amount}',
+    'bm.fxNote': 'يتم خصم المبلغ بالجنيه المصري حسب سعر صرف كوينترا في لحظة الدفع.',
     'bm.problemTitle': 'توجد مشكلة في هذا الحجز',
     'bm.problemBody': 'تعذر إتمام الحجز الآن. راسلنا على واتساب وسيتولى الفريق الأمر.',
     'bm.problemWhatsapp': 'راسلنا على واتساب',
@@ -993,6 +999,16 @@ export function LocaleProvider({ children }) {
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
+  }, [locale]);
+
+  useEffect(() => {
+    if (locale !== 'ar') return undefined;
+    Promise.all([
+      import('@fontsource/noto-kufi-arabic/arabic-300.css'),
+      import('@fontsource/noto-kufi-arabic/arabic-400.css'),
+      import('@fontsource/noto-kufi-arabic/arabic-600.css'),
+    ]).catch(() => {});
+    return undefined;
   }, [locale]);
 
   useEffect(() => {

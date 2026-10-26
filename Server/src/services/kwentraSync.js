@@ -248,7 +248,7 @@ async function pullProjects({ tenantId } = {}) {
 /** Live room types for one tenant (admin diagnostics) */
 async function pullRoomTypes({ tenantId } = {}) {
   if (!kwentra.isConfigured()) return { ok: false, reason: 'not_configured', items: [] };
-  const raw = await kwentra.listRoomTypes({ tenantId });
+  const raw = await kwentra.listRoomTypes({ tenantId, fresh: true });
   return { ok: true, items: raw.map(normalizeRoomType).filter((u) => u.kwentraRoomTypeId) };
 }
 
@@ -1540,7 +1540,10 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
     result.confirmed = Boolean(current);
   }
   const ref = transactionId || merchantOrderId || '';
-  const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}`;
+  const charged = booking?.chargeAmount && booking?.chargeCurrency
+    ? ` Card charged ${Number(booking.chargeAmount)} ${booking.chargeCurrency} at Kwentra rate ${booking.fxRate}.`
+    : '';
+  const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}.${charged}`;
 
   const { id: department, reason: noDepartment } = paymentDepartment(tenantId, currency);
   if (department) {
@@ -1949,7 +1952,7 @@ function rackTypeName(row) {
  */
 async function bookableRoomTypes(tenantId) {
   const [rawTypes, rack] = await Promise.all([
-    kwentra.listRoomTypes({ tenantId }),
+    kwentra.listRoomTypes({ tenantId, fresh: true }),
     kwentra.listRoomRack({ tenantId }),
   ]);
   if (!rack.length) {
@@ -2295,7 +2298,7 @@ async function refreshRoomTypeOccupancies(onlyTenant = null) {
     if (onlyTenant && String(target.tenantId) !== String(onlyTenant)) continue;
     let rawTypes;
     try {
-      rawTypes = await kwentra.listRoomTypes({ tenantId: target.tenantId });
+      rawTypes = await kwentra.listRoomTypes({ tenantId: target.tenantId, fresh: true });
     } catch (err) {
       console.warn('[kwentra] occupancy pull failed:', err.message);
       continue;

@@ -364,12 +364,16 @@ const ROOM_TYPE_INCLUDES = [
 ];
 const LOOKUP_INCLUDES = ['code', 'description'];
 
-async function listRoomTypes({ tenantId } = {}) {
-  return listAll(pathFor('roomTypes'), {
-    tenantId,
-    query: { 'include[]': ROOM_TYPE_INCLUDES },
-    keys: ['RoomType_Entities', 'room_types', 'roomtypes', 'roomtype'],
-  });
+async function listRoomTypes({ tenantId, fresh = false } = {}) {
+  const tenant = String(tenantId || getTenantId() || '');
+  const load = () =>
+    listAll(pathFor('roomTypes'), {
+      tenantId,
+      query: { 'include[]': ROOM_TYPE_INCLUDES },
+      keys: ['RoomType_Entities', 'room_types', 'roomtypes', 'roomtype'],
+    });
+  // Guest pages share one room-type read per minute. Sync passes fresh so publishing stays live.
+  return cachedLive(`roomtypes:${tenant}|`, fresh, load);
 }
 
 /** Rooms on the Kwentra room rack. Inventory room types with no rack room cannot be booked. */
@@ -1175,19 +1179,64 @@ async function postPayment({ tenantId, accountId, windowId, windowNumber = 1, de
 }
 
 /** GET /api/currencies/currency/ — code, description, and factor (EGP factor is 1). */
-async function listCurrencies({ tenantId } = {}) {
-  const data = await kwentraFetch(pathFor('currencies'), {
-    tenantId,
-    query: { 'include[]': ['code', 'description', 'factor', 'is_active', 'is_default'] },
+async function listCurrencies({ tenantId, fresh = false } = {}) {
+  const tenant = String(tenantId || getTenantId() || '');
+  return cachedLive(`currencies:${tenant}|`, fresh, async () => {
+    const data = await kwentraFetch(pathFor('currencies'), {
+      tenantId,
+      query: { 'include[]': ['code', 'description', 'factor', 'is_active', 'is_default'] },
+    });
+    return extractList(data, ['currencies']).map((row) => ({
+      id: row.id,
+      code: String(row.code || '').toUpperCase(),
+      description: row.description || '',
+      factor: Number(row.factor),
+      active: row.is_active !== false,
+      isDefault: Boolean(row.is_default),
+    }));
   });
-  return extractList(data, ['currencies']).map((row) => ({
-    id: row.id,
-    code: String(row.code || '').toUpperCase(),
-    description: row.description || '',
-    factor: Number(row.factor),
-    active: row.is_active !== false,
-    isDefault: Boolean(row.is_default),
-  }));
+}
+
+/**
+ * Kwentra stores each currency as “how many EGP equal 1 unit” (EGP factor is 1).
+ * 1 USD → EGP is the USD factor. 1 USD → EUR is USD factor / EUR factor.
+ */
+function rateFromFactors(factors, from, to) {
+  const a = String(from || 'USD').toUpperCase();
+  const b = String(to || 'EGP').toUpperCase();
+  if (a === b) return 1;
+  const fa = Number(factors?.[a]);
+  const fb = Number(factors?.[b]);
+  if (!(fa > 0) || !(fb > 0)) {
+    const err = new Error(`Kwentra has no exchange factor for ${a} to ${b}`);
+    err.status = 502;
+    throw err;
+  }
+  return fa / fb;
+}
+
+function factorTable(rows) {
+  const factors = {};
+  for (const row of rows || []) {
+    if (!row?.code || row.active === false || !(Number(row.factor) > 0)) continue;
+    factors[String(row.code).toUpperCase()] = Number(row.factor);
+  }
+  return factors;
+}
+
+/** Live Kwentra exchange rate. Pass fresh on a booking so the charge is not a cached factor. */
+async function currencyRate({ from = 'USD', to = 'EGP', tenantId, fresh = false } = {}) {
+  const rows = await listCurrencies({ tenantId, fresh });
+  const factors = factorTable(rows);
+  const source = String(from || 'USD').toUpperCase();
+  const quote = String(to || 'EGP').toUpperCase();
+  return {
+    rate: rateFromFactors(factors, source, quote),
+    from: source,
+    to: quote,
+    factors,
+    source: 'kwentra',
+  };
 }
 async function listPostings({ tenantId, accountId, windowId } = {}) {
   const data = await kwentraFetch(pathFor('postings'), { query: { account: accountId, window: windowId }, tenantId });
@@ -1498,6 +1547,8 @@ module.exports = {
   rateDefinitions,
   listDepartments,
   listCurrencies,
+  rateFromFactors,
+  currencyRate,
   listLookup,
   websiteMarketSource,
   clearLookupCache,

@@ -14,9 +14,10 @@ export default function PaymentPanel({ payment, booking, amount, currency: _curr
   const [error, setError] = useState('');
   const [polling, setPolling] = useState(false);
   const isMock = payment?.mode === 'embedded_mock' || payment?.provider === 'mock';
-  // Guest-facing currency is always USD (Paymob may charge another currency inside its iframe).
-  const displayCurrency = 'USD';
-  const displayAmount = payment?.displayAmount ?? amount;
+  const stayAmount = payment?.displayAmount ?? amount;
+  const stayCurrency = payment?.displayCurrency || 'USD';
+  const chargeAmount = payment?.chargeAmount;
+  const chargeCurrency = payment?.chargeCurrency || 'EGP';
 
   useEffect(() => {
     if (!payment?.merchantOrderId || isMock) return undefined;
@@ -67,8 +68,13 @@ export default function PaymentPanel({ payment, booking, amount, currency: _curr
           {t('bm.securePayment')}
         </span>
         <span className="text-end">
-          <span className="block font-display text-lg font-bold tabular-nums text-prime-ink">
-            {formatMoney(displayAmount, displayCurrency)}
+          {chargeAmount ? (
+            <span className="block font-display text-lg font-bold tabular-nums text-prime-ink">
+              {formatMoney(chargeAmount, chargeCurrency)}
+            </span>
+          ) : null}
+          <span className={chargeAmount ? 'block text-[11px] font-medium text-prime-muted' : 'block font-display text-lg font-bold tabular-nums text-prime-ink'}>
+            {t('bm.stayTotal', { amount: formatMoney(stayAmount, stayCurrency) })}
           </span>
         </span>
       </div>
@@ -87,12 +93,14 @@ export default function PaymentPanel({ payment, booking, amount, currency: _curr
           </div>
         ) : null}
 
+        {chargeAmount ? <p className="mb-3 text-[12px] font-light leading-relaxed text-prime-muted">{t('bm.fxNote')}</p> : null}
+
         {isMock ? (
           <div className="space-y-4 py-6 text-center">
             <p className="text-sm text-prime-muted">{t('bm.mockGateway')}</p>
             <button type="button" className="prime-btn" disabled={busy} onClick={payMock}>
               {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : null}
-              {busy ? t('bm.confirming') : t('bm.payNow', { amount: formatMoney(displayAmount, displayCurrency) })}
+              {busy ? t('bm.confirming') : t('bm.payNow', { amount: formatMoney(chargeAmount || stayAmount, chargeAmount ? chargeCurrency : stayCurrency) })}
             </button>
           </div>
         ) : null}

@@ -43,7 +43,7 @@ async function main() {
   const [channel, lookups] = await Promise.all([kwentra.websiteChannel(tenantId), kwentra.websiteMarketSource(tenantId)]);
   console.log(`  website channel ${channel.id || '—'} (${channel.rateIds.length} rates) · market ${lookups.market || '—'} · source ${lookups.source || '—'}`);
 
-  const roomTypes = roomTypeArg ? [{ id: roomTypeArg }] : await kwentra.listRoomTypes({ tenantId });
+  const roomTypes = roomTypeArg ? [{ id: roomTypeArg }] : await kwentra.listRoomTypes({ tenantId, fresh: true });
   let pick = null;
   for (const type of roomTypes) {
     const listing = { kwentraRoomTypeId: String(type.id) };
