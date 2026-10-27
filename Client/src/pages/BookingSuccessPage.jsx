@@ -4,7 +4,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Img from '../components/ui/Img';
 import Wordmark from '../components/ui/Wordmark';
-import { formatMoney } from '../theme/brand';
+import { useCurrency } from '../context/CurrencyContext';
 import { useLocale } from '../context/LocaleContext';
 import { formatIsoDate } from '../components/booking/bookingUtils';
 
@@ -22,6 +22,7 @@ export default function BookingSuccessPage() {
   const [params] = useSearchParams();
   const location = useLocation();
   const { t, localeTag } = useLocale();
+  const { format } = useCurrency();
   const voucher = params.get('voucher') || params.get('bookingId') || '';
   const summary = useMemo(() => readSummary(location.state, voucher), [location.state, voucher]);
   const booking = summary?.booking;
@@ -105,13 +106,8 @@ export default function BookingSuccessPage() {
                 <span className="text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/45">{t('bs.paid')}</span>
                 <span className="text-end">
                   <span className="block font-display text-[2.4rem] font-extralight tabular-nums tracking-[-0.02em] text-prime-gold-soft">
-                    {formatMoney(booking.chargeAmount || booking.rateAmount, booking.chargeCurrency || booking.rateCurrency)}
+                    {format(booking.rateAmount)}
                   </span>
-                  {booking.chargeAmount ? (
-                    <span className="mt-1 block text-[12px] font-light text-white/55">
-                      {formatMoney(booking.rateAmount, booking.rateCurrency || 'USD')}
-                    </span>
-                  ) : null}
                 </span>
               </div>
             </div>

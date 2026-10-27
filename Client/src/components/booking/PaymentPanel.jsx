@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Lock } from 'lucide-react';
 import { kwentraApi } from '../../services/api';
-import { formatMoney } from '../../theme/brand';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useLocale } from '../../context/LocaleContext';
 
 /**
@@ -10,14 +10,13 @@ import { useLocale } from '../../context/LocaleContext';
  */
 export default function PaymentPanel({ payment, booking, amount, currency: _currency = 'USD', onPaid }) {
   const { t } = useLocale();
+  const { format } = useCurrency();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [polling, setPolling] = useState(false);
   const isMock = payment?.mode === 'embedded_mock' || payment?.provider === 'mock';
   const stayAmount = payment?.displayAmount ?? amount;
-  const stayCurrency = payment?.displayCurrency || 'USD';
-  const chargeAmount = payment?.chargeAmount;
-  const chargeCurrency = payment?.chargeCurrency || 'EGP';
+  const stayLabel = format(stayAmount);
 
   useEffect(() => {
     if (!payment?.merchantOrderId || isMock) return undefined;
@@ -67,15 +66,8 @@ export default function PaymentPanel({ payment, booking, amount, currency: _curr
           <Lock size={13} strokeWidth={2} aria-hidden />
           {t('bm.securePayment')}
         </span>
-        <span className="text-end">
-          {chargeAmount ? (
-            <span className="block font-display text-lg font-bold tabular-nums text-prime-ink">
-              {formatMoney(chargeAmount, chargeCurrency)}
-            </span>
-          ) : null}
-          <span className={chargeAmount ? 'block text-[11px] font-medium text-prime-muted' : 'block font-display text-lg font-bold tabular-nums text-prime-ink'}>
-            {t('bm.stayTotal', { amount: formatMoney(stayAmount, stayCurrency) })}
-          </span>
+        <span className="text-end font-display text-lg font-bold tabular-nums text-prime-ink">
+          {t('bm.stayTotal', { amount: stayLabel })}
         </span>
       </div>
 
@@ -93,14 +85,12 @@ export default function PaymentPanel({ payment, booking, amount, currency: _curr
           </div>
         ) : null}
 
-        {chargeAmount ? <p className="mb-3 text-[12px] font-light leading-relaxed text-prime-muted">{t('bm.fxNote')}</p> : null}
-
         {isMock ? (
           <div className="space-y-4 py-6 text-center">
             <p className="text-sm text-prime-muted">{t('bm.mockGateway')}</p>
             <button type="button" className="prime-btn" disabled={busy} onClick={payMock}>
               {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : null}
-              {busy ? t('bm.confirming') : t('bm.payNow', { amount: formatMoney(chargeAmount || stayAmount, chargeAmount ? chargeCurrency : stayCurrency) })}
+              {busy ? t('bm.confirming') : t('bm.payNow', { amount: stayLabel })}
             </button>
           </div>
         ) : null}
