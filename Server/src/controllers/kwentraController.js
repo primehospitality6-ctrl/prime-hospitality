@@ -478,6 +478,11 @@ async function confirmMockPayment(req, res, next) {
     }
     booking = (await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' })) || booking;
 
+    // Leave while Kwentra creates the reservation. The guest should not wait on that before the mailbox is contacted.
+    emailService.sendBookingConfirmation(booking).catch((err) => {
+      console.warn('[email] confirmation failed:', err.message);
+    });
+
     let paymentPush = null;
     if (kwentra.isConfigured()) {
       paymentPush = await sync.pushPaidBooking(booking, {
@@ -489,10 +494,6 @@ async function confirmMockPayment(req, res, next) {
       });
       booking = (await sync.recordPaymentResult(booking, paymentPush)) || booking;
     }
-
-    emailService.sendBookingConfirmation(booking).catch((err) => {
-      console.warn('[email] confirmation failed:', err.message);
-    });
 
     res.json({
       ok: true,

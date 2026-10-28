@@ -131,8 +131,16 @@ function getTransporter() {
     port,
     secure: port === 465,
     auth: user ? { user, pass } : undefined,
+    pool: true,
+    maxConnections: 2,
   });
   return transporter;
+}
+
+function warm() {
+  const transport = getTransporter();
+  if (!transport?.verify) return;
+  transport.verify().catch((err) => console.warn('[email] mailbox not ready:', err.message));
 }
 
 function siteUrl() {
@@ -544,6 +552,7 @@ async function sendBookingConfirmation(booking) {
 
 module.exports = {
   isConfigured,
+  warm,
   sendBookingConfirmation,
   buildConfirmationHtml,
   confirmationContext,

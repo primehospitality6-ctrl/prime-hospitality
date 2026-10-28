@@ -16,6 +16,7 @@ bootApp()
           const sync = require('./services/kwentraSync');
           sync.startAutoSync();
           sync.warmAvailability().catch((err) => console.warn('[kwentra] boot availability failed:', err.message));
+          require('./services/emailService').warm();
         } catch (err) {
           console.warn('[kwentra] boot availability skipped:', err.message);
         }
