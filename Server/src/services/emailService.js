@@ -27,6 +27,7 @@ const COPY = {
     dear: (name) => `Dear ${name},`,
     lede: 'Your stay with Prime Hospitality is confirmed. We have your dates and look forward to welcoming you.',
     confirmation: 'Confirmation no.',
+    preheader: (voucher, arrival) => `Confirmed${voucher ? ` ${voucher}` : ''}. Arrival ${arrival}.`,
     yourStay: 'Your stay',
     property: 'Property',
     destination: 'Destination',
@@ -56,6 +57,8 @@ const COPY = {
     refundTitle: 'Refund policy',
     refundLink: 'Read the refund policy',
     viewStay: 'View your stay',
+    directions: 'Directions',
+    address: 'Address',
     questions: 'Questions? Reply to this email',
     orCall: 'or call',
     tagline: 'Prime stays for Prime customers',
@@ -66,6 +69,7 @@ const COPY = {
     dear: (name) => `عزيزي ${name}،`,
     lede: 'إقامتكم مع برايم هوسبيتاليتي مؤكدة. التواريخ محجوزة ويسعدنا استقبالكم.',
     confirmation: 'رقم التأكيد',
+    preheader: (voucher, arrival) => `تم التأكيد${voucher ? ` ${voucher}` : ''}. الوصول ${arrival}.`,
     yourStay: 'تفاصيل الإقامة',
     property: 'العقار',
     destination: 'الوجهة',
@@ -95,6 +99,8 @@ const COPY = {
     refundTitle: 'سياسة الاسترداد',
     refundLink: 'اقرأ سياسة الاسترداد',
     viewStay: 'عرض الإقامة',
+    directions: 'الاتجاهات',
+    address: 'العنوان',
     questions: 'للاستفسار، رد على هذه الرسالة',
     orCall: 'أو اتصل على',
     tagline: 'إقامات برايم لعملاء برايم',
@@ -233,6 +239,41 @@ function bulletList(items, align) {
     .join('');
 }
 
+function button(href, label, locale) {
+  if (!href) return '';
+  return `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px auto 0;">
+      <tr>
+        <td bgcolor="${GOLD}" style="background:${GOLD};">
+          <a href="${escapeHtml(href)}" style="display:inline-block;padding:15px 28px;font-family:${FONT};font-size:11px;font-weight:500;letter-spacing:${locale === 'ar' ? '0' : '0.22em'};text-transform:uppercase;color:${WHITE};text-decoration:none;">${escapeHtml(label)}</a>
+        </td>
+      </tr>
+    </table>`;
+}
+
+function stayBand(copy, booking, locale) {
+  const cells = [
+    [copy.arrival, formatDate(booking.arrivalDate, locale), `${copy.from} ${clock(booking.checkInTime || '15:00')}`],
+    [copy.nights, booking.nights ? String(booking.nights) : '', ''],
+    [copy.departure, formatDate(booking.departureDate, locale), `${copy.by} ${clock(booking.checkOutTime || '12:00')}`],
+  ];
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;background:${INK};">
+      <tr>
+        ${cells
+          .map(
+            ([label, value, note], index) => `
+          <td width="33%" style="padding:18px 10px;text-align:center;${index ? `border-${locale === 'ar' ? 'right' : 'left'}:1px solid rgba(255,255,255,0.12);` : ''}">
+            <p style="margin:0;font-family:${FONT};font-size:10px;font-weight:500;letter-spacing:${locale === 'ar' ? '0' : '0.18em'};text-transform:uppercase;color:${GOLD_SOFT};">${escapeHtml(label)}</p>
+            <p style="margin:8px 0 0;font-family:${FONT};font-size:16px;font-weight:500;line-height:1.3;color:${WHITE};">${escapeHtml(value)}</p>
+            ${note ? `<p style="margin:4px 0 0;font-family:${FONT};font-size:12px;font-weight:300;color:rgba(255,255,255,0.62);">${escapeHtml(note)}</p>` : ''}
+          </td>`
+          )
+          .join('')}
+      </tr>
+    </table>`;
+}
+
 function buildConfirmationHtml(booking, context) {
   const locale = booking.locale === 'ar' ? 'ar' : 'en';
   const copy = COPY[locale];
@@ -279,6 +320,12 @@ function buildConfirmationHtml(booking, context) {
   const refund = context.refundParagraphs || [];
   const cancelLine = plan && plan.refundable === false ? copy.nonRefund : copy.freeCancel;
 
+  const detail = rows.filter((row) => row[1] && ![copy.arrival, copy.departure, copy.nights].includes(row[0]));
+  const logo = `${siteUrl()}/brand/logo-light.png`;
+  const where = [booking.property, booking.destination, business.address].filter(Boolean).join(', ');
+  const mapHref = where ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}` : '';
+  const preheader = copy.preheader(booking.voucherNumber || '', formatDate(booking.arrivalDate, locale));
+
   return `<!DOCTYPE html>
 <html lang="${locale}" dir="${dir}">
 <head>
@@ -288,43 +335,60 @@ function buildConfirmationHtml(booking, context) {
   <title>${escapeHtml(copy.subject)}</title>
 </head>
 <body style="margin:0;padding:0;background:${MIST};color:${INK};">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${MIST};padding:28px 12px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:${WHITE};border:1px solid ${LINE};">
           <tr>
-            <td style="background:${INK};padding:40px 32px 36px;text-align:center;">
-              <p style="margin:0;font-family:${FONT};font-size:11px;font-weight:500;letter-spacing:${locale === 'ar' ? '0' : '0.34em'};text-transform:uppercase;color:${GOLD_SOFT};">Prime Hospitality</p>
-              <p style="margin:22px 0 0;font-family:${FONT};font-size:22px;font-weight:500;line-height:1.05;letter-spacing:${locale === 'ar' ? '0' : '0.22em'};color:${WHITE};">HOSP<br/>ITAL<br/>ITY</p>
+            <td bgcolor="${INK}" style="background:${INK};padding:36px 32px 32px;text-align:center;">
+              <img src="${escapeHtml(logo)}" alt="Prime Hospitality" width="196" style="display:block;width:196px;max-width:70%;height:auto;margin:0 auto;border:0;" />
               <div style="width:42px;height:1px;margin:22px auto 0;background:${GOLD};"></div>
-              <p style="margin:18px 0 0;font-family:${FONT};font-size:34px;font-weight:300;line-height:1.2;color:${WHITE};">${escapeHtml(copy.title)}</p>
+              <p style="margin:18px 0 0;font-family:${FONT};font-size:32px;font-weight:300;line-height:1.2;color:${WHITE};">${escapeHtml(copy.title)}</p>
+              <p style="margin:8px 0 0;font-family:${FONT};font-size:14px;font-weight:300;color:rgba(255,255,255,0.7);">${escapeHtml(name)}</p>
+            </td>
+          </tr>
+          ${
+            booking.voucherNumber
+              ? `<tr>
+            <td style="padding:26px 32px 0;text-align:center;">
+              <p style="margin:0;font-family:${FONT};font-size:11px;font-weight:500;letter-spacing:${locale === 'ar' ? '0' : '0.32em'};text-transform:uppercase;color:${MUTED};">${escapeHtml(copy.confirmation)}</p>
+              <p style="margin:10px 0 0;font-family:${FONT};font-size:30px;font-weight:300;letter-spacing:${locale === 'ar' ? '0' : '0.06em'};color:${GOLD};">${escapeHtml(booking.voucherNumber)}</p>
+            </td>
+          </tr>`
+              : ''
+          }
+          <tr>
+            <td style="padding:0 20px;">
+              ${stayBand(copy, booking, locale)}
             </td>
           </tr>
           ${
             photo
-              ? `<tr><td style="padding:0;line-height:0;"><img src="${escapeHtml(photo)}" alt="" width="600" style="display:block;width:100%;max-height:240px;object-fit:cover;border:0;" /></td></tr>`
+              ? `<tr><td style="padding:22px 20px 0;line-height:0;"><img src="${escapeHtml(photo)}" alt="${escapeHtml(booking.roomType || booking.property || 'Prime Hospitality')}" width="560" style="display:block;width:100%;height:auto;border:0;" /></td></tr>`
               : ''
           }
           <tr>
-            <td style="padding:36px 32px 28px;text-align:${align};">
-              <p style="margin:0 0 8px;font-family:${FONT};font-size:17px;font-weight:400;line-height:1.5;color:${INK};">${escapeHtml(copy.dear(name))}</p>
-              <p style="margin:0;font-family:${FONT};font-size:15px;font-weight:300;line-height:1.7;color:#58595B;">${escapeHtml(copy.lede)}</p>
+            <td style="padding:8px 32px 32px;text-align:${align};">
+              <p style="margin:26px 0 0;font-family:${FONT};font-size:15px;font-weight:300;line-height:1.7;color:#58595B;text-align:${align};">${escapeHtml(copy.lede)}</p>
+              ${listingHref ? button(listingHref, copy.viewStay, locale) : ''}
+              ${sectionTitle(copy.yourStay, align)}
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${detailRows(detail, align, valueAlign)}</table>
               ${
-                booking.voucherNumber
-                  ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;border:1px solid ${GOLD};">
-                <tr>
-                  <td style="padding:28px 20px;text-align:center;">
-                    <p style="margin:0;font-family:${FONT};font-size:11px;font-weight:500;letter-spacing:${locale === 'ar' ? '0' : '0.32em'};text-transform:uppercase;color:${MUTED};">${escapeHtml(copy.confirmation)}</p>
-                    <p style="margin:12px 0 0;font-family:${FONT};font-size:28px;font-weight:300;letter-spacing:${locale === 'ar' ? '0' : '0.08em'};color:${GOLD};">${escapeHtml(booking.voucherNumber)}</p>
-                  </td>
-                </tr>
-              </table>`
+                where
+                  ? `<p style="margin:18px 0 0;font-family:${FONT};font-size:14px;line-height:1.6;text-align:${align};"><span style="color:${MUTED};">${escapeHtml(copy.address)}</span><br/>${escapeHtml(where)}${mapHref ? `<br/><a href="${escapeHtml(mapHref)}" style="color:${GOLD};text-decoration:none;">${escapeHtml(copy.directions)}</a>` : ''}</p>`
                   : ''
               }
-              ${sectionTitle(copy.yourStay, align)}
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${detailRows(rows, align, valueAlign)}</table>
-              ${rules.length ? `${sectionTitle(copy.houseRules, align)}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${bulletList(rules, align)}</table>` : ''}
-              ${regulations.length ? `${sectionTitle(copy.regulations, align)}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${bulletList(regulations, align)}</table>` : ''}
+              ${
+                rules.length
+                  ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;background:${MIST};"><tr><td style="padding:22px 20px;text-align:${align};">${sectionTitle(copy.houseRules, align).replace('margin:32px 0 14px', 'margin:0 0 14px')}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${bulletList(rules, align)}</table></td></tr></table>`
+                  : ''
+              }
+              ${
+                regulations.length
+                  ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px;background:${MIST};"><tr><td style="padding:22px 20px;text-align:${align};">${sectionTitle(copy.regulations, align).replace('margin:32px 0 14px', 'margin:0 0 14px')}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${bulletList(regulations, align)}</table></td></tr></table>`
+                  : ''
+              }
               ${sectionTitle(copy.before, align)}
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${bulletList([copy.late, copy.id, cancelLine], align)}</table>
               ${
@@ -337,17 +401,16 @@ function buildConfirmationHtml(booking, context) {
                       .join('')}`
                   : ''
               }
-              <p style="margin:8px 0 0;font-family:${FONT};font-size:14px;line-height:1.6;">
+              <p style="margin:8px 0 0;font-family:${FONT};font-size:14px;line-height:1.6;text-align:${align};">
                 <a href="${escapeHtml(refundHref)}" style="color:${GOLD};text-decoration:none;">${escapeHtml(copy.refundLink)}</a>
-                ${listingHref ? ` &nbsp;·&nbsp; <a href="${escapeHtml(listingHref)}" style="color:${GOLD};text-decoration:none;">${escapeHtml(copy.viewStay)}</a>` : ''}
               </p>
-              <p style="margin:28px 0 0;font-family:${FONT};font-size:13px;font-weight:300;line-height:1.6;color:${MUTED};">
+              <p style="margin:28px 0 0;font-family:${FONT};font-size:13px;font-weight:300;line-height:1.6;color:${MUTED};text-align:${align};">
                 ${escapeHtml(copy.questions)}${phone ? ` ${escapeHtml(copy.orCall)} ${escapeHtml(phone)}` : ''} · ${escapeHtml(supportEmail)}
               </p>
             </td>
           </tr>
           <tr>
-            <td style="background:${INK};padding:20px 32px;text-align:center;">
+            <td bgcolor="${INK}" style="background:${INK};padding:22px 32px;text-align:center;">
               <p style="margin:0;font-family:${FONT};font-size:10px;font-weight:500;letter-spacing:${locale === 'ar' ? '0' : '0.22em'};text-transform:uppercase;color:${GOLD_SOFT};">${escapeHtml(copy.tagline)}</p>
             </td>
           </tr>
@@ -462,7 +525,7 @@ async function sendBookingConfirmation(booking) {
     const locale = booking.locale === 'ar' ? 'ar' : 'en';
     const brandName = context.business.name || 'Prime Hospitality';
     const subject = booking.voucherNumber
-      ? `${COPY[locale].subject} — ${booking.voucherNumber}`
+      ? `${COPY[locale].subject} — ${booking.property || booking.listingTitle || 'Prime Hospitality'} — ${booking.voucherNumber}`
       : COPY[locale].subject;
     await transport.sendMail({
       from: `"${brandName}" <${from}>`,
