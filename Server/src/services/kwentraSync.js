@@ -1922,8 +1922,8 @@ function pricedRoomTypeIds(definitions) {
 }
 
 /**
- * Room types that are on the room rack and have a Kwentra rate.
- * Inventory-only types, and rack types with no rate, cannot be booked.
+ * Room types that are on the room rack, have a Kwentra website rate, and a room count above zero.
+ * Inventory-only types, rack types with no rate, and types with no sellable rooms cannot be booked.
  * Throws when the rack or the rate grid cannot be read, so a failed call does not hide the site.
  */
 async function bookableRoomTypes(tenantId) {
@@ -1965,7 +1965,14 @@ async function bookableRoomTypes(tenantId) {
     type.unitNumbers = numbers;
     type.roomCount = numbers.length;
   }
-  return { types, ids: new Set(types.map((type) => type.kwentraRoomTypeId)) };
+  const from = new Date().toISOString().slice(0, 10);
+  const to = addDays(from, 370);
+  const sellable = [];
+  for (const type of types) {
+    const availability = await kwentra.getAvailability(type.kwentraRoomTypeId, { from, to, tenantId, fresh: true });
+    if (availability.maxRoomCount == null || availability.maxRoomCount > 0) sellable.push(type);
+  }
+  return { types: sellable, ids: new Set(sellable.map((type) => type.kwentraRoomTypeId)) };
 }
 
 /**

@@ -550,6 +550,7 @@ async function fetchAvailability(roomTypeId, { from, to, tenantId } = {}) {
     tenantId,
   });
   const days = collectAvailabilityDays(data);
+  const maxRoomCount = maxSellableRoomCount(data);
   const free = new Map();
   for (const day of days) free.set(day.date, day.avail);
   if (!free.size && from && to && from < to) {
@@ -574,7 +575,31 @@ async function fetchAvailability(roomTypeId, { from, to, tenantId } = {}) {
     roomTypeId: roomTypeId || null,
     source: 'kwentra',
     dense,
+    maxRoomCount,
   };
+}
+
+/** Highest room_count on the availability calendar. Zero means the type has no rooms on the rack. */
+function maxSellableRoomCount(data) {
+  let max = 0;
+  let seen = false;
+  const walk = (node, depth) => {
+    if (node == null || depth > 6) return;
+    if (Array.isArray(node)) {
+      node.forEach((item) => walk(item, depth + 1));
+      return;
+    }
+    if (typeof node !== 'object') return;
+    if (node.room_count != null && (node.dt || node.date)) {
+      seen = true;
+      const count = Number(node.room_count);
+      if (Number.isFinite(count)) max = Math.max(max, count);
+      return;
+    }
+    Object.values(node).forEach((value) => walk(value, depth + 1));
+  };
+  walk(data, 0);
+  return seen ? max : null;
 }
 
 /**
