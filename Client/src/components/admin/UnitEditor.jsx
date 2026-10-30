@@ -4,16 +4,17 @@ import api from '../../api/client';
 import { reorderList } from './AdminUi';
 import { Badge, Drawer, Field, Toggle, labelCls } from './kit';
 
-export const UNIT_TYPES = ['Studio', '1 BDR', '2 BDR', '3 BDR', '4 BDR', 'Other'];
+export const UNIT_TYPES = ['Studio', '1BR', '2BR', '3BR', '4BR', '5BR', '6BR'];
 
 /** Sensible defaults when an admin picks a unit type — every field stays editable */
 const UNIT_TYPE_DEFAULTS = {
   Studio: { bedrooms: 0, bathrooms: 1, areaSqm: 45, maxGuests: 2 },
-  '1 BDR': { bedrooms: 1, bathrooms: 1, areaSqm: 75, maxGuests: 3 },
-  '2 BDR': { bedrooms: 2, bathrooms: 2, areaSqm: 125, maxGuests: 5 },
-  '3 BDR': { bedrooms: 3, bathrooms: 3, areaSqm: 175, maxGuests: 7 },
-  '4 BDR': { bedrooms: 4, bathrooms: 4, areaSqm: 240, maxGuests: 9 },
-  Other: { bedrooms: 1, bathrooms: 1, areaSqm: 80, maxGuests: 4 },
+  '1BR': { bedrooms: 1, bathrooms: 1, areaSqm: 75, maxGuests: 3 },
+  '2BR': { bedrooms: 2, bathrooms: 2, areaSqm: 125, maxGuests: 5 },
+  '3BR': { bedrooms: 3, bathrooms: 3, areaSqm: 175, maxGuests: 7 },
+  '4BR': { bedrooms: 4, bathrooms: 4, areaSqm: 240, maxGuests: 9 },
+  '5BR': { bedrooms: 5, bathrooms: 4, areaSqm: 280, maxGuests: 10 },
+  '6BR': { bedrooms: 6, bathrooms: 5, areaSqm: 320, maxGuests: 12 },
 };
 
 const EMPTY = {
@@ -21,7 +22,7 @@ const EMPTY = {
   slug: '',
   compoundId: '',
   city: '',
-  unitType: '2 BDR',
+  unitType: '2BR',
   propertyType: 'Apartment',
   bedrooms: 2,
   bathrooms: 2,

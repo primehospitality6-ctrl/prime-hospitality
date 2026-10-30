@@ -1583,6 +1583,10 @@ const UNIT_PMS_FIELDS = [
   'occupancies',
 ];
 
+// Guest-facing copy stays on the website. Kwentra still supplies these when a unit is first created.
+const WEBSITE_COPY_FIELDS = ['title', 'description', 'bedrooms', 'bathrooms', 'areaSqm', 'bedType', 'amenities'];
+const UNIT_SYNC_FIELDS = UNIT_PMS_FIELDS.filter((key) => !WEBSITE_COPY_FIELDS.includes(key));
+
 /**
  * Take a PMS value only when it changed in Kwentra since the last sync (tracked in kwentraSnapshot),
  * so edits made in the admin survive.
@@ -2111,7 +2115,7 @@ async function syncTenant(target, compounds, report, fail) {
       units.push(template);
       report.units.created += 1;
     } else {
-      const patch = mergeFromPms(template, incoming, UNIT_PMS_FIELDS);
+      const patch = mergeFromPms(template, incoming, UNIT_SYNC_FIELDS);
       if (!template.kwentraRoomTypeId) patch.kwentraRoomTypeId = t.kwentraRoomTypeId;
       if (!template.compoundId && home) patch.compoundId = home.id;
       if (template.published === false) patch.published = true;

@@ -353,7 +353,7 @@ export default function ListingDetailPage() {
       ...(listing.unitType ? [{ label: t('listing.specUnitType'), value: term(listing.unitType) }] : []),
       ...(listing.brand ? [{ label: t('listing.specBrand'), value: term(`Prime ${listing.brand}`) }] : []),
       { label: t('listing.specGuests'), value: String(listing.maxGuests || '—') },
-      { label: t('listing.specBedrooms'), value: String(listing.bedrooms ?? '—') },
+      { label: t('listing.specBedrooms'), value: listing.bedrooms === 0 && /studio/i.test(listing.title || '') ? t('card.studio') : listing.bedrooms > 0 ? String(listing.bedrooms) : '—' },
       { label: t('listing.specBaths'), value: String(listing.bathrooms ?? '—') },
       { label: t('listing.specArea'), value: listing.areaSqm ? t('card.area', { count: listing.areaSqm }) : '—' },
       ...(listing.bedType ? [{ label: t('listing.specBeds'), value: term(listing.bedType) }] : []),
@@ -553,7 +553,10 @@ export default function ListingDetailPage() {
                 )}
               >
                 <Spec num={String(listing.maxGuests || '—')} label={t('listing.specGuests')} />
-                <Spec num={String(listing.bedrooms ?? '—')} label={t('listing.specBedrooms')} />
+                <Spec
+                  num={listing.bedrooms === 0 && /studio/i.test(listing.title || '') ? t('card.studio') : listing.bedrooms > 0 ? String(listing.bedrooms) : '—'}
+                  label={t('listing.specBedrooms')}
+                />
                 <Spec num={String(listing.bathrooms ?? '—')} label={t('listing.specBaths')} />
                 {listing.areaSqm ? (
                   <Spec num={String(listing.areaSqm)} unit={t('listing.specSize')} label={t('listing.specArea')} />

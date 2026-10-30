@@ -5,7 +5,7 @@
 
 const BRANDS = ['Inn', 'Residence', 'Select'];
 
-const UNIT_TYPES = ['Studio', '1 BDR', '2 BDR', '3 BDR', '4 BDR', 'Other'];
+const UNIT_TYPES = ['Studio', '1BR', '2BR', '3BR', '4BR', '5BR', '6BR'];
 
 const UNIT_TYPE_SPECS = {
   Studio: { label: 'Studio', bedrooms: 0, bathrooms: 1, areaSqm: 45, maxGuests: 2, basePrice: 2400 },

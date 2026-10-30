@@ -14,7 +14,9 @@ const GRID_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
 
 function specsOf(listing, t) {
   return [
-    listing.bedrooms != null && t(listing.bedrooms === 1 ? 'card.bedroom' : 'card.bedrooms', { count: listing.bedrooms }),
+    listing.bedrooms === 0 && /studio/i.test(listing.title || '')
+      ? t('card.studio')
+      : listing.bedrooms > 0 && t(listing.bedrooms === 1 ? 'card.bedroom' : 'card.bedrooms', { count: listing.bedrooms }),
     listing.maxGuests && t('card.guests', { count: listing.maxGuests }),
     listing.areaSqm && t('card.area', { count: listing.areaSqm }),
   ].filter(Boolean);
