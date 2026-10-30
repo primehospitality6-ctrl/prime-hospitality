@@ -35,12 +35,14 @@ function localISO(d = new Date()) {
 
 function Spec({ num, unit, label }) {
   return (
-    <div className="px-2 py-8 text-center">
-      <div className="font-display text-[2.1rem] font-extralight leading-none tracking-[-0.03em] text-prime-ink sm:text-[2.5rem]">
+    <div className="bg-prime-sand px-3 py-5 text-center sm:px-2 sm:py-8">
+      <div className="font-display text-[1.85rem] font-extralight leading-none tracking-[-0.03em] text-prime-ink sm:text-[2.5rem]">
         {num}
-        {unit ? <span className="ms-1 font-sans text-sm font-light text-prime-muted">{unit}</span> : null}
+        {unit ? <span className="ms-1 font-sans text-xs font-light text-prime-muted sm:text-sm">{unit}</span> : null}
       </div>
-      <div className="mt-3 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-muted">{label}</div>
+      <div className="mt-2 text-[11px] font-medium uppercase leading-snug tracking-[0.12em] text-prime-muted sm:mt-3 sm:text-[10.5px] sm:tracking-[0.24em]">
+        {label}
+      </div>
     </div>
   );
 }
@@ -564,8 +566,9 @@ export default function ListingDetailPage() {
             <div className="min-w-0">
               <section
                 className={cn(
-                  'mb-12 grid divide-x divide-prime-line border-y border-prime-line rtl:divide-x-reverse',
-                  listing.areaSqm ? 'grid-cols-4' : 'grid-cols-3'
+                  'mb-12 grid grid-cols-2 gap-px overflow-hidden border border-prime-line bg-prime-line',
+                  listing.areaSqm ? 'sm:grid-cols-4' : 'sm:grid-cols-3',
+                  !listing.areaSqm && '[&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1'
                 )}
               >
                 <Spec num={String(listing.maxGuests || '—')} label={t('listing.specGuests')} />

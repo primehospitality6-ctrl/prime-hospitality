@@ -791,7 +791,8 @@ async function refreshAvailabilitySnapshots(report, fail, onlyTenant = null) {
     const roomTypeOf = new Map(rooms.map((r) => [r.id, r.roomTypeId || '']));
     let rackIds = null;
     try {
-      rackIds = (await bookableRoomTypes(target.tenantId)).ids;
+      const bookable = await bookableRoomTypes(target.tenantId);
+      rackIds = bookable.noWebsiteRates ? new Set() : bookable.ids;
     } catch (err) {
       fail(`room rack — tenant ${target.tenantId}`, err);
     }
@@ -1833,6 +1834,44 @@ function syncReservationAvailability(reservation, tenantId, { previousArrival, p
   return { ok: true, ...patched, cancelled };
 }
 
+/**
+ * A Kwentra city can already exist under a renamed label (the id stays the old slug).
+ * Reuse that destination instead of failing the pull with "Destination id already exists".
+ */
+async function findOrCreateDestination(destinations, fields, report) {
+  const name = String(fields.name || '').trim();
+  const slug = fields.id || slugify(name);
+  const kwId = String(fields.kwentraDestinationId || '');
+  const found =
+    (kwId && destinations.find((item) => String(item.kwentraDestinationId || '') === kwId)) ||
+    destinations.find((item) => norm(item.name) === norm(name)) ||
+    (slug && destinations.find((item) => item.id === slug));
+  if (found) {
+    if (kwId && !found.kwentraDestinationId) {
+      await updateDestination(found.id, { kwentraDestinationId: kwId });
+      found.kwentraDestinationId = kwId;
+      report.destinations.updated += 1;
+    }
+    return found;
+  }
+  try {
+    const created = await createDestination({
+      id: slug || `dest-${kwId || 'city'}`,
+      name,
+      description: fields.description || '',
+      kwentraDestinationId: kwId,
+    });
+    report.destinations.created += 1;
+    destinations.push(created);
+    return created;
+  } catch (err) {
+    if (err.status !== 409) throw err;
+    const fresh = await listCmsDestinations();
+    destinations.splice(0, destinations.length, ...fresh);
+    return destinations.find((item) => item.id === slug) || destinations.find((item) => norm(item.name) === norm(name)) || null;
+  }
+}
+
 async function syncDestinationsAndProperties(report, fail) {
   const [destRes, projRes] = await Promise.allSettled([pullDestinations(), pullProjects()]);
   const kwDestinations = destRes.status === 'fulfilled' ? destRes.value.items : (fail('destinations', destRes.reason), []);
@@ -1853,13 +1892,16 @@ async function syncDestinationsAndProperties(report, fail) {
         return !compound || !compound.destinationId;
       });
       if (!needed) continue;
-      await createDestination({
-        id: slugify(d.name) || `dest-${d.kwentraDestinationId}`,
-        name: d.name,
-        description: d.description,
-        kwentraDestinationId: d.kwentraDestinationId,
-      });
-      report.destinations.created += 1;
+      await findOrCreateDestination(
+        destinations,
+        {
+          id: slugify(d.name) || `dest-${d.kwentraDestinationId}`,
+          name: d.name,
+          description: d.description,
+          kwentraDestinationId: d.kwentraDestinationId,
+        },
+        report
+      );
     } else {
       const patch = {};
       if (!found.kwentraDestinationId) patch.kwentraDestinationId = d.kwentraDestinationId;
@@ -1938,7 +1980,8 @@ function pricedRoomTypeIds(definitions) {
 /**
  * Room types that are on the room rack, have a Kwentra website rate, and a room count above zero.
  * Inventory-only types, rack types with no rate, and types with no sellable rooms cannot be booked.
- * Throws when the rack or the rate grid cannot be read, so a failed call does not hide the site.
+ * Throws when the rack cannot be read, so a failed call does not hide the site.
+ * No Hotel Website rate is a normal skip: nothing new is published and nothing already listed is removed.
  */
 async function bookableRoomTypes(tenantId) {
   const [rawTypes, rack, definitions] = await Promise.all([
@@ -1952,10 +1995,9 @@ async function bookableRoomTypes(tenantId) {
     throw err;
   }
   const priced = pricedRoomTypeIds(definitions);
+  // A hotel with no Hotel Website rate is not for sale. That is not a failed read, so listings stay as they are.
   if (!definitions.length || !priced.size) {
-    const err = new Error('Kwentra returned no room type rates');
-    err.status = 502;
-    throw err;
+    return { types: [], ids: new Set(), noWebsiteRates: true };
   }
   const numbersByName = new Map();
   for (const row of rack) {
@@ -2004,7 +2046,8 @@ async function showRoomTypesOnly() {
   for (const target of tenantTargets(compounds)) {
     const tenantId = String(target.tenantId);
     try {
-      bookableByTenant.set(tenantId, (await bookableRoomTypes(tenantId)).ids);
+      const bookable = await bookableRoomTypes(tenantId);
+      bookableByTenant.set(tenantId, bookable.noWebsiteRates ? null : bookable.ids);
     } catch (err) {
       console.warn(`[kwentra] room rack lookup failed for tenant ${tenantId}:`, err.message);
       bookableByTenant.set(tenantId, null);
@@ -2186,15 +2229,9 @@ async function discoverProperties(report, fail) {
 
     const city = String(company.city || '').trim();
     let destinations = await listCmsDestinations();
-    let destination = city ? destinations.find((item) => norm(item.name) === norm(city)) : null;
-    if (!destination && city) {
-      destination = await createDestination({
-        id: slugify(city) || `city-${tenantId}`,
-        name: city,
-        country: company.country || '',
-      });
-      report.destinations.created += 1;
-    }
+    const destination = city
+      ? await findOrCreateDestination(destinations, { id: slugify(city) || `city-${tenantId}`, name: city }, report)
+      : null;
 
     const compounds = await listCmsCompounds();
     const found =
