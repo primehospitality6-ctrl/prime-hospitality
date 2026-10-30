@@ -1974,29 +1974,37 @@ async function bookableRoomTypes(tenantId) {
  * are copied onto the type so the category stays bookable.
  */
 async function showRoomTypesOnly() {
-  let rackIds = null;
-  try {
-    const compounds = await listCmsCompounds();
-    rackIds = new Set();
-    for (const target of tenantTargets(compounds)) {
-      const bookable = await bookableRoomTypes(target.tenantId);
-      for (const id of bookable.ids) rackIds.add(id);
+  const compounds = await listCmsCompounds();
+  const tenantOfCompound = new Map(
+    compounds.map((compound) => [compound.id, String(compound.kwentraTenantId || '').trim() || kwentra.getTenantId()])
+  );
+  // null means that tenant's rack or rates could not be read, so its listings stay as they are
+  const bookableByTenant = new Map();
+  for (const target of tenantTargets(compounds)) {
+    const tenantId = String(target.tenantId);
+    try {
+      bookableByTenant.set(tenantId, (await bookableRoomTypes(tenantId)).ids);
+    } catch (err) {
+      console.warn(`[kwentra] room rack lookup failed for tenant ${tenantId}:`, err.message);
+      bookableByTenant.set(tenantId, null);
     }
-  } catch (err) {
-    console.warn('[kwentra] room rack lookup failed:', err.message);
-    rackIds = null;
   }
   const units = await listCmsUnits();
+  const tenantOfUnit = (unit) => tenantOfCompound.get(unit.compoundId) || kwentra.getTenantId();
+  const groupKey = (unit) => `${tenantOfUnit(unit)}:${unit.kwentraRoomTypeId}`;
   const rooms = units.filter((u) => roomIdOf(u) && u.kwentraRoomTypeId);
-  const typeIds = [...new Set(rooms.map((u) => String(u.kwentraRoomTypeId)))];
+  const typeKeys = [...new Set(rooms.map(groupKey))];
   const copyKeys = ['images', 'driveFolderUrl', 'description', 'amenities', 'pricePerNight', 'areaSqm', 'bedrooms', 'bathrooms', 'maxGuests', 'propertyType', 'bedType'];
   let hidden = 0;
   let shown = 0;
-  for (const typeId of typeIds) {
-    const ofType = rooms.filter((u) => String(u.kwentraRoomTypeId) === typeId);
+  for (const key of typeKeys) {
+    const ofType = rooms.filter((u) => groupKey(u) === key);
+    const tenantId = String(tenantOfUnit(ofType[0]));
+    const allowed = bookableByTenant.get(tenantId);
+    const onRack = Boolean(allowed?.has(String(ofType[0].kwentraRoomTypeId)));
     const donor = ofType.slice().sort((a, b) => copyKeys.filter((key) => hasListingValue(b[key])).length - copyKeys.filter((key) => hasListingValue(a[key])).length)[0];
-    let template = units.find((u) => !roomIdOf(u) && String(u.kwentraRoomTypeId) === typeId);
-    if (!template && donor && rackIds?.has(typeId)) {
+    let template = units.find((u) => !roomIdOf(u) && groupKey(u) === key);
+    if (!template && donor && onRack) {
       const title = String(donor.title || '').replace(/\s·\s.*$/, '').trim() || donor.propertyType || donor.title;
       const saved = await updateUnit(donor.id, { kwentraRoomId: '', title, published: true });
       if (saved) {
@@ -2009,7 +2017,7 @@ async function showRoomTypesOnly() {
       for (const key of copyKeys) {
         if (!hasListingValue(template[key]) && hasListingValue(donor[key])) patch[key] = donor[key];
       }
-      if (template.published === false && rackIds?.has(typeId)) patch.published = true;
+      if (template.published === false && onRack) patch.published = true;
       if (Object.keys(patch).length) {
         const saved = await updateUnit(template.id, patch);
         if (saved) Object.assign(template, saved);
@@ -2024,13 +2032,13 @@ async function showRoomTypesOnly() {
       hidden += 1;
     }
   }
-  if (rackIds?.size) {
-    for (const unit of units) {
-      const typeId = String(unit.kwentraRoomTypeId || '').trim();
-      if (!typeId || rackIds.has(typeId)) continue;
-      await deleteUnit(unit.id);
-      hidden += 1;
-    }
+  for (const unit of units) {
+    const typeId = String(unit.kwentraRoomTypeId || '').trim();
+    if (!typeId) continue;
+    const allowed = bookableByTenant.get(String(tenantOfUnit(unit)));
+    if (!allowed || allowed.has(typeId)) continue;
+    await deleteUnit(unit.id);
+    hidden += 1;
   }
   if (hidden || shown) console.log(`[kwentra] listings — hid ${hidden} room(s), published ${shown} room type(s)`);
   return { hidden, shown };
@@ -2131,6 +2139,95 @@ async function syncTenant(target, compounds, report, fail) {
   }
 }
 
+/** One website property per Kwentra hotel this login can open. */
+async function discoverProperties(report, fail) {
+  let tenantIds = [];
+  try {
+    tenantIds = await kwentra.listAccessibleClients();
+  } catch (err) {
+    fail('properties', err);
+    return;
+  }
+  if (!tenantIds.length) tenantIds = [kwentra.getTenantId()].filter(Boolean);
+
+  for (const tenantId of tenantIds) {
+    let company = null;
+    try {
+      company = await kwentra.getMainCompany(tenantId);
+    } catch (err) {
+      fail(`property ${tenantId}`, err);
+      continue;
+    }
+    const name = String(company?.name || '').trim();
+    if (!name) continue;
+    const kind = String(company.instance_type || '').toLowerCase();
+    if (/demo|head\s*office|headoffice/.test(kind)) continue;
+
+    const city = String(company.city || '').trim();
+    let destinations = await listCmsDestinations();
+    let destination = city ? destinations.find((item) => norm(item.name) === norm(city)) : null;
+    if (!destination && city) {
+      destination = await createDestination({
+        id: slugify(city) || `city-${tenantId}`,
+        name: city,
+        country: company.country || '',
+      });
+      report.destinations.created += 1;
+    }
+
+    const compounds = await listCmsCompounds();
+    const found =
+      compounds.find((item) => String(item.kwentraTenantId || '') === String(tenantId)) ||
+      compounds.find((item) => norm(item.name) === norm(name));
+    const mapsUrl = String(company.location || '').trim();
+    const coords = mapsUrl ? coordsFromMapsUrl(mapsUrl) || {} : {};
+    if (!found) {
+      const base = slugify(name) || `property-${tenantId}`;
+      const id = compounds.some((item) => item.id === base) ? `${base}-${tenantId}` : base;
+      await createCompound({
+        id,
+        name,
+        destinationId: destination?.id || '',
+        city,
+        address: company.address || '',
+        phone: company.phone || '',
+        mapsUrl,
+        ...coords,
+        kwentraTenantId: String(tenantId),
+        kwentraProjectId: company.id != null ? String(company.id) : '',
+        published: false,
+      });
+      report.properties.created += 1;
+      continue;
+    }
+
+    const patch = {};
+    if (!found.kwentraTenantId) patch.kwentraTenantId = String(tenantId);
+    if (norm(found.name) !== norm(name)) patch.name = name;
+    if (!found.city && city) patch.city = city;
+    if (!found.address && company.address) patch.address = company.address;
+    if (!found.phone && company.phone) patch.phone = company.phone;
+    if (!found.mapsUrl && mapsUrl) patch.mapsUrl = mapsUrl;
+    if (!found.destinationId && destination) patch.destinationId = destination.id;
+    if (!found.kwentraProjectId && company.id != null) patch.kwentraProjectId = String(company.id);
+    if (Object.keys(patch).length) {
+      await updateCompound(found.id, patch);
+      report.properties.updated += 1;
+    }
+  }
+}
+
+/** A property with a bookable unit type is shown. One with none stays off the site. */
+async function publishPropertiesWithUnits() {
+  const [compounds, units] = await Promise.all([listCmsCompounds(), listCmsUnits()]);
+  for (const compound of compounds) {
+    if (!String(compound.kwentraTenantId || '').trim()) continue;
+    const hasUnit = units.some((unit) => unit.compoundId === compound.id && unit.published !== false && !roomIdOf(unit));
+    if (hasUnit && compound.published === false) await updateCompound(compound.id, { published: true });
+    if (!hasUnit && compound.published !== false) await updateCompound(compound.id, { published: false });
+  }
+}
+
 async function syncFromKwentra() {
   if (!kwentra.isConfigured()) {
     return { ok: false, reason: 'not_configured', message: 'Kwentra credentials are not set in Server/.env' };
@@ -2157,6 +2254,7 @@ async function syncFromKwentra() {
 
   try {
     await syncDestinationsAndProperties(report, fail);
+    await discoverProperties(report, fail);
     const compounds = await listCmsCompounds();
     for (const target of tenantTargets(compounds)) {
       try {
@@ -2174,6 +2272,11 @@ async function syncFromKwentra() {
   } catch (err) {
     report.ok = false;
     fail('availability', err);
+  }
+  try {
+    await publishPropertiesWithUnits();
+  } catch (err) {
+    fail('properties', err);
   }
   try {
     const incomplete = (await listCmsUnits()).filter((u) => u.kwentraRoomTypeId && !u.completeness.complete);
@@ -2359,7 +2462,9 @@ async function applyDefinedRates(onlyTenant = null) {
     const compoundIds = new Set(target.compounds.map((c) => c.id));
     for (const unit of units) {
       if (!unit.kwentraRoomTypeId || !compoundIds.has(unit.compoundId)) continue;
-      const amount = cardAmount(definitions, unit.kwentraRoomTypeId, 2, today);
+      const amount =
+        cardAmount(definitions, unit.kwentraRoomTypeId, 2, today, 'BB') ||
+        cardAmount(definitions, unit.kwentraRoomTypeId, 2, today, 'RO');
       if (!(amount > 0) || Number(unit.pricePerNight) === amount) continue;
       await updateUnit(unit.id, { pricePerNight: amount });
       updated += 1;
@@ -2478,6 +2583,8 @@ async function scheduledSync() {
     errors: [],
     startedAt: new Date().toISOString(),
     tenants: [],
+    destinations: { created: 0, updated: 0 },
+    properties: { created: 0, updated: 0 },
     units: { created: 0, updated: 0, unchanged: 0 },
   };
   const fail = (kind, err) => {
@@ -2485,6 +2592,7 @@ async function scheduledSync() {
     report.ok = false;
   };
   try {
+    await discoverProperties(report, fail);
     const compounds = await listCmsCompounds();
     for (const target of tenantTargets(compounds)) {
       try {
@@ -2502,6 +2610,11 @@ async function scheduledSync() {
       await warmRateGrid(report, fail);
     } catch (err) {
       fail('rates', err);
+    }
+    try {
+      await publishPropertiesWithUnits();
+    } catch (err) {
+      fail('properties', err);
     }
   } catch (err) {
     fail('interval', err);

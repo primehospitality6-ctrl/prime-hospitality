@@ -40,7 +40,7 @@ const RATE_PLANS = [
     adjustmentPct: 0,
     minNights: 1,
     refundable: true,
-    kwentraNames: ['hotel website bb'],
+    kwentraNames: ['hotel website bb', 'website bb'],
   },
   {
     code: 'RO',
@@ -51,7 +51,7 @@ const RATE_PLANS = [
     adjustmentPct: 0,
     minNights: 1,
     refundable: true,
-    kwentraNames: ['hotel website bed only'],
+    kwentraNames: ['hotel website bed only', 'website bed only', 'hotel website room only', 'website room only', 'hotel website', 'website'],
   },
 ];
 

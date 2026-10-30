@@ -366,6 +366,20 @@ const ROOM_TYPE_INCLUDES = [
 ];
 const LOOKUP_INCLUDES = ['code', 'description'];
 
+/** Properties this login can open. Each id is a Kwentra tenant. */
+async function listAccessibleClients() {
+  const data = await kwentraFetch('/api/client/v2');
+  const clients = Array.isArray(data?.clients) ? data.clients : [];
+  return [...new Set(clients.map((client) => String(client?.id || '').trim()).filter(Boolean))];
+}
+
+/** The hotel record for one tenant: name, city, address, phone. */
+async function getMainCompany(tenantId) {
+  const data = await kwentraFetch('/api/core/maincompany/', { tenantId });
+  const list = Array.isArray(data?.main_companies) ? data.main_companies : [];
+  return list[0] || null;
+}
+
 async function listRoomTypes({ tenantId, fresh = false } = {}) {
   const tenant = String(tenantId || getTenantId() || '');
   const load = () =>
@@ -606,11 +620,12 @@ async function listBlockingReservations({ tenantId, from, to } = {}) {
 /* ——— Rates ——— */
 
 async function listRates({ tenantId, from, to, roomTypeId, channel } = {}) {
-  const data = await kwentraFetch(pathFor('rates'), {
-    query: { start_date: from, end_date: to, room_type: roomTypeId, channel },
+  return listAll(pathFor('rates'), {
     tenantId,
+    maxPages: 8,
+    keys: ['rates', 'Rate_Entities'],
+    query: { start_date: from, end_date: to, room_type: roomTypeId, channel },
   });
-  return extractList(data, ['rates', 'Rate_Entities']);
 }
 
 /**
@@ -883,7 +898,8 @@ async function fetchRateBody(id, tenant) {
 }
 
 /**
- * Rate grids the website sells: Hotel Website BB and Hotel Website Bed Only, in USD.
+ * Rate grids the website sells, in USD. A property's own website rate is accepted under
+ * Hotel Website BB, Hotel Website Bed Only, Hotel Website, Website BB, or Website.
  * Other channel rates (Agoda, Booking.com, BAR, and the rest) are not loaded.
  */
 async function rateDefinitions(tenantId) {
@@ -1519,6 +1535,8 @@ module.exports = {
   kwentraFetch,
   extractList,
   listAll,
+  listAccessibleClients,
+  getMainCompany,
   listRoomTypes,
   listRooms,
   listRoomRack,

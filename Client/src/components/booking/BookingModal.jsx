@@ -301,7 +301,8 @@ export default function BookingModal({
                 plan,
               }),
         };
-      }),
+      })
+        .filter((quote) => (serverQuote?.key === quoteKey ? quote.price.rateAmount > 0 : true)),
     [plans, nights, stay.arrivalDate, stay.departureDate, calendarPrices, listing, serverQuote, quoteKey]
   );
 
