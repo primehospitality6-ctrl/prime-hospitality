@@ -332,10 +332,8 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
     animation: primeKenBurns 18s ease-out both;
   }
 
-  /* Skip layout work for stay cards that are still below the fold. */
   .prime-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 28rem;
+    min-width: 0;
   }
 
   /* Scroll reveal (see components/ui/Reveal.jsx) */

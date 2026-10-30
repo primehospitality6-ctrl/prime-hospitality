@@ -162,9 +162,10 @@ export function ListingRow({ listing, priority = false }) {
   const href = `/listings/${listing.slug}`;
   const specs = specsOf(listing, t);
   const amenities = (listing.amenities || []).slice(0, 4);
+  const accent = brandColorOf(listing.brand, useBrands());
   return (
     <article className="prime-card group grid min-w-0 grid-cols-1 gap-6 border-t border-prime-line pt-10 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-12 lg:gap-16">
-      <div className="relative aspect-[4/3] overflow-hidden bg-prime-mist">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-prime-mist">
         <CardMedia listing={listing} href={href} priority={priority} sizes="(min-width: 768px) 42vw, 100vw" />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
           <span className="flex flex-wrap gap-1.5">
@@ -173,8 +174,8 @@ export function ListingRow({ listing, priority = false }) {
           </span>
           <SaveButton listing={listing} />
         </div>
-      </div>
         {accent ? <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: accent }} /> : null}
+      </div>
 
       <div className="flex min-w-0 flex-col md:py-2">
         <div className="flex items-start justify-between gap-4">
@@ -229,8 +230,8 @@ export default function ListingCard({ listing, priority = false, featured = fals
     <article className={cn('prime-card group relative min-w-0', className)}>
       <div
         className={cn(
-          'relative overflow-hidden bg-brand-black',
           'relative overflow-hidden rounded-[1.25rem] bg-brand-black',
+          featured ? 'aspect-[4/5] sm:aspect-[3/4]' : 'aspect-[5/4] sm:aspect-[4/5]'
         )}
       >
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
