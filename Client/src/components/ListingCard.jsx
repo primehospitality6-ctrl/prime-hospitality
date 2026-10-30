@@ -261,7 +261,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
             </Link>
           </h3>
           {specs.length ? (
-            <p className="mt-1.5 hidden text-[11px] font-light text-white/55 sm:mt-2 sm:block">{specs.join('  ·  ')}</p>
+            <p className="mt-1.5 line-clamp-1 text-[11px] font-light text-white/55 sm:mt-2">{specs.join('  ·  ')}</p>
           ) : null}
           <div className="mt-2.5 border-t border-white/20 pt-2.5 sm:mt-3.5 sm:pt-3.5">
             <Price listing={listing} light />

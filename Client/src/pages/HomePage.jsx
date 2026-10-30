@@ -207,14 +207,14 @@ function Hero() {
         </div>
       ) : null}
 
-      <div className="prime-container relative flex flex-1 flex-col justify-end pb-20 pt-36 md:pb-14">
-        <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+      <div className="prime-container relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36">
+        <div className="grid items-end gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
           <div className="max-w-3xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-soft">
               <span className="inline-block h-2 w-2 rotate-45 border border-prime-gold-soft" aria-hidden />
               {t('home.introEyebrow')}
             </p>
-            <h1 className="prime-fade-up mt-8 font-display text-display-2xl font-extralight" style={{ animationDelay: '80ms' }}>
+            <h1 className="prime-fade-up mt-5 font-display text-display-2xl font-extralight sm:mt-8" style={{ animationDelay: '80ms' }}>
               <span className="block">{t('home.heroLine1')}</span>
               <span className="mt-1 block text-prime-gold-soft">{t('home.heroLine2')}</span>
             </h1>
@@ -230,12 +230,34 @@ function Hero() {
           </div>
         </div>
 
-        <div className="prime-fade-up mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
+        <div className="prime-fade-up mt-8 sm:mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
           <div className="overflow-hidden rounded-[1.75rem] border border-white/15 bg-white/[0.97] shadow-[0_40px_100px_rgba(0,0,0,0.45)]">
             <div className="h-1 w-full bg-gradient-to-r from-prime-gold via-prime-gold-soft to-transparent" />
             <HeroSearch />
           </div>
         </div>
+
+        {images.length > 1 ? (
+          <div className="mt-4 flex items-center justify-center lg:hidden">
+            {images.map((src, i) => (
+              <button
+                key={src}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={t('a11y.showSlide', { n: i + 1 })}
+                aria-current={i === index}
+                className="grid h-11 w-8 place-items-center"
+              >
+                <span
+                  className={cn(
+                    'h-1.5 rounded-full transition-all',
+                    i === index ? 'w-5 bg-prime-gold-soft' : 'w-1.5 bg-white/45'
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-8 hidden items-center justify-center gap-3 text-white/70 lg:flex">
           <span className="text-[10px] font-medium uppercase tracking-[0.28em]">{t('home.scroll')}</span>

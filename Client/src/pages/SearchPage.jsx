@@ -277,7 +277,6 @@ export default function SearchPage() {
               places={placeCapsules}
               selectedId={destination ? filters.compound : ''}
               onSelect={selectPlace}
-              onOpenFilters={() => setSheetOpen(true)}
               allLabel={destination ? t('search.allIn', { name: term(destination.name) }) : t('search.allDestinations')}
               emptyLabel={t('search.noProperties')}
               backLabel={t('home.destinations')}

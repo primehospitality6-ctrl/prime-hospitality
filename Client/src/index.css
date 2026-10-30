@@ -22,13 +22,8 @@
   --prime-surface: #ffffff;
   --prime-white: #ffffff;
   --prime-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --prime-header-h: 4.25rem;
-}
-
-@media (min-width: 768px) {
-  :root {
-    --prime-header-h: 5rem;
-  }
+  /* Floating pill: top inset + bar, plus the notch on phones. */
+  --prime-header-h: calc(4rem + 0.75rem + env(safe-area-inset-top, 0px));
 }
 
 html.dark {
@@ -85,6 +80,15 @@ input,
 select,
 textarea {
   touch-action: manipulation;
+}
+
+/* iOS zooms the page when a focused field is under 16px */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 ::selection {
@@ -304,7 +308,7 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 
   .prime-input {
-    @apply w-full rounded-none border border-prime-line bg-prime-surface px-4 py-3 text-[15px] text-prime-ink placeholder:font-light focus:border-prime-ink/60 focus:outline-none;
+    @apply w-full rounded-none border border-prime-line bg-prime-surface px-4 py-3 text-base text-prime-ink placeholder:font-light focus:border-prime-ink/60 focus:outline-none md:text-[15px];
   }
 
   .prime-input::placeholder {

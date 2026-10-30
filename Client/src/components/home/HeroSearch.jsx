@@ -227,7 +227,7 @@ export default function HeroSearch() {
       onSubmit={handleSubmit}
       className="relative z-[60] w-full bg-transparent text-prime-ink"
     >
-      <div className="grid divide-y divide-prime-line md:grid-cols-[1.25fr_1.5fr_0.9fr_auto] md:divide-x md:divide-y-0 rtl:md:divide-x-reverse">
+      <div className="grid divide-y divide-prime-line lg:grid-cols-[1.25fr_1.5fr_0.9fr_auto] lg:divide-x lg:divide-y-0 rtl:lg:divide-x-reverse">
         <div className="relative">
           <button
             ref={projectBtnRef}

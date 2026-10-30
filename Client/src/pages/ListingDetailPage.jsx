@@ -419,7 +419,7 @@ export default function ListingDetailPage() {
       <Header overHero />
       <main className="pb-28 lg:pb-0">
         {/* Full-bleed gallery hero */}
-        <section className="relative isolate min-h-[72svh] overflow-hidden bg-brand-black text-white md:min-h-[85svh]">
+        <section className="relative isolate min-h-[64svh] overflow-hidden bg-brand-black text-white sm:min-h-[72svh] md:min-h-[85svh]">
           <button type="button" onClick={() => setLightbox(true)} className="absolute inset-0 block" aria-label={t('listing.showAllPhotos', { count: photos.length })}>
             <Img
               src={photos[0]}
@@ -431,8 +431,8 @@ export default function ListingDetailPage() {
             <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
           </button>
 
-          <div className="relative flex min-h-[72svh] flex-col justify-end md:min-h-[85svh]">
-            <div className="prime-container pb-12 pt-32 md:pb-16">
+          <div className="relative flex min-h-[64svh] flex-col justify-end sm:min-h-[72svh] md:min-h-[85svh]">
+            <div className="prime-container pb-8 pt-28 sm:pb-12 sm:pt-32 md:pb-16">
               <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white/55">
                 <Link to="/" className="transition hover:text-white">
                   {t('listing.egypt')}
@@ -519,10 +519,26 @@ export default function ListingDetailPage() {
           </div>
         </section>
 
-        <div className="prime-container pt-10 md:pt-14">
+        {photos.length > 1 ? (
+          <div className="prime-scroll-x gap-2 px-5 pt-3 md:hidden">
+            {photos.slice(1, 10).map((src, i) => (
+              <button
+                type="button"
+                key={`${src}-strip-${i}`}
+                onClick={() => setLightbox(true)}
+                className="relative h-16 w-[5.5rem] shrink-0 snap-start overflow-hidden rounded-xl bg-brand-black"
+                aria-label={t('listing.photoAlt', { title: listing.title, n: i + 2 })}
+              >
+                <Img src={src} alt="" sizes="88px" widths={[200, 400]} className="absolute inset-0 h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        ) : null}
 
-          <nav className="sticky top-[var(--prime-header-h)] z-30 mb-10 hidden border-b border-prime-line bg-prime-sand/95 backdrop-blur-md md:block">
-            <div className="flex gap-8 text-[11px] font-medium uppercase tracking-[0.22em] text-prime-muted">
+        <div className="prime-container pt-8 md:pt-14">
+
+          <nav className="sticky top-[var(--prime-header-h)] z-30 -mx-5 mb-8 overflow-x-auto border-b border-prime-line bg-prime-sand/95 px-5 backdrop-blur-md md:mx-0 md:mb-10 md:overflow-visible md:px-0">
+            <div className="flex w-max gap-6 text-[11px] font-medium uppercase tracking-[0.22em] text-prime-muted md:w-auto md:gap-8">
               {[
                 ['#about', t('listing.description')],
                 ['#details', t('listing.details')],
@@ -536,7 +552,7 @@ export default function ListingDetailPage() {
                 <a
                   key={href}
                   href={href}
-                  className="py-4 transition hover:text-prime-ink"
+                  className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap py-3 transition hover:text-prime-ink"
                 >
                   {label}
                 </a>
@@ -744,8 +760,8 @@ export default function ListingDetailPage() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-brand-black/95 px-5 py-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-prime items-center gap-4">
+      <div className="fixed inset-x-0 bottom-0 z-40 rounded-t-[1.25rem] border-t border-white/10 bg-brand-black/95 px-4 py-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] backdrop-blur-md lg:hidden">
+        <div className="mx-auto flex max-w-prime items-center gap-3">
           <div className="min-w-0 flex-1">
             {hasPrice ? (
               <>
@@ -759,7 +775,7 @@ export default function ListingDetailPage() {
               <p className="truncate font-display text-[1.25rem] font-extralight leading-tight text-white">{t('listing.priceOnRequest')}</p>
             )}
           </div>
-          <button type="button" className="prime-btn-gold shrink-0 px-7" onClick={() => setBookingOpen(true)}>
+          <button type="button" className="prime-btn-gold shrink-0 px-5 sm:px-7" onClick={() => setBookingOpen(true)}>
             {t('listing.bookNow')}
           </button>
         </div>

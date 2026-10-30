@@ -53,7 +53,7 @@ function ThemeToggle() {
       aria-label={t(isDark ? 'a11y.toLight' : 'a11y.toDark')}
       title={t(isDark ? 'a11y.lightMode' : 'a11y.darkMode')}
       onClick={toggleTheme}
-      className="prime-tap relative inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center opacity-85 transition-opacity hover:opacity-100"
+      className="prime-tap relative inline-flex h-11 w-11 shrink-0 items-center justify-center opacity-85 transition-opacity hover:opacity-100"
     >
       <Sun size={18} strokeWidth={1.5} className={cn(iconCls, isDark ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-50 opacity-0')} />
       <Moon size={17} strokeWidth={1.5} className={cn(iconCls, isDark ? 'rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100')} />
@@ -191,7 +191,7 @@ export default function Header({ overHero = false }) {
     <>
       <header className="prime-header-shell fixed inset-x-0 top-0 z-50">
         {showBar ? <AnnouncementBar bar={bar} collapsed={scrolled} onDismiss={dismissBar} /> : null}
-        <div className="px-3 pt-3 sm:px-5">
+        <div className="px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:px-5">
         <div
           className={cn(
             'relative mx-auto grid h-16 max-w-prime grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full border px-3 transition-[background-color,box-shadow,color,border-color] duration-500 ease-prime sm:gap-3 sm:px-5',
@@ -209,7 +209,7 @@ export default function Header({ overHero = false }) {
               className="group -ms-2 inline-flex min-h-[44px] min-w-[44px] items-center gap-3 p-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
             >
               <MenuIcon />
-              <span className="hidden sm:inline lg:sr-only">{t('nav.menu')}</span>
+              <span className="sr-only">{t('nav.menu')}</span>
             </button>
             <nav className="hidden items-center gap-7 lg:flex" aria-label={t('a11y.primaryNav')}>
               {MENU.filter((m) => m.inline).map((item) => (
@@ -226,7 +226,7 @@ export default function Header({ overHero = false }) {
               alt={brand.name}
               width="640"
               height="228"
-              className="h-7 w-auto md:h-8"
+              className="h-6 w-auto sm:h-7 md:h-8"
             />
           </Link>
 
@@ -243,7 +243,7 @@ export default function Header({ overHero = false }) {
             <ThemeToggle />
             <Link
               to="/wishlist"
-              className="relative inline-flex p-2 opacity-85 transition-opacity hover:opacity-100"
+              className="relative inline-flex h-11 w-11 items-center justify-center opacity-85 transition-opacity hover:opacity-100"
               aria-label={t('nav.wishlist')}
             >
               <Heart size={18} strokeWidth={1.5} />
@@ -256,7 +256,7 @@ export default function Header({ overHero = false }) {
             <Link
               to="/search"
               className={cn(
-                'ms-1 hidden min-h-[2.5rem] items-center rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.2em] transition duration-300 sm:inline-flex',
+                'ms-1 hidden min-h-[2.5rem] items-center whitespace-nowrap rounded-full px-4 text-[11px] font-semibold uppercase tracking-[0.16em] transition duration-300 sm:inline-flex lg:px-5 lg:tracking-[0.2em]',
                 transparent
                   ? 'border border-white/45 hover:border-white hover:bg-white hover:text-brand-black'
                   : 'bg-prime-ink text-prime-sand hover:bg-brand-gold'
@@ -270,7 +270,7 @@ export default function Header({ overHero = false }) {
       </header>
 
       {!overHero ? (
-        <div aria-hidden className={showBar ? 'h-[calc(4rem+0.75rem+2.25rem)]' : 'h-[calc(4rem+0.75rem)]'} />
+        <div aria-hidden className={showBar ? 'h-[calc(var(--prime-header-h)+2.25rem)]' : 'h-[var(--prime-header-h)]'} />
       ) : null}
 
       {menuOpen ? (
