@@ -32,6 +32,7 @@ const {
   updateCompound,
   createDestination,
   updateDestination,
+  deleteDestination,
   updateBooking,
   slugify,
 } = require('../lib/cmsStore');
@@ -1838,11 +1839,20 @@ async function syncDestinationsAndProperties(report, fail) {
   const kwProjects = projRes.status === 'fulfilled' ? projRes.value.items : (fail('properties', projRes.reason), []);
 
   let destinations = await listCmsDestinations();
+  const compoundsNow = await listCmsCompounds();
   for (const d of kwDestinations) {
     const found =
       destinations.find((x) => x.kwentraDestinationId && x.kwentraDestinationId === d.kwentraDestinationId) ||
       destinations.find((x) => norm(x.name) === norm(d.name));
     if (!found) {
+      const needed = kwProjects.some((p) => {
+        if (String(p.kwentraDestinationId || '') !== String(d.kwentraDestinationId || '')) return false;
+        const compound =
+          compoundsNow.find((c) => c.kwentraProjectId && c.kwentraProjectId === p.kwentraProjectId) ||
+          compoundsNow.find((c) => norm(c.name) === norm(p.name));
+        return !compound || !compound.destinationId;
+      });
+      if (!needed) continue;
       await createDestination({
         id: slugify(d.name) || `dest-${d.kwentraDestinationId}`,
         name: d.name,
@@ -2228,6 +2238,23 @@ async function discoverProperties(report, fail) {
   }
 }
 
+/** A city with no stays and no property is not a destination. */
+async function dropDestinationsWithNoUnits() {
+  const [destinations, compounds, units] = await Promise.all([
+    listCmsDestinations(),
+    listCmsCompounds(),
+    listCmsUnits(),
+  ]);
+  const used = new Set([
+    ...units.map((unit) => unit.destinationId).filter(Boolean),
+    ...compounds.map((compound) => compound.destinationId).filter(Boolean),
+  ]);
+  for (const destination of destinations) {
+    if (used.has(destination.id)) continue;
+    await deleteDestination(destination.id);
+  }
+}
+
 /** A property with a bookable unit type is shown. One with none stays off the site. */
 async function publishPropertiesWithUnits() {
   const [compounds, units] = await Promise.all([listCmsCompounds(), listCmsUnits()]);
@@ -2286,6 +2313,7 @@ async function syncFromKwentra() {
   }
   try {
     await publishPropertiesWithUnits();
+    await dropDestinationsWithNoUnits();
   } catch (err) {
     fail('properties', err);
   }

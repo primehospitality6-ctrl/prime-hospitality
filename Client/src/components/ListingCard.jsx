@@ -63,6 +63,10 @@ function CardMedia({ listing, href, sizes, priority, className }) {
   );
 }
 
+function brandColorOf(name, brands) {
+  return findBrand(brands, name)?.color || subBrand(name)?.color || '';
+}
+
 function BrandChip({ name }) {
   const { term } = useLocale();
   const cms = findBrand(useBrands(), name);
@@ -170,6 +174,7 @@ export function ListingRow({ listing, priority = false }) {
           <SaveButton listing={listing} />
         </div>
       </div>
+        {accent ? <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: accent }} /> : null}
 
       <div className="flex min-w-0 flex-col md:py-2">
         <div className="flex items-start justify-between gap-4">
@@ -219,12 +224,13 @@ export default function ListingCard({ listing, priority = false, featured = fals
   const href = `/listings/${listing.slug}`;
   const specs = specsOf(listing, t);
 
+  const accent = brandColorOf(listing.brand, useBrands());
   return (
     <article className={cn('prime-card group relative min-w-0', className)}>
       <div
         className={cn(
           'relative overflow-hidden bg-brand-black',
-          featured ? 'aspect-[4/5] sm:aspect-[3/4]' : 'aspect-[5/4] sm:aspect-[4/5]'
+          'relative overflow-hidden rounded-[1.25rem] bg-brand-black',
         )}
       >
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
@@ -260,6 +266,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
             <Price listing={listing} light />
           </div>
         </div>
+          {accent ? <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: accent }} /> : null}
       </div>
     </article>
   );

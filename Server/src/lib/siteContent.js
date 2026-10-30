@@ -122,6 +122,28 @@ const DEFAULT_BRANDS = [
       ar: 'أكثر منازلنا تميزًا، مختارة بعناية ومخدومة بالكامل.',
     },
   },
+  {
+    name: 'Holidays',
+    nameAr: 'هوليدايز',
+    color: '#005D67',
+    image: '',
+    minNights: 1,
+    text: {
+      en: 'Coastal stays for long summers and easy weekends.',
+      ar: 'إقامات ساحلية لصيف طويل وعطلات نهاية أسبوع هادئة.',
+    },
+  },
+  {
+    name: 'Co-Work',
+    nameAr: 'كو-وورك',
+    color: '#1E355E',
+    image: '',
+    minNights: 1,
+    text: {
+      en: 'A place to work and stay, for teams who need both.',
+      ar: 'مكان للعمل والإقامة، للفرق التي تحتاج الاثنين.',
+    },
+  },
 ];
 
 function ruleList(value) {

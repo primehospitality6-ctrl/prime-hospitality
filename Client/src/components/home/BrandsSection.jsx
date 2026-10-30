@@ -9,7 +9,13 @@ import Reveal from '../ui/Reveal';
 import SectionIntro from '../ui/SectionIntro';
 import Wordmark from '../ui/Wordmark';
 
-const GRID_COLS = { 1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-2 lg:grid-cols-4' };
+const GRID_COLS = {
+  1: 'md:grid-cols-1',
+  2: 'md:grid-cols-2',
+  3: 'md:grid-cols-3',
+  4: 'md:grid-cols-2 lg:grid-cols-4',
+  5: 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
+};
 
 /** Each sub-brand as its business card: the brand colour, its name stacked in syllables, a photo on hover */
 function BrandCard({ name, color, image, copy, explore, dense, wide }) {
@@ -94,7 +100,7 @@ export default function BrandsSection() {
                 image={b.image || propertyImages[b.name.toLowerCase()]}
                 copy={(locale === 'ar' && b.text?.ar) || b.text?.en}
                 explore={t('home.explore')}
-                dense={brands.length === 4}
+                dense={brands.length >= 4}
                 wide={brands.length <= 2}
               />
             </Reveal>

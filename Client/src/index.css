@@ -266,19 +266,19 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
 
   .prime-btn {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-prime-ink px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-sand transition duration-500 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-full bg-prime-ink px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-sand transition duration-500 ease-prime hover:bg-prime-gold disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-gold {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn bg-brand-gold px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white transition duration-500 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-full bg-brand-gold px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white transition duration-500 ease-prime hover:bg-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .prime-btn-outline {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-prime-ink/20 bg-transparent px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-ink transition duration-500 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-full border border-prime-ink/20 bg-transparent px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-ink transition duration-500 ease-prime hover:border-prime-ink hover:bg-prime-ink hover:text-prime-sand;
   }
 
   .prime-btn-ghost {
-    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-btn border border-white/35 bg-transparent px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white transition duration-500 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2.5 rounded-full border border-white/35 bg-transparent px-8 py-3.5 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white transition duration-500 ease-prime hover:border-white hover:bg-white hover:text-brand-black;
   }
 
   /* “Explore more” text link with a drawn line */
@@ -403,6 +403,43 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   .prime-scroll-x {
     @apply flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
   }
+
+  .prime-round {
+    @apply grid h-12 w-12 place-items-center rounded-full border border-prime-ink/20 text-prime-ink transition duration-500 ease-prime hover:border-brand-gold hover:bg-brand-gold hover:text-white;
+  }
+
+  .prime-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: grid;
+    place-items: center;
+    background: #231f20;
+    color: #fff;
+    cursor: pointer;
+    animation: primeIntroOut 0.8s var(--prime-ease) 1.65s forwards;
+  }
+
+  .prime-intro__bar {
+    height: 1px;
+    width: 11rem;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .prime-intro__bar > span {
+    display: block;
+    height: 100%;
+    background: #bba27c;
+    transform-origin: left;
+    animation: primeProgressFill 1.35s var(--prime-ease) both;
+  }
+
+  .prime-marquee {
+    display: flex;
+    width: max-content;
+    animation: primeMarquee 48s linear infinite;
+  }
 }
 
 @layer utilities {
@@ -507,6 +544,22 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   }
   to {
     transform: translateY(200%);
+  }
+}
+
+@keyframes primeIntroOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes primeMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
@@ -616,8 +669,15 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
   .prime-fade-in,
   .prime-fade-up,
   .prime-kenburns,
-  .prime-cal {
+  .prime-cal,
+  .prime-intro,
+  .prime-marquee,
+  .prime-intro__bar > span {
     animation: none !important;
+  }
+
+  .prime-intro {
+    display: none;
   }
 
   .prime-cal * {

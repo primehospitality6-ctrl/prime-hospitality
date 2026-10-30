@@ -3,7 +3,7 @@
  * Source: "PHMG-Total Inventory" sample sheet — replace/extend as the live inventory grows.
  */
 
-const BRANDS = ['Inn', 'Residence', 'Select'];
+const BRANDS = ['Inn', 'Residence', 'Select', 'Holidays', 'Co-Work'];
 
 const UNIT_TYPES = ['Studio', '1BR', '2BR', '3BR', '4BR', '5BR', '6BR'];
 

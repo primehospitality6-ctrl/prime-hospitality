@@ -294,7 +294,7 @@ export default function AdminCompoundsPage() {
     <div>
       <AdminPageHeader
         title="Properties"
-        lede={`${items.length} properties. Each belongs to a destination and carries a brand (Inn, Residence, Select); unit types live under Unit types.`}
+        lede={`${items.length} properties. Each belongs to a destination and carries a brand (Inn, Residence, Select, Holidays, Co-Work); unit types live under Unit types.`}
         actions={
           <button type="button" className="prime-btn" onClick={() => setEditor({ open: true, property: null })}>
             <Plus size={14} /> Add property

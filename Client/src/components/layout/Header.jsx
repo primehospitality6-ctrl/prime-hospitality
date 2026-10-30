@@ -189,19 +189,17 @@ export default function Header({ overHero = false }) {
 
   return (
     <>
-      <header
-        className={cn(
-          'prime-header-shell fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow,color] duration-500 ease-prime',
-          transparent
-            ? 'bg-transparent text-white'
-            : 'bg-prime-sand/90 text-prime-ink shadow-[0_1px_0_rgba(35,31,32,0.08)] backdrop-blur-xl backdrop-saturate-150'
-        )}
-      >
-        {transparent ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 to-transparent" />
-        ) : null}
+      <header className="prime-header-shell fixed inset-x-0 top-0 z-50">
         {showBar ? <AnnouncementBar bar={bar} collapsed={scrolled} onDismiss={dismissBar} /> : null}
-        <div className="prime-container relative grid h-[var(--prime-header-h)] grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="px-3 pt-3 sm:px-5">
+        <div
+          className={cn(
+            'relative mx-auto grid h-16 max-w-prime grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full border px-3 transition-[background-color,box-shadow,color,border-color] duration-500 ease-prime sm:gap-3 sm:px-5',
+            transparent
+              ? 'border-white/20 bg-black/30 text-white shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
+              : 'border-prime-line bg-white/88 text-prime-ink shadow-[0_18px_48px_-28px_rgba(35,31,32,0.4)] backdrop-blur-xl'
+          )}
+        >
           <div className="flex items-center gap-7">
             <button
               type="button"
@@ -228,7 +226,7 @@ export default function Header({ overHero = false }) {
               alt={brand.name}
               width="640"
               height="228"
-              className="h-8 w-auto md:h-10"
+              className="h-7 w-auto md:h-8"
             />
           </Link>
 
@@ -258,7 +256,7 @@ export default function Header({ overHero = false }) {
             <Link
               to="/search"
               className={cn(
-                'ms-1 hidden min-h-[2.75rem] items-center rounded-btn px-5 text-[11px] font-semibold uppercase tracking-[0.2em] transition duration-300 sm:inline-flex',
+                'ms-1 hidden min-h-[2.5rem] items-center rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.2em] transition duration-300 sm:inline-flex',
                 transparent
                   ? 'border border-white/45 hover:border-white hover:bg-white hover:text-brand-black'
                   : 'bg-prime-ink text-prime-sand hover:bg-brand-gold'
@@ -268,10 +266,11 @@ export default function Header({ overHero = false }) {
             </Link>
           </div>
         </div>
+        </div>
       </header>
 
       {!overHero ? (
-        <div aria-hidden className={showBar ? 'h-[calc(var(--prime-header-h)+2.25rem)]' : 'h-[var(--prime-header-h)]'} />
+        <div aria-hidden className={showBar ? 'h-[calc(4rem+0.75rem+2.25rem)]' : 'h-[calc(4rem+0.75rem)]'} />
       ) : null}
 
       {menuOpen ? (

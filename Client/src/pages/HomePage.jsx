@@ -14,6 +14,7 @@ import Reveal from '../components/ui/Reveal';
 import SectionIntro from '../components/ui/SectionIntro';
 import Wordmark from '../components/ui/Wordmark';
 import api from '../api/client';
+import { brand } from '../theme/brand';
 import { useLocale } from '../context/LocaleContext';
 import { useSite } from '../context/SiteContext';
 import { sizedSrc, srcSetFor } from '../utils/img';
@@ -27,6 +28,83 @@ const HERO_FALLBACK = [
 const HERO_WIDTHS = [640, 960, 1440, 1920, 2560];
 const SLIDE_MS = 7000;
 const CAROUSEL_CARD = 'w-[78vw] flex-none snap-start sm:w-[46vw] md:w-[38vw] lg:w-[31vw] xl:w-[30vw]';
+const INTRO_KEY = 'prime-intro-seen';
+
+function IntroCurtain() {
+  const [show, setShow] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
+    try {
+      return !window.sessionStorage.getItem(INTRO_KEY);
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!show) return undefined;
+    try {
+      window.sessionStorage.setItem(INTRO_KEY, '1');
+    } catch {
+      /* storage unavailable */
+    }
+    const id = window.setTimeout(() => setShow(false), 2300);
+    return () => window.clearTimeout(id);
+  }, [show]);
+
+  if (!show) return null;
+
+  return (
+    <button type="button" className="prime-intro" onClick={() => setShow(false)} aria-label={brand.name}>
+      <span className="flex flex-col items-center gap-7 px-6">
+        <img src={brand.logoLight} alt="" className="h-10 w-auto" />
+        <span className="prime-intro__bar" aria-hidden>
+          <span />
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function DestinationMarquee() {
+  const [names, setNames] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getDestinations()
+      .then((res) => {
+        if (cancelled) return;
+        const list = (res.items || []).map((d) => d.name).filter(Boolean);
+        setNames(list.length < 6 ? [...list, ...list] : list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (names.length < 2) return null;
+
+  return (
+    <section className="overflow-hidden border-y border-prime-line bg-prime-mist py-7" aria-hidden="true">
+      <div dir="ltr" className="prime-marquee items-center">
+        {[0, 1].map((copy) => (
+          <div key={copy} className="flex shrink-0 items-center pe-12">
+            {names.map((name, i) => (
+              <span key={`${copy}-${i}`} className="flex items-center">
+                <span className="px-6 font-display text-[1.7rem] font-extralight leading-none tracking-[-0.03em] text-prime-ink md:px-8 md:text-[2.15rem]">
+                  {name}
+                </span>
+                <span className="inline-block h-1.5 w-1.5 rotate-45 bg-brand-gold" />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function Hero() {
   const { t } = useLocale();
@@ -97,7 +175,7 @@ function Hero() {
       </div>
 
       <Wordmark
-        word="Hospitality"
+        word="Prime"
         className="prime-fade-in pointer-events-none absolute inset-x-0 top-[18%] -z-10 mx-auto hidden w-max text-center text-[clamp(6rem,22vw,22rem)] text-white/[0.08] md:block"
       />
 
@@ -129,7 +207,7 @@ function Hero() {
         </div>
       ) : null}
 
-      <div className="prime-container relative flex flex-1 flex-col justify-end pb-10 pt-36 md:pb-14">
+      <div className="prime-container relative flex flex-1 flex-col justify-end pb-20 pt-36 md:pb-14">
         <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
           <div className="max-w-3xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-soft">
@@ -153,10 +231,17 @@ function Hero() {
         </div>
 
         <div className="prime-fade-up mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
-          <div className="overflow-hidden border border-white/10 bg-white/[0.97] shadow-[0_40px_100px_rgba(0,0,0,0.45)] backdrop-blur-sm">
+          <div className="overflow-hidden rounded-[1.75rem] border border-white/15 bg-white/[0.97] shadow-[0_40px_100px_rgba(0,0,0,0.45)]">
             <div className="h-1 w-full bg-gradient-to-r from-prime-gold via-prime-gold-soft to-transparent" />
             <HeroSearch />
           </div>
+        </div>
+
+        <div className="mt-8 hidden items-center justify-center gap-3 text-white/70 lg:flex">
+          <span className="text-[10px] font-medium uppercase tracking-[0.28em]">{t('home.scroll')}</span>
+          <span className="relative h-10 w-px overflow-hidden bg-white/25">
+            <span className="absolute inset-x-0 top-0 h-1/2 bg-prime-gold-soft" style={{ animation: 'primeScrollCue 1.8s var(--prime-ease) infinite' }} />
+          </span>
         </div>
       </div>
     </section>
@@ -238,7 +323,7 @@ function FeaturedCarousel() {
                 type="button"
                 onClick={() => scrollBy(-1)}
                 aria-label={t('home.prevStays')}
-                className="grid h-12 w-12 place-items-center bg-brand-black text-white transition duration-500 hover:bg-brand-gold"
+                className="prime-round"
               >
                 <ArrowLeft size={16} strokeWidth={1.3} className="rtl:rotate-180" />
               </button>
@@ -246,7 +331,7 @@ function FeaturedCarousel() {
                 type="button"
                 onClick={() => scrollBy(1)}
                 aria-label={t('home.moreStays')}
-                className="grid h-12 w-12 place-items-center bg-brand-black text-white transition duration-500 hover:bg-brand-gold"
+                className="prime-round"
               >
                 <ArrowRight size={16} strokeWidth={1.3} className="rtl:rotate-180" />
               </button>
@@ -291,11 +376,13 @@ export default function HomePage() {
 
   return (
     <div>
+      <IntroCurtain />
       <Header overHero />
       <main>
         <div id="home-hero">
           <Hero />
         </div>
+        <DestinationMarquee />
         {(site.home?.sections || []).map(({ id, enabled }) => {
           if (!enabled) return null;
           const Section = SECTIONS[id];

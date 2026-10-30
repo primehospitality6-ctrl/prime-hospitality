@@ -291,7 +291,7 @@ export default function HeroSearch() {
           <button
             type="submit"
             disabled={criteria.checkin && criteria.checkout ? !hasValidRange : false}
-            className="group inline-flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-btn bg-prime-ink px-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-sand transition hover:bg-brand-gold disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[180px]"
+            className="group inline-flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-full bg-prime-ink px-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-sand transition hover:bg-brand-gold disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[180px]"
           >
             {t('home.searchStays')}
             <ArrowRight size={15} strokeWidth={1.5} className="transition-transform group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1" />

@@ -694,7 +694,7 @@ export default function ListingDetailPage() {
               ) : null}
             </div>
 
-            <aside className="hidden h-fit bg-brand-black p-9 text-white lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
+            <aside className="hidden h-fit rounded-[1.25rem] bg-brand-black p-9 text-white lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
               <p className="prime-label text-prime-gold-soft">{t('listing.reservation')}</p>
               {hasPrice ? (
                 <>

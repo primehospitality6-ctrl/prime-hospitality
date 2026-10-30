@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUp, ArrowUpRight, Facebook, Instagram, Linkedin, Music2 } from 'lucide-react';
 import { brand, whatsappHref } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
-import { useSite } from '../../context/SiteContext';
+import { useBrands, useSite } from '../../context/SiteContext';
 import Wordmark from '../ui/Wordmark';
 
 const COLS = [
@@ -43,13 +43,14 @@ const SOCIAL = [
 
 export default function Footer() {
   const { t, term } = useLocale();
+  const brands = useBrands();
   useSite();
   const social = SOCIAL.filter(([key]) => brand.social[key] && brand.social[key] !== '#');
 
   return (
     <footer className="relative isolate overflow-hidden bg-brand-black text-white">
       <Wordmark
-        word="Hospitality"
+        word="Prime"
         className="pointer-events-none absolute -bottom-[0.05em] end-[-0.03em] -z-10 text-[clamp(8rem,26vw,24rem)] text-white/[0.04]"
       />
 
@@ -68,6 +69,19 @@ export default function Footer() {
             </a>
           </div>
         </div>
+
+        {brands.length ? (
+          <ul className="flex flex-wrap gap-x-8 gap-y-4 border-b border-white/10 py-8">
+            {brands.map((item) => (
+              <li key={item.name}>
+                <Link to="/search" className="inline-flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-white/75 transition hover:text-white">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} aria-hidden />
+                  Prime {item.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         <div className="grid gap-12 py-16 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
