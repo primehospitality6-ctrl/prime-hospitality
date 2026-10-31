@@ -119,6 +119,18 @@ export default function UnitEditor({ open, unit, compounds, compoundGroups, defa
   const [busy, setBusy] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
   const [error, setError] = useState('');
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
+
+  const endPhotoDrag = () => {
+    setDragIndex(null);
+    setOverIndex(null);
+  };
+
+  const dropPhoto = (toIndex) => {
+    if (dragIndex !== null && dragIndex !== toIndex) set({ images: reorderList(form.images, dragIndex, toIndex) });
+    endPhotoDrag();
+  };
 
   useEffect(() => {
     if (open) {
@@ -299,7 +311,7 @@ export default function UnitEditor({ open, unit, compounds, compoundGroups, defa
           </div>
         </Section>
 
-        <Section title="Photos" hint="Required — the unit stays hidden until it has photos. Share a Google Drive folder as “Anyone with the link” and paste it; saving loads the photos automatically, or use Load photos to preview. The first photo is the card cover.">
+        <Section title="Photos" hint="Required — the unit stays hidden until it has photos. Share a Google Drive folder as “Anyone with the link” and paste it; saving loads the photos automatically, or use Load photos to preview. Drag photos to reorder — the first photo is the card cover.">
           <div className="flex flex-wrap gap-2">
             <input
               className="prime-input min-w-[240px] flex-1"
@@ -314,8 +326,31 @@ export default function UnitEditor({ open, unit, compounds, compoundGroups, defa
           {form.images.length ? (
             <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
               {form.images.map((src, i) => (
-                <div key={`${src}-${i}`} className="group relative aspect-[4/3] overflow-hidden border border-prime-line bg-prime-mist">
-                  <img src={src} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+                <div
+                  key={`${src}-${i}`}
+                  draggable
+                  title="Drag to reorder"
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(i));
+                    setDragIndex(i);
+                  }}
+                  onDragOver={(e) => {
+                    if (dragIndex === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (overIndex !== i) setOverIndex(i);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    dropPhoto(i);
+                  }}
+                  onDragEnd={endPhotoDrag}
+                  className={`group relative aspect-[4/3] cursor-grab overflow-hidden border bg-prime-mist transition active:cursor-grabbing ${
+                    dragIndex === i ? 'opacity-40' : ''
+                  } ${overIndex === i && dragIndex !== i ? 'border-prime-gold ring-2 ring-prime-gold' : 'border-prime-line'}`}
+                >
+                  <img src={src} alt="" draggable={false} className="pointer-events-none h-full w-full select-none object-cover" referrerPolicy="no-referrer" loading="lazy" />
                   {i === 0 ? <Badge tone="gold" className="absolute start-1 top-1">Cover</Badge> : null}
                   <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/60 px-1 py-0.5 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
                     <button type="button" disabled={i === 0} className="px-1 disabled:opacity-30" onClick={() => set({ images: reorderList(form.images, i, i - 1) })}>
