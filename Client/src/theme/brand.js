@@ -39,7 +39,7 @@ export const subBrands = {
   Residence: { color: '#58595B', syllables: ['RESI', 'DEN', 'CE'] },
   Select: { color: '#8C2433', syllables: ['SEL', 'ECT'] },
   Inn: { color: '#00671B', syllables: ['INN'] },
-  'Co-Work': { color: '#1E355E', syllables: ['CO-', 'WORK'] },
+  Boutique: { color: '#1E355E', syllables: ['BOUT', 'IQUE'] },
   Holidays: { color: '#005D67', syllables: ['HOLI', 'DAYS'] },
 };
 

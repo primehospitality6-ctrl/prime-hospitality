@@ -134,14 +134,14 @@ const DEFAULT_BRANDS = [
     },
   },
   {
-    name: 'Co-Work',
-    nameAr: 'كو-وورك',
+    name: 'Boutique',
+    nameAr: 'بوتيك',
     color: '#1E355E',
     image: '',
     minNights: 1,
     text: {
-      en: 'A place to work and stay, for teams who need both.',
-      ar: 'مكان للعمل والإقامة، للفرق التي تحتاج الاثنين.',
+      en: 'Intimate, characterful stays with a personal touch.',
+      ar: 'إقامات حميمة بطابع مميز ولمسة شخصية.',
     },
   },
 ];

@@ -147,7 +147,7 @@ const PHRASES_EN_AR = {
   'prime residence': 'برايم ريزيدنس',
   'prime select': 'برايم سيلكت',
   'prime inn': 'برايم إن',
-  'prime co-work': 'برايم كو-ورك',
+  'prime boutique': 'برايم بوتيك',
   'prime holidays': 'برايم هوليدايز',
   residence: 'ريزيدنس',
   select: 'سيلكت',

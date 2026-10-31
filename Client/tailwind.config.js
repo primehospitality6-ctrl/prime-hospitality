@@ -45,7 +45,7 @@ export default {
           residence: '#58595B', // Black 80% — Prime Residence
           select: '#8C2433', // PMS 202C — Prime Select
           inn: '#00671B', // PMS 7728C — Prime Inn
-          cowork: '#1E355E', // PMS 534C — Prime Co-Work
+          boutique: '#1E355E', // PMS 534C — Prime Boutique
           holidays: '#005D67', // PMS 5473C — Prime Holidays
         },
       },

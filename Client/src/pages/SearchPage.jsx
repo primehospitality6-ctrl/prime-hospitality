@@ -26,7 +26,7 @@ const SORT_OPTIONS = [
 const PAGE_SIZE = 12;
 const CONCIERGE_AFTER = 6;
 
-const shortName = (name = '') => name.replace(/^Prime\s+(Co-Work|Holidays|Residence|Select|Inn)\s+/i, '');
+const shortName = (name = '') => name.replace(/^Prime\s+(Boutique|Holidays|Residence|Select|Inn)\s+/i, '');
 
 function ConciergeBand() {
   const { t } = useLocale();

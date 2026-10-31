@@ -13,7 +13,7 @@ import { cn } from '../utils/cn';
 
 const HERO = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=2400&q=72';
 
-const shortName = (name) => name.replace(/^Prime\s+(Co-Work|Holidays|Residence|Select|Inn)\s+/i, '');
+const shortName = (name) => name.replace(/^Prime\s+(Boutique|Holidays|Residence|Select|Inn)\s+/i, '');
 
 function PropertyCard({ property, destination, lead }) {
   const { t, term } = useLocale();
