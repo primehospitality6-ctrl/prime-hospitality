@@ -40,9 +40,7 @@ function PropertyCard({ property, destination, lead }) {
       <div className="flex items-end justify-between gap-4 pt-5">
         <div className="min-w-0">
           <p className="truncate text-[11px] font-medium uppercase tracking-[0.24em] text-prime-muted">
-            {[term(property.city || destination.name), t('home.unitTypesCount', { count: property.unitCount || 0 })]
-              .filter(Boolean)
-              .join(' · ')}
+            {term(property.city || destination.name)}
           </p>
           <h3
             className={cn(
@@ -60,7 +58,6 @@ function PropertyCard({ property, destination, lead }) {
 
 function DestinationBlock({ destination, index, properties }) {
   const { t, term } = useLocale();
-  const unitTypes = properties.reduce((sum, p) => sum + (p.unitCount || 0), 0);
   return (
     <section id={`dest-${destination.id}`} className="scroll-mt-[calc(var(--prime-header-h)+5rem)] border-t border-prime-line pt-10 md:pt-14">
       <div className="grid gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:gap-16">
@@ -71,7 +68,6 @@ function DestinationBlock({ destination, index, properties }) {
           <h2 className="mt-4 font-display text-display-md font-medium text-prime-ink text-balance">{term(destination.name)}</h2>
           <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">
             {t('home.propertiesCount', { count: properties.length })}
-            {unitTypes ? ` · ${t('home.unitTypesCount', { count: unitTypes })}` : ''}
           </p>
           {destination.description ? (
             <p className="mt-5 max-w-sm text-[15px] font-light leading-[1.8] text-prime-muted">{destination.description}</p>
@@ -141,7 +137,6 @@ export default function PropertiesPage() {
     return {
       destinations: destinations.length,
       properties: projects.length,
-      unitTypes: projects.reduce((sum, p) => sum + (p.unitCount || 0), 0),
     };
   }, [destinations]);
 
@@ -179,7 +174,6 @@ export default function PropertiesPage() {
               {[
                 [stats.destinations, t('home.statDestinations')],
                 [stats.properties, t('home.statProperties')],
-                [stats.unitTypes, t('home.statUnitTypes')],
               ].map(([value, label]) => (
                 <div key={label}>
                   <dt className="sr-only">{label}</dt>

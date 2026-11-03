@@ -360,7 +360,6 @@ export default function ListingDetailPage() {
       { label: t('listing.specArea'), value: listing.areaSqm ? t('card.area', { count: listing.areaSqm }) : '—' },
       ...(listing.bedType ? [{ label: t('listing.specBeds'), value: term(listing.bedType) }] : []),
       ...(listing.floor ? [{ label: t('listing.specFloor'), value: term(listing.floor) }] : []),
-      ...(listing.roomCount ? [{ label: t('listing.specUnitsOfType'), value: String(listing.roomCount) }] : []),
       { label: t('listing.specCheckIn'), value: t('listing.specCheckInValue') },
       { label: t('listing.specCheckOut'), value: t('listing.specCheckOutValue') },
     ];

@@ -45,7 +45,7 @@ export default function TrustSection() {
                 as="li"
                 key={p.title}
                 delay={i * 80}
-                className="grid grid-cols-[3.5rem_1fr] gap-5 border-t border-white/12 py-8 last:border-b sm:grid-cols-[5rem_1fr]"
+                className="grid grid-cols-[3.5rem_1fr] gap-5 border-t border-white/[0.12] py-8 last:border-b sm:grid-cols-[5rem_1fr]"
               >
                 <span className="pt-1 font-display text-[1.75rem] font-extralight leading-none tracking-[-0.04em] text-prime-gold/70">
                   {String(i + 1).padStart(2, '0')}

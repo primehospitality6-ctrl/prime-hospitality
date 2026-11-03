@@ -71,7 +71,6 @@ export default function CompoundGrid({ limit, hideIntro = false, homeOnly = fals
   const destinationMeta = (d) =>
     [
       t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 }),
-      d.unitTypeCount ? t('home.unitTypesCount', { count: d.unitTypeCount }) : null,
     ]
       .filter(Boolean)
       .join(' · ');

@@ -56,7 +56,6 @@ export default function SearchPage() {
   const { site } = useSite();
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [destinations, setDestinations] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
@@ -136,12 +135,10 @@ export default function SearchPage() {
           next.sort((a, b) => Number(b.featured) - Number(a.featured));
         }
         setItems(next);
-        setTotal(res.total ?? next.length);
       })
       .catch(() => {
         if (!cancelled) {
           setItems([]);
-          setTotal(0);
         }
       })
       .finally(() => {
@@ -255,8 +252,8 @@ export default function SearchPage() {
               </p>
               <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{heading}</h1>
               {contextText ? <p className="mt-6 max-w-xl text-[15px] font-light leading-[1.85] text-white/65 md:text-[16.5px]">{contextText}</p> : null}
-              <p className="mt-7 text-[11px] font-medium uppercase tracking-[0.24em] text-white/45" aria-live="polite">
-                {loading ? t('search.searching') : t(total === 1 ? 'search.countOne' : 'search.countMany', { count: total })}
+              <p className="mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] text-white/45" aria-live="polite">
+                {loading ? t('search.searching') : null}
               </p>
             </div>
           </div>
@@ -385,12 +382,6 @@ export default function SearchPage() {
 
           {!loading && items.length > shown ? (
             <div className="mt-16 flex flex-col items-center gap-5 text-center">
-              <p className="text-[12px] font-medium uppercase tracking-[0.22em] text-prime-muted">
-                {t('search.showing', { shown, total: items.length })}
-              </p>
-              <div className="h-px w-40 bg-prime-line">
-                <div className="h-px bg-prime-gold" style={{ width: `${(shown / items.length) * 100}%` }} />
-              </div>
               <button type="button" onClick={() => setShown((n) => n + PAGE_SIZE)} className="prime-btn-outline">
                 {t('search.showMore')}
               </button>
