@@ -7,9 +7,14 @@ const STORAGE_KEY = 'prime_display_currency';
 /** The only currencies guests can pick, in menu order */
 const ALLOWED = ['USD', 'EGP'];
 
+/**
+ * Every visit opens in USD. A guest's pick only lasts for the current tab
+ * (sessionStorage), so a reload keeps it but a new visit starts in USD again.
+ */
 function preferredCurrency() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY); // drop picks saved by older versions
+    const saved = sessionStorage.getItem(STORAGE_KEY);
     if (saved && ALLOWED.includes(saved.toUpperCase())) return saved.toUpperCase();
   } catch {
     /* private mode */
@@ -46,7 +51,7 @@ export function CurrencyProvider({ children }) {
     const next = String(code || 'USD').toUpperCase();
     setCurrencyState(next);
     try {
-      localStorage.setItem(STORAGE_KEY, next);
+      sessionStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* private mode */
     }
