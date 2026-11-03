@@ -73,7 +73,7 @@ function BrandChip({ name }) {
   const sb = subBrand(name);
   return (
     <span
-      className="border border-prime-on/40 bg-prime-band/35 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm"
+      className="border border-prime-on/40 bg-prime-band/85 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm"
       style={{ borderColor: `${cms?.color || sb?.color || '#8C704D'}99` }}
     >
       {term(`Prime ${cms?.name || sb?.name || name}`)}
@@ -108,7 +108,7 @@ function SaveButton({ listing, className }) {
       type="button"
       onClick={() => toggle(listing.id)}
       className={cn(
-        'pointer-events-auto grid h-10 w-10 place-items-center border border-prime-on/35 bg-prime-band/30 text-prime-on backdrop-blur-md transition hover:border-prime-on hover:bg-prime-on hover:text-prime-band',
+        'pointer-events-auto grid h-10 w-10 place-items-center border border-prime-on/35 bg-prime-band/85 text-prime-on backdrop-blur-md transition hover:border-prime-on hover:bg-prime-on hover:text-prime-band',
         loved && 'border-prime-gold-soft text-prime-gold-deep',
         className
       )}
@@ -257,7 +257,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
           <SaveButton listing={listing} />
         </div>
 
-        <div className="prime-on-photo absolute inset-x-0 bottom-0 p-3.5 text-prime-on sm:p-4 md:p-5">
+        <div className="prime-plate absolute inset-x-2 bottom-2 rounded-[1rem] p-3 text-prime-on sm:inset-x-2.5 sm:bottom-2.5 sm:p-3.5 md:p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="prime-label truncate text-[10px] text-prime-on/65 sm:text-[11px]">{metaOf(listing, term)}</p>
             <Rating listing={listing} light />

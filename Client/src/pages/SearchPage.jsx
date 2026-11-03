@@ -221,7 +221,8 @@ export default function SearchPage() {
           ) : (
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.25),transparent_55%)]" />
           )}
-          <div className={cn('prime-container pb-16 pt-28 md:pb-24 md:pt-36', heroImage && 'prime-on-photo')}>
+          <div className="prime-container pb-16 pt-28 md:pb-24 md:pt-36">
+            <div className={heroImage ? 'prime-plate w-fit max-w-full p-6 sm:p-8 md:p-10' : undefined}>
             <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-prime-on/50">
               <Link to="/" className="transition hover:text-prime-on">{t('search.home')}</Link>
               <span aria-hidden>/</span>
@@ -276,6 +277,7 @@ export default function SearchPage() {
               <p className="mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] text-prime-on/45" aria-live="polite">
                 {loading ? t('search.searching') : null}
               </p>
+            </div>
             </div>
           </div>
         </section>

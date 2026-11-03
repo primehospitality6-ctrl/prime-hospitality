@@ -197,7 +197,7 @@ export default function Header({ overHero = false }) {
           className={cn(
             'relative mx-auto grid h-16 max-w-prime grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full border px-3 transition-[background-color,box-shadow,color,border-color] duration-500 ease-prime sm:gap-3 sm:px-5',
             transparent
-              ? 'border-prime-on/20 bg-prime-band/30 text-prime-on shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
+              ? 'border-prime-on/15 bg-prime-band/80 text-prime-on shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
               : 'border-prime-line bg-prime-sand/[0.88] text-prime-ink shadow-[0_18px_48px_-28px_rgba(35,31,32,0.4)] backdrop-blur-xl'
           )}
         >

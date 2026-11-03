@@ -189,7 +189,7 @@ function Hero() {
 
       {/* Vertical slide index — editorial rail */}
       {images.length > 1 ? (
-        <div className="pointer-events-auto absolute end-5 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-center gap-3 lg:end-10 lg:flex">
+        <div className="prime-plate pointer-events-auto absolute end-5 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-center gap-3 rounded-full px-2.5 py-4 lg:end-10 lg:flex">
           {images.map((src, i) => (
             <button
               key={src}
@@ -215,8 +215,8 @@ function Hero() {
         </div>
       ) : null}
 
-      <div className="prime-container prime-on-photo pointer-events-none relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_label]:pointer-events-auto [&_select]:pointer-events-auto">
-        <div className="grid items-end gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+      <div className="prime-container pointer-events-none relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_label]:pointer-events-auto [&_select]:pointer-events-auto">
+        <div className="prime-plate grid items-end gap-6 p-6 sm:gap-10 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16 lg:p-10">
           <div className="max-w-3xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-deep">
               <span className="inline-block h-2 w-2 rotate-45 border border-prime-gold-soft" aria-hidden />
@@ -256,7 +256,7 @@ function Hero() {
         </div>
 
         {images.length > 1 ? (
-          <div className="mt-4 flex items-center justify-center lg:hidden">
+          <div className="prime-plate mx-auto mt-4 flex w-fit items-center justify-center rounded-full px-1.5 lg:hidden">
             {images.map((src, i) => (
               <button
                 key={src}
@@ -277,7 +277,7 @@ function Hero() {
           </div>
         ) : null}
 
-        <div className="mt-8 hidden items-center justify-center gap-3 text-prime-on/70 lg:flex">
+        <div className="prime-plate mx-auto mt-8 hidden w-fit items-center justify-center gap-3 rounded-full px-5 py-2 text-prime-on/70 lg:flex">
           <span className="text-[10px] font-medium uppercase tracking-[0.28em]">{t('home.scroll')}</span>
           <span className="relative h-10 w-px overflow-hidden bg-prime-on/25">
             <span className="absolute inset-x-0 top-0 h-1/2 bg-prime-gold-soft" style={{ animation: 'primeScrollCue 1.8s var(--prime-ease) infinite' }} />

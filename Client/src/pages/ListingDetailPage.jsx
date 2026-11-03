@@ -432,7 +432,8 @@ export default function ListingDetailPage() {
           </button>
 
           <div className="relative flex min-h-[64svh] flex-col justify-end sm:min-h-[72svh] md:min-h-[85svh]">
-            <div className="prime-container prime-on-photo pb-8 pt-28 sm:pb-12 sm:pt-32 md:pb-16">
+            <div className="prime-container pb-8 pt-28 sm:pb-12 sm:pt-32 md:pb-16">
+              <div className="prime-plate p-6 sm:p-8 md:p-10">
               <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on/55">
                 <Link to="/" className="transition hover:text-prime-on">
                   {t('listing.egypt')}
@@ -502,6 +503,7 @@ export default function ListingDetailPage() {
                     {t('listing.showAllPhotos', { count: photos.length })}
                   </button>
                 </div>
+              </div>
               </div>
 
               {photos.length > 1 ? (

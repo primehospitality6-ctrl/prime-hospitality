@@ -27,7 +27,8 @@ function DestinationChapter({ destination, index, meta }) {
         )}
       />
 
-      <div className="prime-on-photo relative flex min-h-[78svh] flex-col justify-end px-5 pb-16 pt-32 sm:px-8 md:min-h-[88svh] md:px-12 md:pb-24 lg:px-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">
+      <div className="relative flex min-h-[78svh] flex-col justify-end px-5 pb-16 pt-32 sm:px-8 md:min-h-[88svh] md:px-12 md:pb-24 lg:px-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">
+        <div className="prime-plate w-fit max-w-4xl p-6 sm:p-8 md:p-10">
         <span className="font-display text-[clamp(4rem,12vw,9rem)] font-extralight leading-none tracking-[-0.06em] text-prime-on/[0.12]">
           {String(index + 1).padStart(2, '0')}
         </span>
@@ -41,6 +42,7 @@ function DestinationChapter({ destination, index, meta }) {
             <span className="absolute inset-y-0 start-0 w-0 bg-prime-gold-soft transition-all duration-700 ease-prime group-hover:w-full" />
           </span>
         </span>
+        </div>
       </div>
     </Link>
   );

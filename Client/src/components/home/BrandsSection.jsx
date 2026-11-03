@@ -94,7 +94,7 @@ export default function BrandsSection() {
                   <BrandVisual brand={b} sizes="40vw" className="h-full w-full" />
                 </div>
               ))}
-              <div className="prime-on-photo absolute inset-x-8 bottom-8 flex items-end justify-between gap-6">
+              <div className="prime-plate absolute inset-x-6 bottom-6 flex items-end justify-between gap-6 px-6 py-5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.42em]" dir="ltr">
                   Prime <span className="font-light">{current.name}</span>
                 </p>
