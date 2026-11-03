@@ -28,8 +28,7 @@ export default function TrustSection() {
     <section className="overflow-hidden bg-prime-band text-prime-on">
       <div className="grid lg:grid-cols-2">
         <Reveal className="relative min-h-[28rem] overflow-hidden lg:min-h-[42rem]">
-          <Img src={IMAGE} alt="" sizes="(min-width: 1024px) 50vw, 100vw" className="absolute inset-0 h-full w-full object-cover opacity-90" />
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-prime-band/40 max-lg:bg-gradient-to-t max-lg:from-prime-band/70 max-lg:to-transparent" />
+          <Img src={IMAGE} alt="" sizes="(min-width: 1024px) 50vw, 100vw" className="absolute inset-0 h-full w-full object-cover" />
         </Reveal>
 
         <div className="flex flex-col justify-center px-5 py-20 sm:px-8 md:px-12 md:py-28 lg:px-16 xl:pe-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">

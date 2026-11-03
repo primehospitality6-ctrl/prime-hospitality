@@ -36,8 +36,7 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
           fallbackWidth={1920}
           className="prime-kenburns absolute inset-0 -z-10 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-prime-band/80 via-prime-band/20 to-prime-band/30" />
-        <div className={cn('prime-container pb-16 pt-36 md:pb-24', centered && 'text-center')}>
+        <div className={cn('prime-container prime-on-photo pb-16 pt-36 md:pb-24', centered && 'text-center')}>
           <div className={cn('max-w-3xl', centered && 'mx-auto')}>
             {eyebrow ? (
               <Eyebrow light centered={centered}>

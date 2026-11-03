@@ -9,7 +9,7 @@ import Img from '../ui/Img';
 import Reveal from '../ui/Reveal';
 import SectionIntro from '../ui/SectionIntro';
 
-/** Photo of a brand washed in its colour, or the colour alone with its initial when there is no photo */
+/** Photo of a brand as it is, or the brand colour alone with its initial when there is no photo */
 function BrandVisual({ brand, sizes, className }) {
   return (
     <div className={cn('relative isolate overflow-hidden', className)} style={{ backgroundColor: brand.color }}>
@@ -23,11 +23,6 @@ function BrandVisual({ brand, sizes, className }) {
           {brand.name.charAt(0)}
         </span>
       )}
-      <div
-        className="absolute inset-0 -z-10 opacity-80"
-        style={{ background: `linear-gradient(to top, ${brand.color} 0%, transparent 62%)` }}
-        aria-hidden
-      />
     </div>
   );
 }
@@ -99,7 +94,7 @@ export default function BrandsSection() {
                   <BrandVisual brand={b} sizes="40vw" className="h-full w-full" />
                 </div>
               ))}
-              <div className="absolute inset-x-8 bottom-8 flex items-end justify-between gap-6">
+              <div className="prime-on-photo absolute inset-x-8 bottom-8 flex items-end justify-between gap-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.42em]" dir="ltr">
                   Prime <span className="font-light">{current.name}</span>
                 </p>

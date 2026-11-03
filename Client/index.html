@@ -26,8 +26,11 @@
     <script>
       (function () {
         try {
-          var t = localStorage.getItem('prime_theme');
-          if (t !== 'dark' && t !== 'light') t = 'light';
+          // Follow the device's light/dark setting; the header toggle can override it for this tab
+          var t = sessionStorage.getItem('prime_theme_override');
+          if (t !== 'dark' && t !== 'light') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
           if (t === 'dark') document.documentElement.classList.add('dark');
           document.documentElement.style.colorScheme = t;
           if (localStorage.getItem('prime_locale') === 'ar' && location.pathname.indexOf('/admin') !== 0) {

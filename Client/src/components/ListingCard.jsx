@@ -247,7 +247,6 @@ export default function ListingCard({ listing, priority = false, featured = fals
         )}
       >
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-prime-band/90 via-prime-band/25 to-prime-band/20" />
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3 sm:p-3.5">
           <span className="flex flex-wrap gap-1.5">
@@ -258,7 +257,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
           <SaveButton listing={listing} />
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 p-3.5 text-prime-on sm:p-4 md:p-5">
+        <div className="prime-on-photo absolute inset-x-0 bottom-0 p-3.5 text-prime-on sm:p-4 md:p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="prime-label truncate text-[10px] text-prime-on/65 sm:text-[11px]">{metaOf(listing, term)}</p>
             <Rating listing={listing} light />

@@ -96,8 +96,6 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
             className="absolute inset-0 h-full w-full object-cover transition duration-[1.2s] ease-out hover:scale-105"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-prime-band via-prime-band/55 to-prime-band/15" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.28),transparent_55%)]" />
         {listing.brand && (
           <span className="absolute start-5 top-5 rounded-full border border-prime-gold/50 bg-prime-band/40 px-3 py-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm">
             {term(`Prime ${listing.brand}`)}

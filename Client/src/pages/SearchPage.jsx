@@ -216,13 +216,12 @@ export default function SearchPage() {
         <section className="relative isolate overflow-hidden bg-prime-band text-prime-on">
           {heroImage ? (
             <>
-              <img src={heroImage} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-50" />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-prime-band via-prime-band/75 to-prime-band/50" />
+              <img src={heroImage} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover" />
             </>
           ) : (
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.25),transparent_55%)]" />
           )}
-          <div className="prime-container pb-16 pt-28 md:pb-24 md:pt-36">
+          <div className={cn('prime-container pb-16 pt-28 md:pb-24 md:pt-36', heroImage && 'prime-on-photo')}>
             <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-prime-on/50">
               <Link to="/" className="transition hover:text-prime-on">{t('search.home')}</Link>
               <span aria-hidden>/</span>

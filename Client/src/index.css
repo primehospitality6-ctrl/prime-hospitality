@@ -457,6 +457,13 @@ html[lang='ar'] .font-display:not(.prime-wordmark) {
     background-color: var(--prime-surface);
   }
 
+  /* Text set straight on a photo: a soft halo in the page colour keeps it legible without shading the photo */
+  .prime-on-photo {
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--prime-band) 65%, transparent),
+      0 0 22px color-mix(in srgb, var(--prime-band) 55%, transparent);
+  }
+
   .text-balance {
     text-wrap: balance;
   }

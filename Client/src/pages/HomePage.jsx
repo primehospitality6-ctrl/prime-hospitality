@@ -176,8 +176,6 @@ function Hero() {
             />
           );
         })}
-        <div className="absolute inset-0 bg-gradient-to-b from-prime-band/75 via-prime-band/50 to-prime-band/90 dark:from-prime-band/55 dark:via-prime-band/25 dark:to-prime-band/85" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(140,112,77,0.22),transparent_50%)]" />
       </div>
       {activeHref ? (
         // The photo itself is the link; the visible "View offer" button below is the accessible one
@@ -217,7 +215,7 @@ function Hero() {
         </div>
       ) : null}
 
-      <div className="prime-container pointer-events-none relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_label]:pointer-events-auto [&_select]:pointer-events-auto">
+      <div className="prime-container prime-on-photo pointer-events-none relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_label]:pointer-events-auto [&_select]:pointer-events-auto">
         <div className="grid items-end gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
           <div className="max-w-3xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-deep">

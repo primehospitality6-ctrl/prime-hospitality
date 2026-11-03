@@ -27,7 +27,6 @@ function PropertyCard({ property, destination, lead }) {
           sizes={lead ? '(min-width: 1024px) 60vw, 100vw' : '(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw'}
           className="h-full w-full object-cover transition-transform duration-[1400ms] ease-prime group-hover:scale-[1.04]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-prime-band/45 via-transparent to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
         {property.brand ? (
           <span className="absolute start-4 top-4 bg-prime-surface/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-ink backdrop-blur-sm">
             {term(`Prime ${property.brand}`)}

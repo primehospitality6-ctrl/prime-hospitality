@@ -77,7 +77,7 @@ export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false })
   const body = (
     <>
       <img src={popup.image} alt={popup.title} className="block max-h-[78vh] w-full object-cover" />
-      <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-prime-band/80 via-prime-band/35 to-transparent px-6 pb-5 pt-16 text-prime-on">
+      <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 prime-on-photo px-6 pb-5 pt-16 text-prime-on">
         <span className="min-w-0">
           {popup.percent ? (
             <span className="mb-2 inline-block bg-brand-gold px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]">

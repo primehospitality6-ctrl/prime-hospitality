@@ -26,10 +26,8 @@ function DestinationChapter({ destination, index, meta }) {
           odd ? 'origin-bottom' : 'origin-top'
         )}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-prime-band via-prime-band/35 to-prime-band/20" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.35)_100%)]" />
 
-      <div className="relative flex min-h-[78svh] flex-col justify-end px-5 pb-16 pt-32 sm:px-8 md:min-h-[88svh] md:px-12 md:pb-24 lg:px-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">
+      <div className="prime-on-photo relative flex min-h-[78svh] flex-col justify-end px-5 pb-16 pt-32 sm:px-8 md:min-h-[88svh] md:px-12 md:pb-24 lg:px-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">
         <span className="font-display text-[clamp(4rem,12vw,9rem)] font-extralight leading-none tracking-[-0.06em] text-prime-on/[0.12]">
           {String(index + 1).padStart(2, '0')}
         </span>

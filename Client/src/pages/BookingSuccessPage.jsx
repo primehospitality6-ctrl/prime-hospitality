@@ -91,7 +91,7 @@ export default function BookingSuccessPage() {
             <div className="prime-fade-up mt-14" style={{ animationDelay: '200ms' }}>
               {summary.image ? (
                 <div className="relative aspect-[21/9] overflow-hidden bg-prime-on/5">
-                  <Img src={summary.image} alt="" sizes="(min-width: 768px) 720px, 100vw" className="absolute inset-0 h-full w-full object-cover opacity-90" />
+                  <Img src={summary.image} alt="" sizes="(min-width: 768px) 720px, 100vw" className="absolute inset-0 h-full w-full object-cover" />
                 </div>
               ) : null}
               <dl className="mt-2 border-t border-prime-on/10">
