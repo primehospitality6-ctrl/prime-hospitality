@@ -155,15 +155,73 @@ function Hero() {
 
   return (
     <section className="relative isolate overflow-hidden bg-prime-sand text-prime-ink">
+      {/* Full-screen slideshow, edge to edge, photos exactly as they are */}
+      <div className="relative min-h-vh-100 overflow-hidden bg-prime-mist">
+        {images.map((src, i) => {
+          if (i !== index && i !== prev && i !== next) return null;
+          const active = i === index;
+          return (
+            <img
+              key={src}
+              src={sizedSrc(src, 1920)}
+              srcSet={srcSetFor(src, HERO_WIDTHS)}
+              sizes="100vw"
+              alt=""
+              fetchPriority={i === 0 ? 'high' : 'low'}
+              loading={i === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              className={cn(
+                'absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out',
+                active ? 'prime-kenburns opacity-100' : 'opacity-0'
+              )}
+            />
+          );
+        })}
+        {activeHref ? (
+          // The photo itself is the link; the visible button below is the accessible one
+          <SlideLink {...slideLinkProps} tabIndex={-1} aria-hidden className="absolute inset-0 cursor-pointer" />
+        ) : null}
+      </div>
+
       <Wordmark
         word="Prime"
-        className="prime-fade-in pointer-events-none absolute -bottom-[0.1em] start-[-0.04em] -z-10 hidden text-[clamp(8rem,22vw,22rem)] text-prime-ink/[0.035] lg:block"
+        className="prime-fade-in pointer-events-none absolute -bottom-[0.1em] end-[-0.04em] -z-10 hidden text-[clamp(8rem,22vw,22rem)] text-prime-ink/[0.035] lg:block"
       />
 
-      <div className="prime-container pb-16 pt-[calc(var(--prime-header-h)+2.5rem)] md:pb-20 lg:pt-[calc(var(--prime-header-h)+3.5rem)]">
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-16">
-          {/* Words on the page colour */}
-          <div className="max-w-2xl">
+      <div className="prime-container pb-16 md:pb-20">
+        {/* Slide counter and progress, right under the photo */}
+        {images.length > 1 ? (
+          <div className="flex items-center gap-5 pt-3">
+            <span className="text-[10.5px] font-medium uppercase tracking-[0.24em] tabular-nums text-prime-muted">
+              {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
+            </span>
+            <div className="flex flex-1 items-center gap-1.5">
+              {images.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => goTo(i)}
+                  aria-label={t('a11y.showSlide', { n: i + 1 })}
+                  aria-current={i === index}
+                  className="group grid h-11 flex-1 place-items-center"
+                >
+                  <span className="relative block h-px w-full overflow-hidden bg-prime-line">
+                    <span
+                      className={cn(
+                        'absolute inset-y-0 start-0 bg-prime-gold transition-all duration-700 ease-prime',
+                        i === index ? 'w-full' : 'w-0 group-hover:w-1/3'
+                      )}
+                    />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Words on the page colour */}
+        <div className="grid items-end gap-8 pt-10 md:pt-14 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+          <div className="max-w-3xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-deep">
               <span className="inline-block h-2 w-2 rotate-45 border border-prime-gold" aria-hidden />
               {t('home.introEyebrow')}
@@ -172,77 +230,18 @@ function Hero() {
               <span className="block">{t('home.heroLine1')}</span>
               <span className="mt-1 block text-prime-gold-deep">{t('home.heroLine2')}</span>
             </h1>
-            <p className="prime-fade-up mt-7 max-w-md text-[15px] font-light leading-[1.85] text-prime-muted md:text-[16.5px]" style={{ animationDelay: '180ms' }}>
-              {t('home.heroSubtitle')}
-            </p>
+          </div>
+          <div className="prime-fade-up max-w-md lg:justify-self-end lg:pb-3" style={{ animationDelay: '180ms' }}>
+            <p className="text-[15px] font-light leading-[1.85] text-prime-muted md:text-[16.5px]">{t('home.heroSubtitle')}</p>
             {activeHref ? (
               <SlideLink
                 {...slideLinkProps}
                 key={activeHref}
-                className="prime-fade-up group mt-8 inline-flex min-h-[2.75rem] items-center gap-2.5 rounded-full border border-prime-gold/60 px-5 text-[10.5px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-500 ease-prime hover:border-prime-gold hover:bg-prime-gold hover:text-white"
+                className="prime-fade-up group mt-6 inline-flex min-h-[2.75rem] items-center gap-2.5 rounded-full border border-prime-gold/60 px-5 text-[10.5px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-500 ease-prime hover:border-prime-gold hover:bg-prime-gold hover:text-white"
               >
                 {t(activeHref.includes('offer=') ? 'home.slideViewOffer' : 'home.slideExplore')}
                 <ArrowRight size={14} strokeWidth={1.5} className="transition-transform duration-500 group-hover:translate-x-1 rtl:-scale-x-100" />
               </SlideLink>
-            ) : null}
-          </div>
-
-          {/* The slideshow, photos exactly as they are */}
-          <div className="prime-fade-up" style={{ animationDelay: '140ms' }}>
-            <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist sm:aspect-[16/11] lg:aspect-[5/6] xl:aspect-[1/1]">
-              {images.map((src, i) => {
-                if (i !== index && i !== prev && i !== next) return null;
-                const active = i === index;
-                return (
-                  <img
-                    key={src}
-                    src={sizedSrc(src, 1440)}
-                    srcSet={srcSetFor(src, HERO_WIDTHS)}
-                    sizes="(min-width: 1024px) 52vw, 100vw"
-                    alt=""
-                    fetchPriority={i === 0 ? 'high' : 'low'}
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    className={cn(
-                      'absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out',
-                      active ? 'prime-kenburns opacity-100' : 'opacity-0'
-                    )}
-                  />
-                );
-              })}
-              {activeHref ? (
-                // The photo itself is the link; the visible button beside it is the accessible one
-                <SlideLink {...slideLinkProps} tabIndex={-1} aria-hidden className="absolute inset-0 cursor-pointer" />
-              ) : null}
-            </div>
-
-            {images.length > 1 ? (
-              <div className="mt-5 flex items-center gap-5">
-                <span className="text-[10.5px] font-medium uppercase tracking-[0.24em] tabular-nums text-prime-muted">
-                  {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
-                </span>
-                <div className="flex flex-1 items-center gap-1.5">
-                  {images.map((src, i) => (
-                    <button
-                      key={src}
-                      type="button"
-                      onClick={() => goTo(i)}
-                      aria-label={t('a11y.showSlide', { n: i + 1 })}
-                      aria-current={i === index}
-                      className="group grid h-11 flex-1 place-items-center"
-                    >
-                      <span className="relative block h-px w-full overflow-hidden bg-prime-line">
-                        <span
-                          className={cn(
-                            'absolute inset-y-0 start-0 bg-prime-gold transition-all duration-700 ease-prime',
-                            i === index ? 'w-full' : 'w-0 group-hover:w-1/3'
-                          )}
-                        />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             ) : null}
           </div>
         </div>
