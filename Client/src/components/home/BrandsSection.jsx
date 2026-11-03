@@ -17,7 +17,7 @@ function BrandVisual({ brand, sizes, className }) {
         <Img src={brand.image} alt="" sizes={sizes} className="absolute inset-0 -z-10 h-full w-full object-cover" />
       ) : (
         <span
-          className="absolute -bottom-[0.18em] end-[4%] -z-10 select-none font-display text-[18rem] font-extralight leading-none text-white/15"
+          className="absolute -bottom-[0.18em] end-[4%] -z-10 select-none font-display text-[18rem] font-extralight leading-none text-prime-on/15"
           aria-hidden
         >
           {brand.name.charAt(0)}
@@ -73,7 +73,7 @@ export default function BrandsSection() {
   const current = brands[Math.min(active, brands.length - 1)];
 
   return (
-    <section className="prime-section relative isolate overflow-hidden bg-prime-night text-white">
+    <section className="prime-section relative isolate overflow-hidden bg-prime-band text-prime-on">
       {/* A faint glow in the colour of the brand in focus */}
       <div
         className="pointer-events-none absolute -end-[20%] -top-[30%] -z-10 h-[80%] w-[70%] rounded-full opacity-25 blur-[120px] transition-colors duration-1000"
@@ -103,7 +103,7 @@ export default function BrandsSection() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.42em]" dir="ltr">
                   Prime <span className="font-light">{current.name}</span>
                 </p>
-                <span className="font-display text-[3.2rem] font-extralight leading-none tabular-nums text-white/80">
+                <span className="font-display text-[3.2rem] font-extralight leading-none tabular-nums text-prime-on/80">
                   {String(active + 1).padStart(2, '0')}
                 </span>
               </div>
@@ -111,11 +111,11 @@ export default function BrandsSection() {
           </Reveal>
 
           {/* The index */}
-          <ol className="border-t border-white/15">
+          <ol className="border-t border-prime-on/15">
             {brands.map((b, i) => {
               const on = i === active;
               return (
-                <Reveal as="li" key={b.name} delay={(i % 5) * 90} className="border-b border-white/15">
+                <Reveal as="li" key={b.name} delay={(i % 5) * 90} className="border-b border-prime-on/15">
                   <Link
                     to="/search"
                     onMouseEnter={() => setActive(i)}
@@ -139,18 +139,18 @@ export default function BrandsSection() {
                     />
 
                     <div className="flex items-start gap-5 md:gap-8">
-                      <span className="mt-3 w-8 shrink-0 font-display text-[1rem] tabular-nums text-white/40 md:mt-5">
+                      <span className="mt-3 w-8 shrink-0 font-display text-[1rem] tabular-nums text-prime-on/40 md:mt-5">
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.36em] text-white/55">
+                        <p className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.36em] text-prime-on/55">
                           <span className="h-2 w-2 rotate-45" style={{ backgroundColor: b.color }} aria-hidden />
                           Prime
                         </p>
                         <h3
                           className={cn(
                             'mt-2 font-display text-[2.7rem] font-extralight leading-[1.02] transition-colors duration-500 md:text-[3.6rem] xl:text-[4.4rem]',
-                            on ? 'text-white' : 'text-white lg:text-white/35 lg:group-hover:text-white'
+                            on ? 'text-prime-on' : 'text-prime-on lg:text-prime-on/35 lg:group-hover:text-prime-on'
                           )}
                           dir="ltr"
                         >
@@ -164,7 +164,7 @@ export default function BrandsSection() {
                             )}
                           >
                             <p className="overflow-hidden">
-                              <span className="block max-w-md pt-4 text-[14.5px] font-light leading-[1.75] text-white/65">
+                              <span className="block max-w-md pt-4 text-[14.5px] font-light leading-[1.75] text-prime-on/65">
                                 {b.copy}
                               </span>
                             </p>
@@ -175,8 +175,8 @@ export default function BrandsSection() {
                         className={cn(
                           'mt-4 grid h-12 w-12 shrink-0 place-items-center rounded-full border transition duration-500 ease-prime md:mt-6',
                           on
-                            ? 'border-prime-gold bg-prime-gold text-prime-night'
-                            : 'border-white/25 text-white/70 group-hover:border-prime-gold group-hover:text-prime-gold-soft'
+                            ? 'border-prime-gold bg-prime-gold text-white'
+                            : 'border-prime-on/25 text-prime-on/70 group-hover:border-prime-gold group-hover:text-prime-gold-deep'
                         )}
                         aria-hidden
                       >

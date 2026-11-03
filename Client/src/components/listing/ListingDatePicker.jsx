@@ -260,7 +260,7 @@ export default function ListingDatePicker({
         <span className="me-3 text-[11px] text-prime-muted">{t('listing.legendSelected')}</span>
         <LegendSwatch className="bg-prime-gold/30 ring-1 ring-inset ring-prime-gold/40" />
         <span className="me-3 text-[11px] text-prime-muted">{t('listing.legendStay')}</span>
-        <LegendSwatch className="overflow-hidden bg-[#ebe6e0]">
+        <LegendSwatch className="overflow-hidden bg-prime-dune">
           <span
             className="absolute inset-0 opacity-70"
             style={{
@@ -272,7 +272,7 @@ export default function ListingDatePicker({
         <span className="me-3 text-[11px] text-prime-muted">{t('listing.legendBlocked')}</span>
         {checkoutSet.size > 0 && (
           <>
-            <LegendSwatch className="bg-white ring-2 ring-inset ring-prime-gold" />
+            <LegendSwatch className="bg-prime-surface ring-2 ring-inset ring-prime-gold" />
             <span className="text-[11px] text-prime-muted">{t('listing.legendCheckout')}</span>
           </>
         )}
@@ -311,7 +311,7 @@ export default function ListingDatePicker({
     <>
       {isMobile && (
         <div
-          className="fixed inset-0 z-[259] bg-black/50 backdrop-blur-[3px] animate-[primeFadeIn_0.25s_ease_both]"
+          className="fixed inset-0 z-[259] bg-prime-band/50 backdrop-blur-[3px] animate-[primeFadeIn_0.25s_ease_both]"
           onClick={() => onClose?.()}
           aria-hidden="true"
         />

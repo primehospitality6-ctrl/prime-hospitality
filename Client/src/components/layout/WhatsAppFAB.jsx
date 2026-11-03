@@ -15,7 +15,7 @@ function WhatsAppGlyph({ size = 22 }) {
 }
 
 const fabCls =
-  'inline-flex h-12 w-12 items-center justify-center rounded-full border border-prime-gold/60 bg-prime-night text-prime-gold-soft shadow-lg shadow-black/20 transition duration-300 hover:scale-105 hover:border-prime-gold hover:bg-prime-gold hover:text-prime-night focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prime-gold focus-visible:ring-offset-2 focus-visible:ring-offset-prime-sand';
+  'inline-flex h-12 w-12 items-center justify-center rounded-full border border-prime-gold/60 bg-prime-band text-prime-gold-deep shadow-lg shadow-black/20 transition duration-300 hover:scale-105 hover:border-prime-gold hover:bg-prime-gold hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prime-gold focus-visible:ring-offset-2 focus-visible:ring-offset-prime-sand';
 
 export default function WhatsAppFAB() {
   const { pathname } = useLocation();
@@ -69,13 +69,13 @@ export default function WhatsAppFAB() {
       {open ? (
         <div
           id="prime-wa-menu"
-          className="absolute bottom-[calc(100%+0.75rem)] end-0 w-[min(18rem,calc(100vw-2.5rem))] overflow-hidden rounded-2xl border border-prime-gold/40 bg-prime-night text-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
+          className="absolute bottom-[calc(100%+0.75rem)] end-0 w-[min(18rem,calc(100vw-2.5rem))] overflow-hidden rounded-2xl border border-prime-gold/40 bg-prime-band text-prime-on shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
           style={{ animation: 'primeFadeIn 0.3s var(--prime-ease) both' }}
         >
-          <p className="border-b border-white/10 px-5 py-3.5 text-[10.5px] font-semibold uppercase tracking-[0.24em] text-prime-gold-soft">
+          <p className="border-b border-prime-on/10 px-5 py-3.5 text-[10.5px] font-semibold uppercase tracking-[0.24em] text-prime-gold-deep">
             {t('whatsapp.choose')}
           </p>
-          <ul className="divide-y divide-white/10">
+          <ul className="divide-y divide-prime-on/10">
             {lines.map((line, i) => (
               <li key={`${line.number}-${i}`}>
                 <a
@@ -83,17 +83,17 @@ export default function WhatsAppFAB() {
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => setOpen(false)}
-                  className="group flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-white/[0.06]"
+                  className="group flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-prime-on/[0.06]"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[13.5px] font-medium">
                       {line.label?.[locale] || line.label?.en || t('whatsapp.lineN', { n: i + 1 })}
                     </span>
-                    <span dir="ltr" className="mt-0.5 block text-[12px] tabular-nums text-white/55">
+                    <span dir="ltr" className="mt-0.5 block text-[12px] tabular-nums text-prime-on/55">
                       {line.number}
                     </span>
                   </span>
-                  <ArrowUpRight size={15} strokeWidth={1.5} className="shrink-0 text-prime-gold-soft transition group-hover:translate-x-0.5 rtl:-scale-x-100" />
+                  <ArrowUpRight size={15} strokeWidth={1.5} className="shrink-0 text-prime-gold-deep transition group-hover:translate-x-0.5 rtl:-scale-x-100" />
                 </a>
               </li>
             ))}

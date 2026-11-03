@@ -27,13 +27,13 @@ function PropertyCard({ property, destination, lead }) {
           sizes={lead ? '(min-width: 1024px) 60vw, 100vw' : '(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw'}
           className="h-full w-full object-cover transition-transform duration-[1400ms] ease-prime group-hover:scale-[1.04]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
+        <div className="absolute inset-0 bg-gradient-to-t from-prime-band/45 via-transparent to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
         {property.brand ? (
-          <span className="absolute start-4 top-4 bg-white/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-black backdrop-blur-sm">
+          <span className="absolute start-4 top-4 bg-prime-surface/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-prime-ink backdrop-blur-sm">
             {term(`Prime ${property.brand}`)}
           </span>
         ) : null}
-        <span className="absolute bottom-4 end-4 grid h-11 w-11 translate-y-2 place-items-center rounded-full bg-white text-brand-black opacity-0 transition duration-500 ease-prime group-hover:translate-y-0 group-hover:opacity-100">
+        <span className="absolute bottom-4 end-4 grid h-11 w-11 translate-y-2 place-items-center rounded-full bg-prime-surface text-prime-ink opacity-0 transition duration-500 ease-prime group-hover:translate-y-0 group-hover:opacity-100">
           <ArrowRight size={16} strokeWidth={1.5} className="rtl:-scale-x-100" />
         </span>
       </div>
@@ -103,7 +103,7 @@ function Chip({ active, onClick, children, count }) {
       )}
     >
       {children}
-      {count != null ? <span className={cn('tabular-nums', active ? 'text-prime-gold-soft' : 'text-prime-muted')}>{count}</span> : null}
+      {count != null ? <span className={cn('tabular-nums', active ? 'text-prime-gold-deep' : 'text-prime-muted')}>{count}</span> : null}
     </button>
   );
 }
@@ -170,7 +170,7 @@ export default function PropertiesPage() {
           lede={t('properties.lede')}
         >
           {stats.properties ? (
-            <dl className="prime-fade-up mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/20 pt-6" style={{ animationDelay: '240ms' }}>
+            <dl className="prime-fade-up mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-prime-on/20 pt-6" style={{ animationDelay: '240ms' }}>
               {[
                 [stats.destinations, t('home.statDestinations')],
                 [stats.properties, t('home.statProperties')],
@@ -178,7 +178,7 @@ export default function PropertiesPage() {
                 <div key={label}>
                   <dt className="sr-only">{label}</dt>
                   <dd className="font-display text-[2.4rem] font-medium leading-none tabular-nums">{value}</dd>
-                  <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.26em] text-white/70">{label}</p>
+                  <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-on/70">{label}</p>
                 </div>
               ))}
             </dl>

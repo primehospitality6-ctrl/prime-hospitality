@@ -10,19 +10,19 @@ const IMAGE = 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto
 export default function PartnerCta() {
   const { t } = useLocale();
   return (
-    <section className="grid bg-brand-residence text-white md:grid-cols-2">
+    <section className="grid bg-prime-band text-prime-on md:grid-cols-2">
       <div className="relative isolate overflow-hidden px-5 py-24 sm:px-8 md:py-32 lg:px-12 xl:ps-[max(3rem,calc((100vw_-_1440px)/2_+_3rem))]">
         <Wordmark
           word="Residence"
-          className="pointer-events-none absolute -bottom-[0.08em] end-[-0.04em] -z-10 text-[clamp(6rem,15vw,14rem)] text-white/[0.07]"
+          className="pointer-events-none absolute -bottom-[0.08em] end-[-0.04em] -z-10 text-[clamp(6rem,15vw,14rem)] text-prime-on/[0.07]"
         />
         <Reveal className="max-w-xl">
-          <p className="prime-eyebrow mb-7 flex items-center gap-4 text-white/70">
+          <p className="prime-eyebrow mb-7 flex items-center gap-4 text-prime-on/70">
             <span className="h-px w-10 bg-prime-gold-soft" aria-hidden />
             {t('home.partnersLabel')}
           </p>
           <h2 className="font-display text-display-xl font-extralight text-balance">{t('home.partnerCtaTitle')}</h2>
-          <p className="mt-8 max-w-lg text-[15px] font-light leading-[1.85] text-white/70 md:text-[16.5px]">{t('home.partnerCtaBody')}</p>
+          <p className="mt-8 max-w-lg text-[15px] font-light leading-[1.85] text-prime-on/70 md:text-[16.5px]">{t('home.partnerCtaBody')}</p>
           <Link to="/owners" className="prime-btn-ghost mt-12">
             {t('home.partnerCtaBtn')}
           </Link>

@@ -16,13 +16,13 @@ export default function PageHeader({
   return (
     <div className={cn(dense ? 'mb-8' : 'mb-12 md:mb-16', className)}>
       {eyebrow ? (
-        <p className={cn('prime-eyebrow mb-4', isDark ? 'text-prime-gold-soft' : 'text-prime-gold-deep')}>{eyebrow}</p>
+        <p className={cn('prime-eyebrow mb-4', isDark ? 'text-prime-gold-deep' : 'text-prime-gold-deep')}>{eyebrow}</p>
       ) : null}
       <Heading
         className={cn(
           'font-display font-medium text-balance',
           dense ? 'text-display-md' : 'text-display-lg',
-          isDark ? 'text-white' : 'text-prime-ink'
+          isDark ? 'text-prime-on' : 'text-prime-ink'
         )}
       >
         {title}
@@ -31,7 +31,7 @@ export default function PageHeader({
         <p
           className={cn(
             'mt-5 max-w-xl text-[15px] font-light leading-[1.75] md:text-[17px]',
-            isDark ? 'text-white/70' : 'text-prime-muted'
+            isDark ? 'text-prime-on/70' : 'text-prime-muted'
           )}
         >
           {lede}

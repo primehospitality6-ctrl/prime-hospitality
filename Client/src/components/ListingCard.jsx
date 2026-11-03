@@ -73,7 +73,7 @@ function BrandChip({ name }) {
   const sb = subBrand(name);
   return (
     <span
-      className="border border-white/40 bg-black/35 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-white backdrop-blur-sm"
+      className="border border-prime-on/40 bg-prime-band/35 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm"
       style={{ borderColor: `${cms?.color || sb?.color || '#8C704D'}99` }}
     >
       {term(`Prime ${cms?.name || sb?.name || name}`)}
@@ -108,8 +108,8 @@ function SaveButton({ listing, className }) {
       type="button"
       onClick={() => toggle(listing.id)}
       className={cn(
-        'pointer-events-auto grid h-10 w-10 place-items-center border border-white/35 bg-black/30 text-white backdrop-blur-md transition hover:border-white hover:bg-white hover:text-brand-black',
-        loved && 'border-prime-gold-soft text-prime-gold-soft',
+        'pointer-events-auto grid h-10 w-10 place-items-center border border-prime-on/35 bg-prime-band/30 text-prime-on backdrop-blur-md transition hover:border-prime-on hover:bg-prime-on hover:text-prime-band',
+        loved && 'border-prime-gold-soft text-prime-gold-deep',
         className
       )}
       aria-pressed={loved}
@@ -123,8 +123,8 @@ function SaveButton({ listing, className }) {
 function Rating({ listing, light }) {
   if (!listing.averageRating || !listing.reviewCount) return null;
   return (
-    <span className={cn('inline-flex items-center gap-1 text-[12.5px]', light ? 'text-white/85' : 'text-prime-ink')}>
-      <Star size={11} strokeWidth={0} fill="currentColor" className="text-prime-gold-soft" />
+    <span className={cn('inline-flex items-center gap-1 text-[12.5px]', light ? 'text-prime-on/85' : 'text-prime-ink')}>
+      <Star size={11} strokeWidth={0} fill="currentColor" className="text-prime-gold-deep" />
       <span className="tabular-nums">{Number(listing.averageRating).toFixed(1)}</span>
     </span>
   );
@@ -134,15 +134,15 @@ function Price({ listing, light }) {
   const { t } = useLocale();
   const { format } = useCurrency();
   if (!Number(listing.pricePerNight)) {
-    return <p className={cn('prime-label', light && 'text-white/70')}>{t('listing.priceOnRequest')}</p>;
+    return <p className={cn('prime-label', light && 'text-prime-on/70')}>{t('listing.priceOnRequest')}</p>;
   }
   return (
-    <p className={cn('text-[13px] font-light', light ? 'text-white' : 'text-prime-ink')}>
-      <span className={cn('text-[10px] font-medium uppercase tracking-[0.2em]', light ? 'text-white/60' : 'text-prime-muted')}>
+    <p className={cn('text-[13px] font-light', light ? 'text-prime-on' : 'text-prime-ink')}>
+      <span className={cn('text-[10px] font-medium uppercase tracking-[0.2em]', light ? 'text-prime-on/60' : 'text-prime-muted')}>
         {t('card.from')}{' '}
       </span>
       <span className="font-medium tabular-nums tracking-tight">{format(listing.pricePerNight)}</span>
-      <span className={cn('text-[12px]', light ? 'text-white/55' : 'text-prime-muted')}> {t('card.perNight')}</span>
+      <span className={cn('text-[12px]', light ? 'text-prime-on/55' : 'text-prime-muted')}> {t('card.perNight')}</span>
     </p>
   );
 }
@@ -242,12 +242,12 @@ export default function ListingCard({ listing, priority = false, featured = fals
     <article className={cn('prime-card group relative min-w-0', className)}>
       <div
         className={cn(
-          'relative overflow-hidden rounded-[1.25rem] bg-brand-black',
+          'relative overflow-hidden rounded-[1.25rem] bg-prime-band',
           featured ? 'aspect-[4/5] sm:aspect-[3/4]' : 'aspect-[5/4] sm:aspect-[4/5]'
         )}
       >
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/20" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-prime-band/90 via-prime-band/25 to-prime-band/20" />
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3 sm:p-3.5">
           <span className="flex flex-wrap gap-1.5">
@@ -258,9 +258,9 @@ export default function ListingCard({ listing, priority = false, featured = fals
           <SaveButton listing={listing} />
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 p-3.5 text-white sm:p-4 md:p-5">
+        <div className="absolute inset-x-0 bottom-0 p-3.5 text-prime-on sm:p-4 md:p-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="prime-label truncate text-[10px] text-white/65 sm:text-[11px]">{metaOf(listing, term)}</p>
+            <p className="prime-label truncate text-[10px] text-prime-on/65 sm:text-[11px]">{metaOf(listing, term)}</p>
             <Rating listing={listing} light />
           </div>
           <h3
@@ -269,14 +269,14 @@ export default function ListingCard({ listing, priority = false, featured = fals
               featured ? 'text-[1.55rem] sm:text-[1.85rem] md:text-[2.1rem]' : 'text-[1.2rem] sm:text-[1.35rem] md:text-[1.45rem]'
             )}
           >
-            <Link to={href} className="prime-tap transition-colors hover:text-prime-gold-soft">
+            <Link to={href} className="prime-tap transition-colors hover:text-prime-gold-deep">
               {term(listing.title)}
             </Link>
           </h3>
           {specs.length ? (
-            <p className="mt-1.5 line-clamp-1 text-[11px] font-light text-white/55 sm:mt-2">{specs.join('  ·  ')}</p>
+            <p className="mt-1.5 line-clamp-1 text-[11px] font-light text-prime-on/55 sm:mt-2">{specs.join('  ·  ')}</p>
           ) : null}
-          <div className="mt-2.5 border-t border-white/20 pt-2.5 sm:mt-3.5 sm:pt-3.5">
+          <div className="mt-2.5 border-t border-prime-on/20 pt-2.5 sm:mt-3.5 sm:pt-3.5">
             <Price listing={listing} light />
           </div>
         </div>

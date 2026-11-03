@@ -63,7 +63,7 @@ export default function PlaceCapsules({
             >
               {term(place.name)}
               {place.count != null ? (
-                <span className={cn('ms-1.5 text-xs', active ? 'text-white/60' : 'text-prime-muted')}>
+                <span className={cn('ms-1.5 text-xs', active ? 'text-prime-sand/60' : 'text-prime-muted')}>
                   {place.count}
                 </span>
               ) : null}

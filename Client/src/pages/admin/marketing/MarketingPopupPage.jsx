@@ -140,7 +140,7 @@ export default function MarketingPopupPage() {
                   ['/contact', 'Contact'],
                   [whatsappLink(), 'WhatsApp chat'],
                 ].map(([href, label]) => (
-                  <button key={label} type="button" onClick={() => set({ href })} className={cn('border px-2.5 py-1 text-[11px] font-semibold transition', value.href === href ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line hover:border-prime-ink')}>
+                  <button key={label} type="button" onClick={() => set({ href })} className={cn('border px-2.5 py-1 text-[11px] font-semibold transition', value.href === href ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line hover:border-prime-ink')}>
                     {label}
                   </button>
                 ))}
@@ -153,7 +153,7 @@ export default function MarketingPopupPage() {
                   ['delay', 'After a few seconds', Timer],
                   ['scroll', 'After scrolling down', MousePointerClick],
                 ].map(([id, label, Icon]) => (
-                  <button key={id} type="button" onClick={() => set({ trigger: id })} className={cn('flex items-center gap-3 border-2 p-3 text-start text-sm font-semibold transition', value.trigger === id ? 'border-prime-night' : 'border-prime-line hover:border-prime-ink')}>
+                  <button key={id} type="button" onClick={() => set({ trigger: id })} className={cn('flex items-center gap-3 border-2 p-3 text-start text-sm font-semibold transition', value.trigger === id ? 'border-prime-ink' : 'border-prime-line hover:border-prime-ink')}>
                     <Icon size={18} className="text-prime-gold-deep" /> {label}
                   </button>
                 ))}

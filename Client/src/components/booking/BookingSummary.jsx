@@ -52,7 +52,7 @@ function Total({ price, tone = 'dark' }) {
   const { t } = useLocale();
   const { format } = useCurrency();
   if (!price?.nights) return null;
-  const muted = tone === 'dark' ? 'text-white/55' : 'text-prime-muted';
+  const muted = tone === 'dark' ? 'text-prime-on/55' : 'text-prime-muted';
   return (
     <div>
       <div className="flex items-end justify-between gap-3">
@@ -86,7 +86,7 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
   const cover = listing.images?.[0] || listing.image;
 
   return (
-    <aside className={cn('relative flex-col overflow-y-auto bg-brand-black text-white', className)}>
+    <aside className={cn('relative flex-col overflow-y-auto bg-prime-band text-prime-on', className)}>
       <div className="relative h-72 shrink-0 overflow-hidden lg:h-80">
         {cover && (
           <img
@@ -96,15 +96,15 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
             className="absolute inset-0 h-full w-full object-cover transition duration-[1.2s] ease-out hover:scale-105"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/55 to-black/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-prime-band via-prime-band/55 to-prime-band/15" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.28),transparent_55%)]" />
         {listing.brand && (
-          <span className="absolute start-5 top-5 rounded-full border border-prime-gold/50 bg-black/40 px-3 py-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white backdrop-blur-sm">
+          <span className="absolute start-5 top-5 rounded-full border border-prime-gold/50 bg-prime-band/40 px-3 py-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm">
             {term(`Prime ${listing.brand}`)}
           </span>
         )}
         <div className="absolute inset-x-0 bottom-0 px-6 pb-6">
-          <Crumbs listing={listing} className="text-prime-gold-soft" />
+          <Crumbs listing={listing} className="text-prime-gold-deep" />
           <h3 className="mt-2 font-display text-3xl font-bold leading-tight tracking-[-0.03em]">
             {term(listing.compound || listing.title)}
           </h3>
@@ -112,7 +112,7 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
       </div>
 
       <div className="px-6 pt-4">
-        <p className="text-sm text-white/70">
+        <p className="text-sm text-prime-on/70">
           {[
             term(listing.unitType),
             listing.areaSqm ? t('card.area', { count: listing.areaSqm }) : null,
@@ -124,11 +124,11 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
 
         <dl className="mt-5 space-y-0">
           {rows.map((row) => (
-            <div key={row.label} className="flex items-start justify-between gap-4 border-t border-white/10 py-3 text-sm">
-              <dt className="text-white/55">{row.label}</dt>
+            <div key={row.label} className="flex items-start justify-between gap-4 border-t border-prime-on/10 py-3 text-sm">
+              <dt className="text-prime-on/55">{row.label}</dt>
               <dd className="m-0 text-end font-medium">
                 {row.value}
-                {row.sub && <span className="block text-[11px] font-normal text-white/50">{row.sub}</span>}
+                {row.sub && <span className="block text-[11px] font-normal text-prime-on/50">{row.sub}</span>}
               </dd>
             </div>
           ))}
@@ -139,7 +139,7 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
         <div className="border-t border-prime-gold/40 pt-4">
           <Total price={price} currency={listing.currency} />
         </div>
-        <ul className="space-y-2 text-[12px] text-white/60">
+        <ul className="space-y-2 text-[12px] text-prime-on/60">
           <li className="flex items-center gap-2">
             <ShieldCheck size={15} className="shrink-0 text-prime-gold" aria-hidden />
             {t('bm.trustSecure')}

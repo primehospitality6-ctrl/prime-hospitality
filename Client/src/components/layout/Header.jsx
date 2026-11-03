@@ -10,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { cn } from '../../utils/cn';
 import Wordmark from '../ui/Wordmark';
+import BrandLogo from '../ui/BrandLogo';
 
 const MENU = [
   { labelKey: 'nav.stays', to: '/search', inline: true },
@@ -62,7 +63,7 @@ function ThemeToggle() {
 }
 
 const BAR_TONES = {
-  night: 'bg-brand-black text-white',
+  night: 'bg-prime-band text-prime-on',
   gold: 'bg-brand-gold text-white',
   sand: 'bg-prime-mist text-prime-ink',
 };
@@ -189,15 +190,15 @@ export default function Header({ overHero = false }) {
 
   return (
     <>
-      <header className="prime-header-shell fixed inset-x-0 top-0 z-50">
+      <header className="fixed inset-x-0 top-0 z-50">
         {showBar ? <AnnouncementBar bar={bar} collapsed={scrolled} onDismiss={dismissBar} /> : null}
         <div className="px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:px-5">
         <div
           className={cn(
             'relative mx-auto grid h-16 max-w-prime grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full border px-3 transition-[background-color,box-shadow,color,border-color] duration-500 ease-prime sm:gap-3 sm:px-5',
             transparent
-              ? 'border-white/20 bg-black/30 text-white shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
-              : 'border-prime-line bg-white/[0.88] text-prime-ink shadow-[0_18px_48px_-28px_rgba(35,31,32,0.4)] backdrop-blur-xl'
+              ? 'border-prime-on/20 bg-prime-band/30 text-prime-on shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
+              : 'border-prime-line bg-prime-sand/[0.88] text-prime-ink shadow-[0_18px_48px_-28px_rgba(35,31,32,0.4)] backdrop-blur-xl'
           )}
         >
           <div className="flex items-center gap-7">
@@ -221,13 +222,7 @@ export default function Header({ overHero = false }) {
           </div>
 
           <Link to="/" className="block" aria-label={brand.name}>
-            <img
-              src={transparent ? brand.logoLight : brand.logoDark}
-              alt={brand.name}
-              width="640"
-              height="228"
-              className="h-6 w-auto sm:h-7 md:h-8"
-            />
+            <BrandLogo className="h-6 w-auto sm:h-7 md:h-8" />
           </Link>
 
           <div className="flex items-center justify-end gap-1 sm:gap-3">
@@ -258,7 +253,7 @@ export default function Header({ overHero = false }) {
               className={cn(
                 'ms-1 hidden min-h-[2.5rem] items-center whitespace-nowrap rounded-full px-4 text-[11px] font-semibold uppercase tracking-[0.16em] transition duration-300 sm:inline-flex lg:px-5 lg:tracking-[0.2em]',
                 transparent
-                  ? 'border border-white/45 hover:border-white hover:bg-white hover:text-brand-black'
+                  ? 'border border-prime-on/45 hover:border-prime-on hover:bg-prime-on hover:text-prime-band'
                   : 'bg-prime-ink text-prime-sand hover:bg-brand-gold'
               )}
             >
@@ -279,12 +274,12 @@ export default function Header({ overHero = false }) {
           role="dialog"
           aria-modal="true"
           aria-label={t('nav.menu')}
-          className="fixed inset-0 z-[90] flex overflow-hidden bg-brand-black text-white"
+          className="fixed inset-0 z-[90] flex overflow-hidden bg-prime-band text-prime-on"
           style={{ animation: 'primeMenuIn 0.7s var(--prime-ease) both' }}
         >
           <Wordmark
             word="Hospitality"
-            className="pointer-events-none absolute -bottom-[0.06em] end-[-0.04em] text-[clamp(7rem,24vw,22rem)] text-white/[0.045]"
+            className="pointer-events-none absolute -bottom-[0.06em] end-[-0.04em] text-[clamp(7rem,24vw,22rem)] text-prime-on/[0.045]"
           />
           <div className="relative flex min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
             <div className="prime-container grid h-[var(--prime-header-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center">
@@ -298,13 +293,13 @@ export default function Header({ overHero = false }) {
                 <span className="hidden sm:inline">{t('nav.close')}</span>
               </button>
               <Link to="/" onClick={() => setMenuOpen(false)} aria-label={brand.name}>
-                <img src={brand.logoLight} alt={brand.name} width="640" height="228" className="h-8 w-auto md:h-10" />
+                <BrandLogo className="h-8 w-auto md:h-10" />
               </Link>
               <span />
             </div>
 
             <nav className="prime-container flex flex-1 flex-col justify-center py-10" aria-label={t('nav.menu')}>
-              <ol className="max-w-3xl divide-y divide-white/10 border-y border-white/10">
+              <ol className="max-w-3xl divide-y divide-prime-on/10 border-y border-prime-on/10">
                 {MENU.map((item, i) => (
                   <li
                     key={item.to}
@@ -316,11 +311,11 @@ export default function Header({ overHero = false }) {
                       className={({ isActive }) =>
                         cn(
                           'group flex items-baseline gap-6 py-3 font-display text-[clamp(1.9rem,5vw,3.4rem)] font-extralight leading-[1.1] tracking-[-0.03em] transition-colors duration-300 md:py-4',
-                          isActive ? 'text-prime-gold-soft' : 'text-white hover:text-prime-gold-soft'
+                          isActive ? 'text-prime-gold-deep' : 'text-prime-on hover:text-prime-gold-deep'
                         )
                       }
                     >
-                      <span className="w-8 shrink-0 font-sans text-[11px] font-semibold tracking-[0.2em] text-white/35">
+                      <span className="w-8 shrink-0 font-sans text-[11px] font-semibold tracking-[0.2em] text-prime-on/35">
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       <span className="transition-transform duration-500 ease-prime group-hover:translate-x-2 rtl:group-hover:-translate-x-2">
@@ -333,28 +328,28 @@ export default function Header({ overHero = false }) {
             </nav>
 
             <div className="prime-container shrink-0 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-              <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
+              <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-on/55">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                  <a href={`mailto:${brand.email}`} className="transition hover:text-white">
+                  <a href={`mailto:${brand.email}`} className="transition hover:text-prime-on">
                     {brand.email}
                   </a>
-                  <a href={whatsappHref()} target="_blank" rel="noreferrer" className="transition hover:text-white">
+                  <a href={whatsappHref()} target="_blank" rel="noreferrer" className="transition hover:text-prime-on">
                     {t('common.whatsapp')}
                   </a>
-                  <Link to={staffTo} className="inline-flex items-center gap-1 transition hover:text-white">
+                  <Link to={staffTo} className="inline-flex items-center gap-1 transition hover:text-prime-on">
                     {isAdmin ? t('nav.staffDashboard') : t('nav.staffSignIn')}
                     <ArrowUpRight size={13} />
                   </Link>
                 </div>
                 <CurrencySelect />
-                <button type="button" onClick={toggleLocale} className="transition hover:text-white">
+                <button type="button" onClick={toggleLocale} className="transition hover:text-prime-on">
                   {locale === 'en' ? 'عربي' : 'English'}
                 </button>
               </div>
             </div>
           </div>
 
-          <p className="pointer-events-none absolute end-[max(1.25rem,4vw)] top-[calc(var(--prime-header-h)+2rem)] hidden max-w-[16rem] text-end text-[13px] font-light leading-relaxed text-white/50 lg:block">
+          <p className="pointer-events-none absolute end-[max(1.25rem,4vw)] top-[calc(var(--prime-header-h)+2rem)] hidden max-w-[16rem] text-end text-[13px] font-light leading-relaxed text-prime-on/50 lg:block">
             {locale === 'ar' ? t('home.heroTitle') : brand.tagline}
           </p>
         </div>

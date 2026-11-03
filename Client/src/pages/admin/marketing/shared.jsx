@@ -150,7 +150,7 @@ export function SegmentedControl({ value, onChange, options, size = 'md' }) {
           className={cn(
             'inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.12em] transition',
             size === 'sm' ? 'px-2.5 py-1 text-[10px]' : 'px-3 py-1.5 text-[11px]',
-            value === id ? 'bg-prime-night text-prime-sand' : 'text-prime-muted hover:text-prime-ink'
+            value === id ? 'bg-prime-ink text-prime-sand' : 'text-prime-muted hover:text-prime-ink'
           )}
         >
           {Icon ? <Icon size={13} /> : null}

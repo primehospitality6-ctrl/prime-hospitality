@@ -100,7 +100,7 @@ function LinkedPicker({ offer, compounds, units, onChange }) {
                 onClick={() => onChange({ compoundIds: toggleId(offer.compoundIds, c.id) })}
                 className={cn(
                   'inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium transition',
-                  on ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line hover:border-prime-ink'
+                  on ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line hover:border-prime-ink'
                 )}
               >
                 {on ? <Check size={12} /> : null}

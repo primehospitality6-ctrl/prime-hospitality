@@ -4,6 +4,7 @@ import { brand, phoneLines, whatsappHref } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
 import { useBrands, useSite } from '../../context/SiteContext';
 import Wordmark from '../ui/Wordmark';
+import BrandLogo from '../ui/BrandLogo';
 
 const COLS = [
   {
@@ -48,16 +49,16 @@ export default function Footer() {
   const social = SOCIAL.filter(([key]) => brand.social[key] && brand.social[key] !== '#');
 
   return (
-    <footer className="relative isolate overflow-hidden bg-brand-black text-white">
+    <footer className="relative isolate overflow-hidden bg-prime-band text-prime-on">
       <Wordmark
         word="Prime"
-        className="pointer-events-none absolute -bottom-[0.05em] end-[-0.03em] -z-10 text-[clamp(8rem,26vw,24rem)] text-white/[0.04]"
+        className="pointer-events-none absolute -bottom-[0.05em] end-[-0.03em] -z-10 text-[clamp(8rem,26vw,24rem)] text-prime-on/[0.04]"
       />
 
       <div className="prime-container pt-24 md:pt-32">
-        <div className="grid gap-12 border-b border-white/10 pb-20 md:pb-24 lg:grid-cols-[1.5fr_1fr] lg:items-end">
+        <div className="grid gap-12 border-b border-prime-on/10 pb-20 md:pb-24 lg:grid-cols-[1.5fr_1fr] lg:items-end">
           <h2 className="max-w-3xl font-display text-display-lg font-extralight text-balance">
-            {t('footer.headline')} <em className="text-prime-gold-soft">{t('footer.headlineEm')}</em> {t('footer.headlineEnd')}
+            {t('footer.headline')} <em className="text-prime-gold-deep">{t('footer.headlineEm')}</em> {t('footer.headlineEnd')}
           </h2>
           <div className="flex flex-wrap gap-3 lg:justify-end">
             <Link to="/search" className="prime-btn-gold">
@@ -71,10 +72,10 @@ export default function Footer() {
         </div>
 
         {brands.length ? (
-          <ul className="flex flex-wrap gap-x-8 gap-y-4 border-b border-white/10 py-8">
+          <ul className="flex flex-wrap gap-x-8 gap-y-4 border-b border-prime-on/10 py-8">
             {brands.map((item) => (
               <li key={item.name}>
-                <Link to="/search" className="inline-flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-white/75 transition hover:text-white">
+                <Link to="/search" className="inline-flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-prime-on/75 transition hover:text-prime-on">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} aria-hidden />
                   Prime {item.name}
                 </Link>
@@ -85,20 +86,20 @@ export default function Footer() {
 
         <div className="grid gap-12 py-16 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <img src={brand.logoLight} alt={brand.name} width="640" height="228" loading="lazy" className="h-10 w-auto" />
-            <address className="mt-9 space-y-2.5 text-[13.5px] font-light not-italic leading-relaxed text-white/60">
+            <BrandLogo loading="lazy" className="h-10 w-auto" />
+            <address className="mt-9 space-y-2.5 text-[13.5px] font-light not-italic leading-relaxed text-prime-on/60">
               <p>{term(brand.address)}</p>
               {phoneLines().map((line, i) => (
-                <a key={`${line.number}-${i}`} href={`tel:${line.number}`} className="prime-tap flex gap-2 transition hover:text-white">
-                  <span className="text-prime-gold-soft">m.</span>
+                <a key={`${line.number}-${i}`} href={`tel:${line.number}`} className="prime-tap flex gap-2 transition hover:text-prime-on">
+                  <span className="text-prime-gold-deep">m.</span>
                   <span dir="ltr">{line.display}</span>
                   {line.label?.[locale] || line.label?.en ? (
-                    <span className="text-white/40">· {line.label[locale] || line.label.en}</span>
+                    <span className="text-prime-on/40">· {line.label[locale] || line.label.en}</span>
                   ) : null}
                 </a>
               ))}
-              <a href={`mailto:${brand.email}`} className="prime-tap flex gap-2 transition hover:text-white">
-                <span className="text-prime-gold-soft">e.</span>
+              <a href={`mailto:${brand.email}`} className="prime-tap flex gap-2 transition hover:text-prime-on">
+                <span className="text-prime-gold-deep">e.</span>
                 {brand.email}
               </a>
             </address>
@@ -106,11 +107,11 @@ export default function Footer() {
 
           {COLS.map((col) => (
             <nav key={col.titleKey} aria-label={t(col.titleKey)}>
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.24em] text-prime-gold-soft">{t(col.titleKey)}</p>
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.24em] text-prime-gold-deep">{t(col.titleKey)}</p>
               <ul className="mt-6 space-y-3">
                 {col.links.map((l) => (
                   <li key={l.to}>
-                    <Link to={l.to} className="prime-tap text-[14px] font-light text-white/65 transition hover:text-white">
+                    <Link to={l.to} className="prime-tap text-[14px] font-light text-prime-on/65 transition hover:text-prime-on">
                       {t(l.key)}
                     </Link>
                   </li>
@@ -120,7 +121,7 @@ export default function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col-reverse gap-6 border-t border-white/10 py-7 text-[12px] text-white/40 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col-reverse gap-6 border-t border-prime-on/10 py-7 text-[12px] text-prime-on/40 sm:flex-row sm:items-center sm:justify-between">
           <span>
             © {new Date().getFullYear()} {brand.name}. {t('footer.rights')}
           </span>
@@ -132,7 +133,7 @@ export default function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label={label}
-                className="grid h-10 w-10 place-items-center border border-white/15 text-white/70 transition hover:border-prime-gold-soft hover:text-prime-gold-soft"
+                className="grid h-10 w-10 place-items-center border border-prime-on/15 text-prime-on/70 transition hover:border-prime-gold-soft hover:text-prime-gold-deep"
               >
                 <Icon size={16} strokeWidth={1.5} />
               </a>
@@ -141,7 +142,7 @@ export default function Footer() {
               type="button"
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               aria-label={t('a11y.backToTop')}
-              className="ms-3 grid h-10 w-10 place-items-center border border-white/15 text-white/70 transition hover:border-white hover:bg-white hover:text-brand-black"
+              className="ms-3 grid h-10 w-10 place-items-center border border-prime-on/15 text-prime-on/70 transition hover:border-prime-on hover:bg-prime-on hover:text-prime-band"
             >
               <ArrowUp size={16} strokeWidth={1.5} />
             </button>

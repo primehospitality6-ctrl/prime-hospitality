@@ -82,7 +82,7 @@ function MenuItem({ active, onClick, title, subtitle }) {
     >
       <span className="text-sm font-medium">{title}</span>
       {subtitle ? (
-        <span className={cn('text-[11px]', active ? 'text-white/60' : 'text-prime-muted')}>{subtitle}</span>
+        <span className={cn('text-[11px]', active ? 'text-prime-sand/60' : 'text-prime-muted')}>{subtitle}</span>
       ) : null}
     </button>
   );

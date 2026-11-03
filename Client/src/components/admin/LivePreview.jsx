@@ -16,7 +16,7 @@ function Toggle({ value, onChange, options }) {
           title={typeof label === 'string' ? label : undefined}
           className={cn(
             'inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition',
-            value === id ? 'bg-prime-night text-prime-sand' : 'text-prime-muted hover:text-prime-ink'
+            value === id ? 'bg-prime-ink text-prime-sand' : 'text-prime-muted hover:text-prime-ink'
           )}
         >
           {Icon ? <Icon size={13} /> : label}

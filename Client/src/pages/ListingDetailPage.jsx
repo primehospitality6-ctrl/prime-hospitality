@@ -420,7 +420,7 @@ export default function ListingDetailPage() {
       <Header overHero />
       <main className="pb-28 lg:pb-0">
         {/* Full-bleed gallery hero */}
-        <section className="relative isolate min-h-[64svh] overflow-hidden bg-brand-black text-white sm:min-h-[72svh] md:min-h-[85svh]">
+        <section className="relative isolate min-h-[64svh] overflow-hidden bg-prime-band text-prime-on sm:min-h-[72svh] md:min-h-[85svh]">
           <button type="button" onClick={() => setLightbox(true)} className="absolute inset-0 block" aria-label={t('listing.showAllPhotos', { count: photos.length })}>
             <Img
               src={photos[0]}
@@ -429,19 +429,19 @@ export default function ListingDetailPage() {
               sizes="100vw"
               className="prime-kenburns absolute inset-0 h-full w-full object-cover"
             />
-            <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
+            <span className="absolute inset-0 bg-gradient-to-t from-prime-band/85 via-prime-band/25 to-prime-band/40" />
           </button>
 
           <div className="relative flex min-h-[64svh] flex-col justify-end sm:min-h-[72svh] md:min-h-[85svh]">
             <div className="prime-container pb-8 pt-28 sm:pb-12 sm:pt-32 md:pb-16">
-              <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white/55">
-                <Link to="/" className="transition hover:text-white">
+              <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on/55">
+                <Link to="/" className="transition hover:text-prime-on">
                   {t('listing.egypt')}
                 </Link>
                 {crumbs.map((crumb) => (
                   <span key={crumb.to} className="flex items-center gap-2">
                     <span aria-hidden>/</span>
-                    <Link to={crumb.to} className="transition hover:text-white">
+                    <Link to={crumb.to} className="transition hover:text-prime-on">
                       {crumb.label}
                     </Link>
                   </span>
@@ -450,7 +450,7 @@ export default function ListingDetailPage() {
 
               <div className="flex flex-wrap items-end justify-between gap-6">
                 <div className="max-w-3xl">
-                  <p className="prime-eyebrow text-prime-gold-soft">
+                  <p className="prime-eyebrow text-prime-gold-deep">
                     {[listing.brand && `Prime ${listing.brand}`, listing.destination || listing.region]
                       .filter(Boolean)
                       .map(term)
@@ -460,21 +460,21 @@ export default function ListingDetailPage() {
                   {listing.offer?.percent ? (
                     <Link
                       to={offerHref(listing.offer.id)}
-                      className="mt-5 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:text-white"
+                      className="mt-5 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-prime-on/80 transition hover:text-prime-on"
                     >
                       <span className="bg-brand-gold px-2.5 py-1 text-white">{t('offers.percentOff', { n: listing.offer.percent })}</span>
                       {listing.offer.name?.[locale] || listing.offer.name?.en}
                     </Link>
                   ) : null}
-                  <p className="mt-5 text-[14.5px] font-light tracking-wide text-white/65">
-                    <span className="text-white">{term(listing.unitType)}</span>
+                  <p className="mt-5 text-[14.5px] font-light tracking-wide text-prime-on/65">
+                    <span className="text-prime-on">{term(listing.unitType)}</span>
                     {[listing.compound, listing.city].filter(Boolean).length
                       ? ` · ${[listing.compound, listing.city].filter(Boolean).map(term).join(t('common.listSep'))}`
                       : ''}
                     {reviewCount > 0 ? (
                       <>
                         {' · '}
-                        <span className="text-prime-gold-soft">★ {averageRating.toFixed(1)}</span>{' '}
+                        <span className="text-prime-gold-deep">★ {averageRating.toFixed(1)}</span>{' '}
                         {t('listing.reviewCount', { count: reviewCount })}
                       </>
                     ) : null}
@@ -488,8 +488,8 @@ export default function ListingDetailPage() {
                     className={cn(
                       'inline-flex min-h-[2.75rem] items-center gap-2.5 border px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] transition duration-500',
                       loved
-                        ? 'border-prime-gold-soft bg-prime-gold/20 text-prime-gold-soft'
-                        : 'border-white/35 text-white hover:border-white hover:bg-white hover:text-brand-black'
+                        ? 'border-prime-gold-soft bg-prime-gold/20 text-prime-gold-deep'
+                        : 'border-prime-on/35 text-prime-on hover:border-prime-on hover:bg-prime-on hover:text-prime-band'
                     )}
                   >
                     <Heart size={15} strokeWidth={1.5} fill={loved ? 'currentColor' : 'none'} />
@@ -498,7 +498,7 @@ export default function ListingDetailPage() {
                   <button
                     type="button"
                     onClick={() => setLightbox(true)}
-                    className="inline-flex min-h-[2.75rem] items-center border border-white/35 bg-white/10 px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] text-white backdrop-blur-sm transition hover:bg-white hover:text-brand-black"
+                    className="inline-flex min-h-[2.75rem] items-center border border-prime-on/35 bg-prime-on/10 px-5 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm transition hover:bg-prime-on hover:text-prime-band"
                   >
                     {t('listing.showAllPhotos', { count: photos.length })}
                   </button>
@@ -512,7 +512,7 @@ export default function ListingDetailPage() {
                       type="button"
                       key={`${src}-${i}`}
                       onClick={() => setLightbox(true)}
-                      className="group relative aspect-[4/3] overflow-hidden bg-white/5"
+                      className="group relative aspect-[4/3] overflow-hidden bg-prime-on/5"
                     >
                       <Img
                         src={src}
@@ -536,7 +536,7 @@ export default function ListingDetailPage() {
                 type="button"
                 key={`${src}-strip-${i}`}
                 onClick={() => setLightbox(true)}
-                className="relative h-16 w-[5.5rem] shrink-0 snap-start overflow-hidden rounded-xl bg-brand-black"
+                className="relative h-16 w-[5.5rem] shrink-0 snap-start overflow-hidden rounded-xl bg-prime-band"
                 aria-label={t('listing.photoAlt', { title: listing.title, n: i + 2 })}
               >
                 <Img src={src} alt="" sizes="88px" widths={[200, 400]} className="absolute inset-0 h-full w-full object-cover" />
@@ -721,19 +721,19 @@ export default function ListingDetailPage() {
               ) : null}
             </div>
 
-            <aside className="hidden h-fit rounded-[1.25rem] bg-brand-black p-9 text-white lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
-              <p className="prime-label text-prime-gold-soft">{t('listing.reservation')}</p>
+            <aside className="hidden h-fit rounded-[1.25rem] bg-prime-band p-9 text-prime-on lg:sticky lg:top-[calc(var(--prime-header-h)+5rem)] lg:block">
+              <p className="prime-label text-prime-gold-deep">{t('listing.reservation')}</p>
               {hasPrice ? (
                 <>
-                  <p className="mt-5 font-display text-[2.85rem] font-extralight leading-none tracking-[-0.03em] tabular-nums text-white">
+                  <p className="mt-5 font-display text-[2.85rem] font-extralight leading-none tracking-[-0.03em] tabular-nums text-prime-on">
                     {format(displayFromPrice)}
                   </p>
-                  <p className="mt-3 text-[13px] font-light text-white/50">{t('listing.perNightNote')}</p>
+                  <p className="mt-3 text-[13px] font-light text-prime-on/50">{t('listing.perNightNote')}</p>
                 </>
               ) : (
-                <p className="mt-5 font-display text-[2rem] font-extralight leading-tight text-white">{t('listing.priceOnRequest')}</p>
+                <p className="mt-5 font-display text-[2rem] font-extralight leading-tight text-prime-on">{t('listing.priceOnRequest')}</p>
               )}
-              <div className="my-8 h-px bg-white/15" />
+              <div className="my-8 h-px bg-prime-on/15" />
               <div className="flex flex-col gap-3">
                 <button type="button" className="prime-btn-gold w-full" onClick={() => setBookingOpen(true)}>
                   {t('listing.bookNow')}
@@ -742,7 +742,7 @@ export default function ListingDetailPage() {
                   {t('listing.whatsappInquiry')}
                 </a>
               </div>
-              <p className="mt-7 text-center text-[12px] font-light leading-relaxed text-white/45">
+              <p className="mt-7 text-center text-[12px] font-light leading-relaxed text-prime-on/45">
                 {t('listing.bookDirectNote')}
               </p>
             </aside>
@@ -771,19 +771,19 @@ export default function ListingDetailPage() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 rounded-t-[1.25rem] border-t border-white/10 bg-brand-black/95 px-4 py-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 rounded-t-[1.25rem] border-t border-prime-on/10 bg-prime-band/95 px-4 py-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] backdrop-blur-md lg:hidden">
         <div className="mx-auto flex max-w-prime items-center gap-3">
           <div className="min-w-0 flex-1">
             {hasPrice ? (
               <>
-                <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-white/45">{t('card.from')}</p>
-                <p className="truncate font-display text-[1.45rem] font-extralight leading-tight tabular-nums text-white">
+                <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on/45">{t('card.from')}</p>
+                <p className="truncate font-display text-[1.45rem] font-extralight leading-tight tabular-nums text-prime-on">
                   {format(displayFromPrice)}
-                  <span className="ms-1 font-sans text-[12px] font-light text-white/45">{t('card.perNight')}</span>
+                  <span className="ms-1 font-sans text-[12px] font-light text-prime-on/45">{t('card.perNight')}</span>
                 </p>
               </>
             ) : (
-              <p className="truncate font-display text-[1.25rem] font-extralight leading-tight text-white">{t('listing.priceOnRequest')}</p>
+              <p className="truncate font-display text-[1.25rem] font-extralight leading-tight text-prime-on">{t('listing.priceOnRequest')}</p>
             )}
           </div>
           <button type="button" className="prime-btn-gold shrink-0 px-5 sm:px-7" onClick={() => setBookingOpen(true)}>
@@ -793,7 +793,7 @@ export default function ListingDetailPage() {
       </div>
 
       {listing && (bookingOpen || bookingArmed) ? (
-        <Suspense fallback={bookingOpen ? <div className="fixed inset-0 z-[80] bg-prime-night/40" aria-busy="true" /> : null}>
+        <Suspense fallback={bookingOpen ? <div className="fixed inset-0 z-[80] bg-prime-band/40" aria-busy="true" /> : null}>
           <BookingModal
             open={bookingOpen}
             onClose={() => setBookingOpen(false)}
@@ -817,17 +817,17 @@ export default function ListingDetailPage() {
           role="dialog"
           aria-modal="true"
           aria-label={t('listing.showAllPhotos', { count: photos.length })}
-          className="fixed inset-0 z-[280] flex flex-col bg-[#161414]"
+          className="fixed inset-0 z-[280] flex flex-col bg-prime-band"
           style={{ animation: 'primeFadeIn 0.4s var(--prime-ease) both' }}
         >
-          <div className="flex items-center justify-between px-5 py-4 text-white sm:px-8">
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/70">
+          <div className="flex items-center justify-between px-5 py-4 text-prime-on sm:px-8">
+            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-prime-on/70">
               {listing.title} · {photos.length}
             </p>
             <button
               type="button"
               onClick={() => setLightbox(false)}
-              className="grid h-11 w-11 place-items-center rounded-full border border-white/25 transition hover:border-white"
+              className="grid h-11 w-11 place-items-center rounded-full border border-prime-on/25 transition hover:border-prime-on"
               aria-label={t('common.close')}
             >
               <X size={18} strokeWidth={1.5} />
@@ -836,7 +836,7 @@ export default function ListingDetailPage() {
           <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-10 sm:px-8">
             <div className="mx-auto grid max-w-5xl gap-3 md:grid-cols-2">
               {photos.map((src, i) => (
-                <div key={`lb-${src}-${i}`} className={cn('overflow-hidden bg-white/5', i % 3 === 0 && 'md:col-span-2')}>
+                <div key={`lb-${src}-${i}`} className={cn('overflow-hidden bg-prime-on/5', i % 3 === 0 && 'md:col-span-2')}>
                   <Img
                     src={src}
                     alt={t('listing.photoAlt', { title: listing.title, n: i + 1 })}

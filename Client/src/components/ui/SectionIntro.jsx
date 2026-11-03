@@ -32,7 +32,7 @@ export default function SectionIntro({
             className={cn(
               'prime-eyebrow mb-7 flex items-center gap-4',
               centered && 'justify-center',
-              dark ? 'text-prime-gold-soft' : 'text-prime-gold'
+              dark ? 'text-prime-gold-deep' : 'text-prime-gold'
             )}
           >
             <span className={cn('h-px w-10', dark ? 'bg-prime-gold-soft' : 'bg-prime-gold')} aria-hidden />
@@ -40,7 +40,7 @@ export default function SectionIntro({
           </p>
         ) : null}
         <Heading
-          className={cn('font-display text-display-lg font-extralight text-balance', dark ? 'text-white' : 'text-prime-ink')}
+          className={cn('font-display text-display-lg font-extralight text-balance', dark ? 'text-prime-on' : 'text-prime-ink')}
         >
           {title}
         </Heading>
@@ -49,7 +49,7 @@ export default function SectionIntro({
             className={cn(
               'prime-lede mt-7 max-w-lg',
               centered && 'mx-auto',
-              dark && 'text-white/70'
+              dark && 'text-prime-on/70'
             )}
           >
             {body}

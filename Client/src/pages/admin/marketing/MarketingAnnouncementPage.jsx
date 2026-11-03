@@ -9,7 +9,7 @@ import { AnnotatedSection, DEVICE_OPTIONS, LOCALE_OPTIONS, LengthMeter, PreviewF
 import MarketingNav from './MarketingNav';
 
 const TONES = [
-  ['night', 'Charcoal', 'bg-[#221f20] text-white'],
+  ['night', 'Neutral', 'bg-prime-band text-prime-on'],
   ['gold', 'Gold', 'bg-prime-gold text-[#221f20]'],
   ['sand', 'Sand', 'bg-prime-mist text-prime-ink border-b border-prime-line'],
 ];
@@ -123,7 +123,7 @@ export default function MarketingAnnouncementPage() {
                   ['/contact', 'Contact'],
                   ['/owners', 'List your property'],
                 ].map(([href, label]) => (
-                  <button key={href} type="button" onClick={() => set({ href })} className={cn('border px-2.5 py-1 text-[11px] font-semibold transition', value.href === href ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line hover:border-prime-ink')}>
+                  <button key={href} type="button" onClick={() => set({ href })} className={cn('border px-2.5 py-1 text-[11px] font-semibold transition', value.href === href ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line hover:border-prime-ink')}>
                     {label}
                   </button>
                 ))}
@@ -149,7 +149,7 @@ export default function MarketingAnnouncementPage() {
             <AnnotatedSection title="Style" description="Charcoal suits most messages; gold stands out for offers.">
               <div className="grid gap-3 sm:grid-cols-3">
                 {TONES.map(([id, label, cls]) => (
-                  <button key={id} type="button" onClick={() => set({ tone: id })} className={cn('border-2 p-1 text-start transition', value.tone === id ? 'border-prime-night' : 'border-transparent hover:border-prime-line')}>
+                  <button key={id} type="button" onClick={() => set({ tone: id })} className={cn('border-2 p-1 text-start transition', value.tone === id ? 'border-prime-ink' : 'border-transparent hover:border-prime-line')}>
                     <span className={cn('block h-8', cls)} />
                     <span className="mt-1.5 block text-xs font-semibold">{label}</span>
                   </button>

@@ -31,10 +31,10 @@ const shortName = (name = '') => name.replace(/^Prime\s+(Boutique|Holidays|Resid
 function ConciergeBand() {
   const { t } = useLocale();
   return (
-    <div className="col-span-full relative isolate overflow-hidden bg-brand-black px-8 py-14 text-white sm:px-12 md:grid md:grid-cols-[1.4fr_auto] md:items-end md:gap-16 md:px-16 md:py-20">
+    <div className="col-span-full relative isolate overflow-hidden bg-prime-band px-8 py-14 text-prime-on sm:px-12 md:grid md:grid-cols-[1.4fr_auto] md:items-end md:gap-16 md:px-16 md:py-20">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.18),transparent_55%)]" aria-hidden />
       <div className="relative">
-        <p className="prime-eyebrow text-prime-gold-soft">{t('search.concierge')}</p>
+        <p className="prime-eyebrow text-prime-gold-deep">{t('search.concierge')}</p>
         <p className="mt-5 max-w-xl font-display text-[2rem] font-extralight leading-[1.15] tracking-[-0.03em] md:text-[2.6rem]">
           {t('search.conciergeTitle')}
         </p>
@@ -213,68 +213,68 @@ export default function SearchPage() {
     <div className="min-h-screen bg-prime-sand">
       <Header overHero />
       <main>
-        <section className="relative isolate overflow-hidden bg-brand-black text-white">
+        <section className="relative isolate overflow-hidden bg-prime-band text-prime-on">
           {heroImage ? (
             <>
               <img src={heroImage} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-50" />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-black via-brand-black/75 to-brand-black/50" />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-prime-band via-prime-band/75 to-prime-band/50" />
             </>
           ) : (
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.25),transparent_55%)]" />
           )}
           <div className="prime-container pb-16 pt-28 md:pb-24 md:pt-36">
-            <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-white/50">
-              <Link to="/" className="transition hover:text-white">{t('search.home')}</Link>
+            <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-prime-on/50">
+              <Link to="/" className="transition hover:text-prime-on">{t('search.home')}</Link>
               <span aria-hidden>/</span>
               {destination || property || offer ? (
-                <button type="button" onClick={() => patchParams({ destination: '', compound: '', offer: '' })} className="uppercase transition hover:text-white">
+                <button type="button" onClick={() => patchParams({ destination: '', compound: '', offer: '' })} className="uppercase transition hover:text-prime-on">
                   {t('search.stays')}
                 </button>
               ) : (
-                <span className="text-white/90">{t('search.stays')}</span>
+                <span className="text-prime-on/90">{t('search.stays')}</span>
               )}
               {destination ? (
                 <>
                   <span aria-hidden>/</span>
                   {property ? (
-                    <button type="button" onClick={() => patchParams({ compound: '' })} className="uppercase transition hover:text-white">
+                    <button type="button" onClick={() => patchParams({ compound: '' })} className="uppercase transition hover:text-prime-on">
                       {term(destination.name)}
                     </button>
                   ) : (
-                    <span className="text-white/90">{term(destination.name)}</span>
+                    <span className="text-prime-on/90">{term(destination.name)}</span>
                   )}
                 </>
               ) : null}
               {property ? (
                 <>
                   <span aria-hidden>/</span>
-                  <span className="text-white/90">{term(shortName(property.name))}</span>
+                  <span className="text-prime-on/90">{term(shortName(property.name))}</span>
                 </>
               ) : null}
               {offer ? (
                 <>
                   <span aria-hidden>/</span>
-                  <span className="text-white/90">{offerName}</span>
+                  <span className="text-prime-on/90">{offerName}</span>
                 </>
               ) : null}
             </nav>
 
             <div className="max-w-4xl">
               {offer ? (
-                <p className="prime-eyebrow flex flex-wrap items-center gap-3 text-prime-gold-soft">
+                <p className="prime-eyebrow flex flex-wrap items-center gap-3 text-prime-gold-deep">
                   {t('offers.eyebrow')}
                   {offer.percent ? (
                     <span className="bg-brand-gold px-2.5 py-1 tracking-[0.18em] text-white">{t('offers.percentOff', { n: offer.percent })}</span>
                   ) : null}
                 </p>
               ) : (
-                <p className="prime-eyebrow text-prime-gold-soft">
+                <p className="prime-eyebrow text-prime-gold-deep">
                   {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
                 </p>
               )}
               <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{heading}</h1>
-              {contextText ? <p className="mt-6 max-w-xl text-[15px] font-light leading-[1.85] text-white/65 md:text-[16.5px]">{contextText}</p> : null}
-              <p className="mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] text-white/45" aria-live="polite">
+              {contextText ? <p className="mt-6 max-w-xl text-[15px] font-light leading-[1.85] text-prime-on/65 md:text-[16.5px]">{contextText}</p> : null}
+              <p className="mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] text-prime-on/45" aria-live="polite">
                 {loading ? t('search.searching') : null}
               </p>
             </div>
@@ -416,7 +416,7 @@ export default function SearchPage() {
         <div className="fixed inset-0 z-[70]">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-prime-band/40"
             aria-label={t('search.closeFilters')}
             onClick={() => setSheetOpen(false)}
           />

@@ -100,7 +100,7 @@ function NavItems({ collapsed, onNavigate }) {
               cn(
                 'flex items-center gap-2.5 py-2.5 text-[12px] font-semibold tracking-[0.04em] transition',
                 collapsed ? 'justify-center px-0' : 'px-3',
-                isActive ? 'bg-prime-night text-prime-sand' : 'text-prime-muted hover:bg-prime-mist hover:text-prime-ink'
+                isActive ? 'bg-prime-ink text-prime-sand' : 'text-prime-muted hover:bg-prime-mist hover:text-prime-ink'
               )
             }
           >
@@ -181,7 +181,7 @@ export default function AdminLayout() {
 
         {mobileOpen ? (
           <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Admin menu">
-            <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+            <button type="button" aria-label="Close menu" className="absolute inset-0 bg-prime-band/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
             <aside className="relative flex h-full w-72 flex-col bg-prime-surface px-3 py-5 shadow-2xl">
               <div className="flex items-center justify-between">
                 {brandBlock}

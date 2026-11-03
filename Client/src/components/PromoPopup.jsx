@@ -40,10 +40,10 @@ function markSeen(sig, days, key = SEEN_KEY) {
 export function PopupCard({ popup, onClose, dir = 'ltr', preview = false }) {
   const external = /^https?:/i.test(popup.href);
   const cta = popup.ctaLabel && popup.href;
-  const btnCls = 'mt-6 inline-flex w-full items-center justify-center bg-prime-night px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-sand transition hover:bg-prime-ink';
+  const btnCls = 'mt-6 inline-flex w-full items-center justify-center bg-prime-ink px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-sand transition hover:bg-brand-gold hover:text-white';
   return (
     <div dir={dir} className="relative w-full max-w-md overflow-hidden bg-prime-surface text-prime-ink shadow-2xl">
-      <button type="button" onClick={onClose} aria-label={dir === 'rtl' ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center bg-white/85 text-prime-ink backdrop-blur transition hover:bg-white">
+      <button type="button" onClick={onClose} aria-label={dir === 'rtl' ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center bg-prime-surface/85 text-prime-ink backdrop-blur transition hover:bg-prime-surface">
         <X size={15} />
       </button>
       {popup.image ? <img src={popup.image} alt="" className="aspect-[16/9] w-full object-cover" /> : null}
@@ -77,7 +77,7 @@ export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false })
   const body = (
     <>
       <img src={popup.image} alt={popup.title} className="block max-h-[78vh] w-full object-cover" />
-      <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-6 pb-5 pt-16 text-white">
+      <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-prime-band/80 via-prime-band/35 to-transparent px-6 pb-5 pt-16 text-prime-on">
         <span className="min-w-0">
           {popup.percent ? (
             <span className="mb-2 inline-block bg-brand-gold px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]">
@@ -86,7 +86,7 @@ export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false })
           ) : null}
           <span className="block font-display text-[1.6rem] font-medium leading-tight">{popup.title}</span>
         </span>
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-gold-soft">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-gold-deep">
           {ar ? 'شاهد الإقامات' : 'See stays'}
           <ArrowRight size={14} className="transition-transform group-hover:translate-x-1 rtl:-scale-x-100" />
         </span>
@@ -94,8 +94,8 @@ export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false })
     </>
   );
   return (
-    <div dir={dir} className="relative w-full max-w-md overflow-hidden bg-prime-night shadow-2xl">
-      <button type="button" onClick={onClose} aria-label={ar ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/70">
+    <div dir={dir} className="relative w-full max-w-md overflow-hidden bg-prime-band shadow-2xl">
+      <button type="button" onClick={onClose} aria-label={ar ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-prime-band/45 text-prime-on backdrop-blur transition hover:bg-prime-band/70">
         <X size={15} />
       </button>
       {preview ? (
@@ -176,7 +176,7 @@ export default function PromoPopup() {
   if (!open || !popup) return null;
   return createPortal(
     <div className="fixed inset-0 z-[500] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label={popup.title || 'Offer'}>
-      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={close} />
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-prime-band/45 backdrop-blur-[2px]" onClick={close} />
       <div className="relative w-full max-w-md" style={{ animation: 'primeFadeIn 0.35s var(--prime-ease) both' }}>
         {popup.kind === 'offer' ? (
           <OfferPopupCard popup={popup} onClose={close} dir={locale === 'ar' ? 'rtl' : 'ltr'} />

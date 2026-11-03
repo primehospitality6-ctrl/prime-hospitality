@@ -36,7 +36,7 @@ function SetupGuide({ tasks }) {
         <p className="mt-0.5 text-xs text-prime-muted">The basics every hospitality website needs. Work through them top to bottom.</p>
         <div className="mt-3 flex items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden bg-prime-mist">
-            <div className="h-full bg-prime-night transition-all" style={{ width: `${(done / tasks.length) * 100}%` }} />
+            <div className="h-full bg-prime-ink transition-all" style={{ width: `${(done / tasks.length) * 100}%` }} />
           </div>
           <span className="text-xs font-semibold tabular-nums text-prime-muted">
             {done} of {tasks.length} done

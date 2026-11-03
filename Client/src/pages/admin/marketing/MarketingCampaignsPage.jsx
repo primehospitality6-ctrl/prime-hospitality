@@ -36,7 +36,7 @@ function QrPreview({ url }) {
 function Step({ n, title, children }) {
   return (
     <div className="grid gap-3 sm:grid-cols-[32px_minmax(0,1fr)]">
-      <span className="grid h-8 w-8 place-items-center bg-prime-night font-display text-sm font-bold text-prime-sand">{n}</span>
+      <span className="grid h-8 w-8 place-items-center bg-prime-ink font-display text-sm font-bold text-prime-sand">{n}</span>
       <div className="min-w-0">
         <p className="mb-3 pt-1 font-semibold text-prime-ink">{title}</p>
         {children}
@@ -147,7 +147,7 @@ export default function MarketingCampaignsPage() {
                       key={c.id}
                       type="button"
                       onClick={() => pickChannel(c)}
-                      className={cn('flex items-center gap-2 border-2 px-3 py-2.5 text-start text-xs font-semibold transition', form.channel === c.id ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink')}
+                      className={cn('flex items-center gap-2 border-2 px-3 py-2.5 text-start text-xs font-semibold transition', form.channel === c.id ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink')}
                     >
                       <Icon size={15} className="shrink-0" /> {c.label}
                     </button>

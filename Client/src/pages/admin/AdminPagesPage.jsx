@@ -113,7 +113,7 @@ function TextEditor({ copy, onChange, previewSite }) {
             }}
             className={cn(
               'inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-semibold transition',
-              group === g.id && !q ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line bg-prime-surface text-prime-ink hover:border-prime-ink'
+              group === g.id && !q ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line bg-prime-surface text-prime-ink hover:border-prime-ink'
             )}
           >
             {g.label}
@@ -205,7 +205,7 @@ function HeroesEditor({ pages, onChange, previewSite }) {
               onClick={() => setWhich(h.key)}
               className={cn(
                 'border px-3 py-1.5 text-xs font-semibold transition',
-                which === h.key ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink'
+                which === h.key ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink'
               )}
             >
               {h.label}
@@ -327,7 +327,7 @@ function LegalEditor({ value, onChange, previewSite }) {
                 onClick={() => setWhich(id)}
                 className={cn(
                   'border px-3 py-1.5 text-[11px] font-semibold',
-                  which === id ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line'
+                  which === id ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line'
                 )}
               >
                 {label}

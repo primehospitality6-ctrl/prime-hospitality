@@ -26,6 +26,9 @@ export default {
           // --prime-fg flips in dark; --prime-night stays brand-dark for bands
           ink: themed('--prime-fg'),
           night: themed('--prime-night'),
+          // Feature bands and text on them: light in light mode, dark in dark mode
+          band: themed('--prime-band'),
+          on: themed('--prime-on'),
           charcoal: themed('--prime-charcoal'),
           gold: themed('--prime-gold'),
           'gold-soft': themed('--prime-gold-soft'),

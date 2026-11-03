@@ -444,7 +444,7 @@ export default function BookingModal({
   return createPortal(
     <div className="fixed inset-0 z-[240] flex items-stretch justify-center sm:items-center sm:p-6">
       <div
-        className="absolute inset-0 bg-prime-night/60 backdrop-blur-[3px] animate-[primeFadeIn_0.25s_var(--prime-ease)_both]"
+        className="absolute inset-0 bg-prime-band/60 backdrop-blur-[3px] animate-[primeFadeIn_0.25s_var(--prime-ease)_both]"
         onClick={requestClose}
         aria-hidden="true"
       />

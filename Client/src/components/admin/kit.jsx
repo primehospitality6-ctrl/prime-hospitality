@@ -64,7 +64,7 @@ export function Drawer({ open, onClose, title, subtitle, footer, children, wide 
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-[300] flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/35 backdrop-blur-[2px]" onClick={onClose} />
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-prime-band/60 backdrop-blur-[2px]" onClick={onClose} />
       <div
         className={cn('relative flex h-full w-full flex-col bg-prime-sand shadow-2xl', wide ? 'max-w-3xl' : 'max-w-xl')}
         style={{ animation: 'primeDrawerIn 0.3s var(--prime-ease) both' }}
@@ -91,7 +91,7 @@ export function ConfirmDialog({ open, title, message, confirmText = 'Confirm', d
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-[320] grid place-items-center p-4" role="alertdialog" aria-modal="true" aria-label={title}>
-      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-prime-band/60" onClick={onClose} />
       <div className="relative w-full max-w-md border border-prime-line bg-prime-surface p-6 shadow-2xl">
         <h2 className="font-display text-xl font-bold text-prime-ink">{title}</h2>
         {message ? <p className="mt-2 text-sm leading-relaxed text-prime-muted">{message}</p> : null}
@@ -104,8 +104,8 @@ export function ConfirmDialog({ open, title, message, confirmText = 'Confirm', d
             disabled={busy}
             onClick={onConfirm}
             className={cn(
-              'px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50',
-              danger ? 'bg-red-600 hover:bg-red-700' : 'bg-prime-night hover:bg-prime-ink'
+              'px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] disabled:opacity-50',
+              danger ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-prime-ink text-prime-sand hover:bg-prime-gold'
             )}
           >
             {busy ? 'Working…' : confirmText}
@@ -147,7 +147,7 @@ export function StatusChips({ value, onChange, options }) {
           onClick={() => onChange(o.id)}
           className={cn(
             'inline-flex items-center gap-1.5 border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition',
-            value === o.id ? 'border-prime-night bg-prime-night text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink'
+            value === o.id ? 'border-prime-ink bg-prime-ink text-prime-sand' : 'border-prime-line bg-prime-surface hover:border-prime-ink'
           )}
         >
           {o.label}
@@ -214,7 +214,7 @@ export function Toggle({ checked, onChange, label, hint, disabled }) {
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cn('relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition', checked ? 'bg-prime-night' : 'bg-prime-line')}
+        className={cn('relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition', checked ? 'bg-prime-ink' : 'bg-prime-line')}
       >
         <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all', checked ? 'start-[1.125rem]' : 'start-0.5')} />
       </button>
@@ -265,7 +265,7 @@ export function Tabs({ tabs, value, onChange }) {
           onClick={() => onChange(id)}
           className={cn(
             '-mb-px whitespace-nowrap border-b-2 pb-3 text-[11px] font-semibold uppercase tracking-[0.16em] transition',
-            value === id ? 'border-prime-night text-prime-ink' : 'border-transparent text-prime-muted hover:text-prime-ink'
+            value === id ? 'border-prime-ink text-prime-ink' : 'border-transparent text-prime-muted hover:text-prime-ink'
           )}
         >
           {label}
@@ -293,7 +293,7 @@ export function SaveBar({ dirty, saving, onSave, onDiscard, message = 'Unsaved c
   useUnsavedGuard(dirty);
   if (!dirty) return null;
   return (
-    <div className="sticky bottom-0 z-40 -mx-4 mt-8 border-t border-prime-line bg-prime-night px-4 py-3 text-prime-sand sm:-mx-8 sm:px-8">
+    <div className="sticky bottom-0 z-40 -mx-4 mt-8 border-t border-prime-line bg-prime-surface px-4 py-3 text-prime-ink shadow-[0_-12px_32px_-20px_rgba(0,0,0,0.35)] sm:-mx-8 sm:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm">{message}</span>
         <div className="flex gap-2">
@@ -301,7 +301,7 @@ export function SaveBar({ dirty, saving, onSave, onDiscard, message = 'Unsaved c
             type="button"
             onClick={onDiscard}
             disabled={saving}
-            className="border border-white/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] hover:border-white"
+            className="border border-prime-line px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] hover:border-prime-ink"
           >
             Discard
           </button>
@@ -309,7 +309,7 @@ export function SaveBar({ dirty, saving, onSave, onDiscard, message = 'Unsaved c
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="bg-prime-gold px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#221f20] hover:bg-prime-gold-soft disabled:opacity-60"
+            className="bg-prime-gold px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white hover:bg-prime-gold-deep disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>

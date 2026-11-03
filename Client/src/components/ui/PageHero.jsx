@@ -8,7 +8,7 @@ function Eyebrow({ children, light, centered }) {
       className={cn(
         'prime-eyebrow prime-fade-up flex items-center gap-4',
         centered && 'justify-center',
-        light ? 'text-white/80' : 'text-prime-gold'
+        light ? 'text-prime-on/80' : 'text-prime-gold'
       )}
     >
       <span className={cn('h-px w-8', light ? 'bg-prime-gold-soft' : 'bg-prime-gold')} aria-hidden />
@@ -26,7 +26,7 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
 
   if (image) {
     return (
-      <section className={cn('relative isolate flex min-h-vh-78 items-end overflow-hidden bg-brand-black text-white md:min-h-vh-100', className)}>
+      <section className={cn('relative isolate flex min-h-vh-78 items-end overflow-hidden bg-prime-band text-prime-on md:min-h-vh-100', className)}>
         <Img
           src={image}
           alt=""
@@ -36,7 +36,7 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
           fallbackWidth={1920}
           className="prime-kenburns absolute inset-0 -z-10 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-prime-band/80 via-prime-band/20 to-prime-band/30" />
         <div className={cn('prime-container pb-16 pt-36 md:pb-24', centered && 'text-center')}>
           <div className={cn('max-w-3xl', centered && 'mx-auto')}>
             {eyebrow ? (
@@ -49,7 +49,7 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
             </h1>
             {lede ? (
               <p
-                className={cn('prime-fade-up mt-7 max-w-lg text-[15px] font-light leading-[1.8] text-white/75 md:text-[16.5px]', centered && 'mx-auto')}
+                className={cn('prime-fade-up mt-7 max-w-lg text-[15px] font-light leading-[1.8] text-prime-on/75 md:text-[16.5px]', centered && 'mx-auto')}
                 style={{ animationDelay: '160ms' }}
               >
                 {lede}

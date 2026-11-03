@@ -209,7 +209,7 @@ export default function AdminSlideshowPage() {
                         {slide.image ? (
                           <img src={slide.image} alt="" className={cn('h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]', !on && 'opacity-40 grayscale')} referrerPolicy="no-referrer" loading="lazy" />
                         ) : null}
-                        <span className="absolute start-2 top-2 grid h-7 min-w-[28px] place-items-center bg-prime-night px-2 text-xs font-bold text-prime-sand">{index + 1}</span>
+                        <span className="absolute start-2 top-2 grid h-7 min-w-[28px] place-items-center bg-prime-ink px-2 text-xs font-bold text-prime-sand">{index + 1}</span>
                         {!on ? (
                           <span className="absolute end-2 top-2">
                             <Badge>Hidden</Badge>

@@ -394,7 +394,7 @@ export default function AdminUnitsPage() {
                       }}
                       className={cn(
                         'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition',
-                        layout === id ? 'bg-prime-night text-prime-sand' : 'text-prime-muted hover:text-prime-ink',
+                        layout === id ? 'bg-prime-ink text-prime-sand' : 'text-prime-muted hover:text-prime-ink',
                       )}
                       aria-pressed={layout === id}
                     >
@@ -413,7 +413,7 @@ export default function AdminUnitsPage() {
           </div>
 
           {selected.size ? (
-            <div className="sticky top-14 z-20 mb-3 flex flex-wrap items-center gap-2 border border-prime-night bg-prime-night px-4 py-2.5 text-prime-sand">
+            <div className="sticky top-14 z-20 mb-3 flex flex-wrap items-center gap-2 border border-prime-ink bg-prime-ink px-4 py-2.5 text-prime-sand">
               <span className="me-2 text-sm">{selected.size} selected</span>
               {[
                 [{ published: true }, 'Publish', 'published'],
@@ -426,7 +426,7 @@ export default function AdminUnitsPage() {
                   type="button"
                   disabled={bulkBusy}
                   onClick={() => bulk(patch, done)}
-                  className="border border-white/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] hover:border-white disabled:opacity-50"
+                  className="border border-prime-sand/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] hover:border-prime-sand disabled:opacity-50"
                 >
                   {label}
                 </button>
