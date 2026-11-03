@@ -349,9 +349,9 @@ async function reorderDestinations(ids) {
 }
 
 /* ——— Slideshow CRUD ——— */
-async function createSlide({ image, alt = '', enabled = true }) {
+async function createSlide({ image, alt = '', href = '', enabled = true }) {
   const slides = await listSlides();
-  const item = { id: newId('slide'), image, alt, enabled: enabled !== false, sortOrder: slides.length };
+  const item = { id: newId('slide'), image, alt, href, enabled: enabled !== false, sortOrder: slides.length };
   return slideFromRow(await insertRow('slideshow_slides', slideToRow(item)));
 }
 

@@ -13,7 +13,7 @@ import { GUEST_AVAILABILITY_MONTHS } from '../constants/availability';
 import { listingWhatsAppMessage, whatsappHref } from '../theme/brand';
 import { useCurrency } from '../context/CurrencyContext';
 import { useLocale } from '../context/LocaleContext';
-import { useSite } from '../context/SiteContext';
+import { offerHref, useSite } from '../context/SiteContext';
 import { useWishlist } from '../context/WishlistContext';
 import { applySeo } from '../components/SeoManager';
 import { cn } from '../utils/cn';
@@ -457,6 +457,15 @@ export default function ListingDetailPage() {
                       .join(' · ')}
                   </p>
                   <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{term(listing.title)}</h1>
+                  {listing.offer?.percent ? (
+                    <Link
+                      to={offerHref(listing.offer.id)}
+                      className="mt-5 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:text-white"
+                    >
+                      <span className="bg-brand-gold px-2.5 py-1 text-white">{t('offers.percentOff', { n: listing.offer.percent })}</span>
+                      {listing.offer.name?.[locale] || listing.offer.name?.en}
+                    </Link>
+                  ) : null}
                   <p className="mt-5 text-[14.5px] font-light tracking-wide text-white/65">
                     <span className="text-white">{term(listing.unitType)}</span>
                     {[listing.compound, listing.city].filter(Boolean).length

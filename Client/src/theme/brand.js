@@ -48,8 +48,22 @@ export function subBrand(name) {
   return key ? { name: key, ...subBrands[key] } : null;
 }
 
-export function whatsappHref(text) {
-  const n = brand.whatsapp.replace(/\D/g, '');
+/** Every phone line: [{ number, display, label: { en, ar } }]. The first is the main one. */
+export function phoneLines() {
+  if (brand.phones?.length) return brand.phones.map((p) => ({ ...p, display: p.display || p.number }));
+  const number = brand.phone || brand.whatsapp;
+  return number ? [{ number, display: brand.phoneDisplay || number, label: {} }] : [];
+}
+
+/** Every WhatsApp line: [{ number, label: { en, ar } }]. The first is the main one. */
+export function whatsappLines() {
+  if (brand.whatsapps?.length) return brand.whatsapps;
+  return brand.whatsapp ? [{ number: brand.whatsapp, label: {} }] : [];
+}
+
+/** wa.me link for a number (defaults to the main WhatsApp line) */
+export function whatsappHref(text, number = brand.whatsapp) {
+  const n = String(number || brand.whatsapp || '').replace(/\D/g, '');
   const base = `https://wa.me/${n}`;
   if (!text) return base;
   return `${base}?text=${encodeURIComponent(text)}`;

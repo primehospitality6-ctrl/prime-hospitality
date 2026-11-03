@@ -23,6 +23,7 @@ export const DEFAULT_SITE = {
     startsAt: '',
     endsAt: '',
   },
+  offers: { items: [] },
   home: { sections: HOME_SECTIONS.map((id) => ({ id, enabled: true })) },
   pages: {
     about: {},
@@ -58,7 +59,9 @@ function applyBusiness(business = {}) {
     email: pick(business.email, BRAND_DEFAULTS.email),
     whatsapp: pick(business.whatsapp, BRAND_DEFAULTS.whatsapp),
     phone: pick(business.phone || business.whatsapp, BRAND_DEFAULTS.whatsapp),
-    phoneDisplay: pick(business.phoneDisplay, BRAND_DEFAULTS.phoneDisplay),
+    phoneDisplay: pick(business.phoneDisplay || business.phone, BRAND_DEFAULTS.phoneDisplay),
+    phones: Array.isArray(business.phones) ? business.phones.filter((p) => p?.number) : [],
+    whatsapps: Array.isArray(business.whatsapps) ? business.whatsapps.filter((w) => w?.number) : [],
     address: pick(business.address, BRAND_DEFAULTS.address),
     social: {
       instagram: pick(business.instagram, BRAND_DEFAULTS.social.instagram),
@@ -198,3 +201,13 @@ export function activePopup(popup, locale, pathname = '/', today = new Date().to
     frequencyDays: Number(popup.frequencyDays ?? 1),
   };
 }
+
+/** Offers switched on and inside their dates today */
+export function liveOffers(offers, today = new Date().toISOString().slice(0, 10)) {
+  return (offers?.items || []).filter(
+    (o) => o.enabled !== false && (!o.startsAt || today >= o.startsAt) && (!o.endsAt || today <= o.endsAt)
+  );
+}
+
+/** Guest link that lists an offer's stays */
+export const offerHref = (id) => `/search?offer=${encodeURIComponent(id)}`;

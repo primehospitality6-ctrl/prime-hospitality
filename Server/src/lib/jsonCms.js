@@ -300,12 +300,13 @@ async function listSlides() {
   return sortBy(readStore().slideshow || [], 'sortOrder');
 }
 
-async function createSlide({ image, alt = '', enabled = true }) {
+async function createSlide({ image, alt = '', href = '', enabled = true }) {
   const store = updateStore((s) => {
     s.slideshow.push({
       id: newId('slide'),
       image,
       alt,
+      href,
       enabled: enabled !== false,
       sortOrder: (s.slideshow || []).length,
     });

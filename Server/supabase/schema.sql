@@ -76,6 +76,9 @@ alter table units add column if not exists brand text not null default '';
 alter table units add column if not exists destination_id text not null default '';
 alter table units add column if not exists destination text not null default '';
 
+-- Optional click-through for a hero slide (an offer, a page or an external URL)
+alter table slideshow_slides add column if not exists href text not null default '';
+
 -- Property fact-sheet attributes (synced from Kwentra / imported from the inventory sheets)
 alter table compounds add column if not exists description text not null default '';
 alter table compounds add column if not exists address text not null default '';

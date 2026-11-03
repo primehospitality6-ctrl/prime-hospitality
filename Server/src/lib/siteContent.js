@@ -12,7 +12,9 @@ const TONES = ['night', 'gold', 'sand'];
 const POPUP_TRIGGERS = ['delay', 'scroll'];
 const POPUP_PAGES = ['all', 'home', 'listings', 'search'];
 const POPUP_FREQUENCIES = [0, 1, 7, 30];
-const SECTIONS = ['business', 'brands', 'announcement', 'popup', 'home', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+const SECTIONS = ['business', 'brands', 'announcement', 'popup', 'offers', 'home', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+const MAX_OFFERS = 30;
+const MAX_CONTACT_NUMBERS = 10;
 const MAX_BRANDS = 12;
 /** Admin-only sections, left out of the public site document */
 const PRIVATE_SECTIONS = ['campaigns'];
@@ -153,6 +155,30 @@ function ruleList(value) {
     .slice(0, 30);
 }
 
+const digits = (value) => str(value, 30).replace(/[^\d+]/g, '');
+
+/** Phone list: [{ number, display, label }]. Falls back to the single-number fields saved before lists existed. */
+function phoneList(list, legacyNumber, legacyDisplay) {
+  const src = Array.isArray(list) ? list : legacyNumber ? [{ number: legacyNumber, display: legacyDisplay }] : [];
+  return src
+    .map((p) => ({ number: digits(p?.number), display: str(p?.display, 40), label: localized(p?.label, 40) }))
+    .filter((p) => p.number)
+    .slice(0, MAX_CONTACT_NUMBERS);
+}
+
+/** WhatsApp list: [{ number, label }] */
+function whatsappList(list, legacyNumber) {
+  const src = Array.isArray(list) ? list : legacyNumber ? [{ number: legacyNumber }] : [];
+  return src
+    .map((w) => ({ number: digits(w?.number), label: localized(w?.label, 40) }))
+    .filter((w) => w.number.replace(/\D/g, '').length >= 6)
+    .slice(0, MAX_CONTACT_NUMBERS);
+}
+
+function idList(value, max = 300) {
+  return [...new Set((Array.isArray(value) ? value : []).map((id) => str(id, 80)).filter(Boolean))].slice(0, max);
+}
+
 function defaultSite() {
   return {
     business: {
@@ -162,6 +188,7 @@ function defaultSite() {
       phone: '',
       phoneDisplay: '',
       whatsapp: '',
+      // phones / whatsapps lists are left out so older single-number saves still migrate into them
       address: '',
       instagram: '',
       facebook: '',
@@ -195,6 +222,7 @@ function defaultSite() {
       startsAt: '',
       endsAt: '',
     },
+    offers: { items: [] },
     home: { sections: HOME_SECTIONS.map((id) => ({ id, enabled: true })) },
     pages: {
       about: { heroImage: '', wideImage: '', portraitImage: '' },
@@ -229,13 +257,18 @@ function defaultSite() {
 
 const sanitizers = {
   business(v = {}) {
+    const phones = phoneList(v.phones, digits(v.phone), str(v.phoneDisplay, 40));
+    const whatsapps = whatsappList(v.whatsapps, digits(v.whatsapp));
     return {
       name: str(v.name, 80),
       tagline: str(v.tagline, 160),
       email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str(v.email, 120)) ? str(v.email, 120) : '',
-      phone: str(v.phone, 30).replace(/[^\d+]/g, ''),
-      phoneDisplay: str(v.phoneDisplay, 40),
-      whatsapp: str(v.whatsapp, 30).replace(/[^\d+]/g, ''),
+      // The first entry of each list is the main number; the single fields mirror it for older code
+      phone: phones[0]?.number || '',
+      phoneDisplay: phones[0]?.display || '',
+      whatsapp: whatsapps[0]?.number || '',
+      phones,
+      whatsapps,
       address: str(v.address, 240),
       instagram: link(v.instagram),
       facebook: link(v.facebook),
@@ -298,6 +331,34 @@ const sanitizers = {
       startsAt: date(v.startsAt),
       endsAt: date(v.endsAt),
     };
+  },
+
+  /** Offers: a name, photo and percentage linked to unit types and/or whole properties */
+  offers(v = {}) {
+    const seen = new Set();
+    const items = [];
+    for (const o of Array.isArray(v.items) ? v.items : []) {
+      let id = str(o?.id, 40).toLowerCase().replace(/[^a-z0-9-]/g, '');
+      if (!id || seen.has(id)) id = `offer-${Math.random().toString(36).slice(2, 10)}`;
+      seen.add(id);
+      const name = localized(o?.name, 90);
+      if (!name.en && !name.ar) continue;
+      const percent = Number(o?.percent);
+      items.push({
+        id,
+        enabled: o?.enabled !== false,
+        name,
+        text: localized(o?.text, 300),
+        image: link(o?.image),
+        percent: Number.isFinite(percent) ? Math.min(100, Math.max(0, Math.round(percent))) : 0,
+        unitIds: idList(o?.unitIds),
+        compoundIds: idList(o?.compoundIds, 100),
+        showPopup: Boolean(o?.showPopup),
+        startsAt: date(o?.startsAt),
+        endsAt: date(o?.endsAt),
+      });
+    }
+    return { items: items.slice(0, MAX_OFFERS) };
   },
 
   campaigns(v = {}) {
@@ -453,7 +514,21 @@ function sanitizeContentLists(body = {}, current = {}) {
   return next;
 }
 
+/** True when the offer is switched on and today falls inside its dates */
+function offerIsLive(offer, today = new Date().toISOString().slice(0, 10)) {
+  if (!offer || offer.enabled === false) return false;
+  if (offer.startsAt && today < offer.startsAt) return false;
+  if (offer.endsAt && today > offer.endsAt) return false;
+  return true;
+}
+
+function offerIncludes(offer, unit) {
+  return Boolean(offer && unit && (offer.unitIds?.includes(unit.id) || offer.compoundIds?.includes(unit.compoundId)));
+}
+
 module.exports = {
+  offerIsLive,
+  offerIncludes,
   HOME_SECTIONS,
   SEO_PAGES,
   LEGAL_PAGES,

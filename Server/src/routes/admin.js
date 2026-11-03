@@ -138,6 +138,20 @@ router.get(
 );
 
 /* ——— Slideshow (Cloudinary images) ——— */
+
+/** Internal path or http(s) URL only — never javascript:/data: */
+function slideLink(value) {
+  const v = String(value ?? '').trim().slice(0, 1000);
+  if (!v) return '';
+  if (v.startsWith('/') && !v.startsWith('//')) return v;
+  try {
+    const u = new URL(v);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : '';
+  } catch {
+    return '';
+  }
+}
+
 router.get(
   '/slideshow',
   requireAdmin,
@@ -150,9 +164,9 @@ router.post(
   '/slideshow',
   requireAdmin,
   wrap(async (req, res) => {
-    const { image, alt = '', enabled = true } = req.body || {};
+    const { image, alt = '', href = '', enabled = true } = req.body || {};
     if (!image) return res.status(400).json({ error: 'image is required' });
-    await createSlide({ image, alt, enabled });
+    await createSlide({ image, alt, href: slideLink(href), enabled });
     res.status(201).json({ items: await listSlides() });
   })
 );
@@ -171,10 +185,11 @@ router.patch(
   '/slideshow/:id',
   requireAdmin,
   wrap(async (req, res) => {
-    const { image, alt, enabled } = req.body || {};
+    const { image, alt, href, enabled } = req.body || {};
     const item = await updateSlide(req.params.id, {
       ...(image !== undefined ? { image } : {}),
       ...(alt !== undefined ? { alt } : {}),
+      ...(href !== undefined ? { href: slideLink(href) } : {}),
       ...(enabled !== undefined ? { enabled: Boolean(enabled) } : {}),
     });
     if (!item) return res.status(404).json({ error: 'Slide not found' });

@@ -4,9 +4,59 @@ import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, reorderList } from '../../components/admin/AdminUi';
 import { Badge, ConfirmDialog, Drawer, EmptyState, Field, Toggle, useToast } from '../../components/admin/kit';
 import LivePreview from '../../components/admin/LivePreview';
+import { offerHref, useSite } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
 
-const BLANK = { image: '', alt: '', enabled: true };
+const BLANK = { image: '', alt: '', href: '', enabled: true };
+
+/** "None", one of the offers, or any page / URL */
+function SlideLinkField({ value, onChange }) {
+  const { site } = useSite();
+  const offers = site.offers?.items || [];
+  const offerId = offers.find((o) => offerHref(o.id) === value)?.id || '';
+  const [custom, setCustom] = useState(Boolean(value) && !offerId);
+  const mode = offerId ? `offer:${offerId}` : custom ? 'custom' : '';
+
+  function pick(next) {
+    if (next === 'custom') {
+      setCustom(true);
+      if (offerId) onChange('');
+    } else {
+      setCustom(false);
+      onChange(next.startsWith('offer:') ? offerHref(next.slice(6)) : '');
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Field label="When guests click the photo" hint="Clicking the photo, or the button that appears over it, opens this link.">
+        <select className="prime-input" value={mode} onChange={(e) => pick(e.target.value)}>
+          <option value="">Nothing (photo only)</option>
+          {offers.length ? (
+            <optgroup label="Offers">
+              {offers.map((o) => (
+                <option key={o.id} value={`offer:${o.id}`}>
+                  {(o.name?.en || o.name?.ar) + (o.percent ? ` (${o.percent}% off)` : '') + (o.enabled === false ? ' (off)' : '')}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          <option value="custom">Another page or website…</option>
+        </select>
+      </Field>
+      {mode === 'custom' ? (
+        <input
+          dir="ltr"
+          className="prime-input"
+          placeholder="/search?destination=north-coast  or  https://…"
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : null}
+      {!offers.length ? <p className="text-[11px] text-prime-muted">Create offers in Marketing › Offers to link a slide to one.</p> : null}
+    </div>
+  );
+}
 
 function SlideDrawer({ slide, onClose, onSave }) {
   const [form, setForm] = useState(slide || BLANK);
@@ -52,6 +102,7 @@ function SlideDrawer({ slide, onClose, onSave }) {
         <Field label="Describe the photo" hint="Read by Google and screen readers, e.g. “Pool at Prime Residence New Cairo at sunset”.">
           <input className="prime-input" value={form.alt || ''} maxLength={160} onChange={(e) => setForm((f) => ({ ...f, alt: e.target.value }))} />
         </Field>
+        <SlideLinkField key={slide?.id || 'new'} value={form.href || ''} onChange={(href) => setForm((f) => ({ ...f, href }))} />
         <Toggle checked={form.enabled !== false} onChange={(enabled) => setForm((f) => ({ ...f, enabled }))} label="Show in the slideshow" hint="Turn off to keep the photo here without showing it." />
       </div>
     </Drawer>
@@ -77,11 +128,11 @@ export default function AdminSlideshowPage() {
   async function saveSlide(form) {
     try {
       if (form.id) {
-        const data = await api.adminUpdateSlide(form.id, { image: form.image, alt: form.alt, enabled: form.enabled });
+        const data = await api.adminUpdateSlide(form.id, { image: form.image, alt: form.alt, href: form.href || '', enabled: form.enabled });
         setItems((prev) => prev.map((s) => (s.id === form.id ? data.item : s)));
         toast.success('Slide saved.');
       } else {
-        const data = await api.adminCreateSlide({ image: form.image, alt: form.alt, enabled: form.enabled });
+        const data = await api.adminCreateSlide({ image: form.image, alt: form.alt, href: form.href || '', enabled: form.enabled });
         setItems(data.items || []);
         toast.success('Slide added at the end.');
       }
@@ -170,6 +221,7 @@ export default function AdminSlideshowPage() {
                       </button>
                       <div className="space-y-3 p-3">
                         <p className={cn('truncate text-sm', slide.alt ? 'text-prime-ink' : 'italic text-amber-700')}>{slide.alt || 'No description yet — add one for Google'}</p>
+                        {slide.href ? <p className="truncate font-mono text-[11px] text-prime-muted">→ {slide.href}</p> : null}
                         <div className="flex items-center justify-between gap-2">
                           <Toggle checked={on} onChange={(v) => toggle(slide, v)} label={on ? 'Showing' : 'Hidden'} />
                           <div className="flex items-center gap-1">

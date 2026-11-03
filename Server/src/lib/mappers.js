@@ -189,6 +189,7 @@ function slideFromRow(row) {
     id: row.id,
     image: row.image,
     alt: row.alt || '',
+    href: row.href || '',
     enabled: row.enabled !== false,
     sortOrder: Number(row.sort_order) || 0,
   };
@@ -199,6 +200,7 @@ function slideToRow(item) {
     id: item.id,
     image: item.image,
     alt: item.alt || '',
+    href: item.href || '',
     enabled: item.enabled !== false,
     sort_order: Number(item.sortOrder) || 0,
   };

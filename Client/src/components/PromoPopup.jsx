@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 import { useLocale } from '../context/LocaleContext';
-import { activePopup, useSite } from '../context/SiteContext';
+import { activePopup, liveOffers, offerHref, useSite } from '../context/SiteContext';
 
 const SEEN_KEY = 'prime.popup.seen';
+const OFFER_SEEN_KEY = 'prime.offerPopup.seen';
+const OFFER_DELAY_SECONDS = 5;
 const NEVER_ON = ['/admin', '/checkout', '/booking-success'];
 
 /** Changes whenever the marketing team edits the pop-up, so a new message is shown again */
@@ -16,20 +18,20 @@ function signature(p) {
   return String(h);
 }
 
-function alreadySeen(sig, days) {
+function alreadySeen(sig, days, key = SEEN_KEY) {
   try {
-    if (days === 0) return sessionStorage.getItem(SEEN_KEY) === sig;
-    const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null');
+    if (days === 0) return sessionStorage.getItem(key) === sig;
+    const seen = JSON.parse(localStorage.getItem(key) || 'null');
     return seen?.sig === sig && Date.now() - seen.at < days * 86_400_000;
   } catch {
     return false;
   }
 }
 
-function markSeen(sig, days) {
+function markSeen(sig, days, key = SEEN_KEY) {
   try {
-    if (days === 0) sessionStorage.setItem(SEEN_KEY, sig);
-    else localStorage.setItem(SEEN_KEY, JSON.stringify({ sig, at: Date.now() }));
+    if (days === 0) sessionStorage.setItem(key, sig);
+    else localStorage.setItem(key, JSON.stringify({ sig, at: Date.now() }));
   } catch {
     /* private mode — shown again next visit */
   }
@@ -69,6 +71,60 @@ export function PopupCard({ popup, onClose, dir = 'ltr', preview = false }) {
   );
 }
 
+/** The offer photo as the whole pop-up — tapping it opens the offer's stays */
+export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false }) {
+  const ar = dir === 'rtl';
+  const body = (
+    <>
+      <img src={popup.image} alt={popup.title} className="block max-h-[78vh] w-full object-cover" />
+      <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-6 pb-5 pt-16 text-white">
+        <span className="min-w-0">
+          {popup.percent ? (
+            <span className="mb-2 inline-block bg-brand-gold px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]">
+              {ar ? `خصم ${popup.percent}%` : `${popup.percent}% off`}
+            </span>
+          ) : null}
+          <span className="block font-display text-[1.6rem] font-medium leading-tight">{popup.title}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-gold-soft">
+          {ar ? 'شاهد الإقامات' : 'See stays'}
+          <ArrowRight size={14} className="transition-transform group-hover:translate-x-1 rtl:-scale-x-100" />
+        </span>
+      </span>
+    </>
+  );
+  return (
+    <div dir={dir} className="relative w-full max-w-md overflow-hidden bg-prime-night shadow-2xl">
+      <button type="button" onClick={onClose} aria-label={ar ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/70">
+        <X size={15} />
+      </button>
+      {preview ? (
+        <span className="group relative block">{body}</span>
+      ) : (
+        <Link to={popup.href} onClick={onClose} className="group relative block">
+          {body}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function offerPopup(offers, locale) {
+  const offer = liveOffers(offers).find((o) => o.showPopup && o.image);
+  if (!offer) return null;
+  return {
+    kind: 'offer',
+    title: offer.name?.[locale] || offer.name?.en || '',
+    text: '',
+    image: offer.image,
+    href: offerHref(offer.id),
+    percent: offer.percent,
+    trigger: 'delay',
+    delaySeconds: OFFER_DELAY_SECONDS,
+    frequencyDays: 1,
+  };
+}
+
 export default function PromoPopup() {
   const { pathname } = useLocation();
   const { locale } = useLocale();
@@ -76,12 +132,19 @@ export default function PromoPopup() {
   const [open, setOpen] = useState(false);
 
   const blocked = NEVER_ON.some((p) => pathname.startsWith(p));
-  const popup = useMemo(() => (blocked ? null : activePopup(site.popup, locale, pathname)), [blocked, site.popup, locale, pathname]);
+  const popup = useMemo(() => {
+    if (blocked) return null;
+    // A live offer pop-up comes first; once seen today, the marketing pop-up gets its turn
+    const offer = offerPopup(site.offers, locale);
+    if (offer && !alreadySeen(signature(offer), 1, OFFER_SEEN_KEY)) return offer;
+    return activePopup(site.popup, locale, pathname);
+  }, [blocked, site.offers, site.popup, locale, pathname]);
   const sig = popup ? signature(popup) : '';
+  const seenKey = popup?.kind === 'offer' ? OFFER_SEEN_KEY : SEEN_KEY;
 
   useEffect(() => {
     setOpen(false);
-    if (!popup || alreadySeen(sig, popup.frequencyDays)) return undefined;
+    if (!popup || alreadySeen(sig, popup.frequencyDays, seenKey)) return undefined;
     const show = () => setOpen(true);
     if (popup.trigger === 'scroll') {
       const onScroll = () => {
@@ -96,7 +159,7 @@ export default function PromoPopup() {
     }
     const timer = setTimeout(show, Math.max(0, popup.delaySeconds) * 1000);
     return () => clearTimeout(timer);
-  }, [popup, sig]);
+  }, [popup, sig, seenKey]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -107,7 +170,7 @@ export default function PromoPopup() {
 
   function close() {
     setOpen(false);
-    if (popup) markSeen(sig, popup.frequencyDays);
+    if (popup) markSeen(sig, popup.frequencyDays, seenKey);
   }
 
   if (!open || !popup) return null;
@@ -115,7 +178,11 @@ export default function PromoPopup() {
     <div className="fixed inset-0 z-[500] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label={popup.title || 'Offer'}>
       <button type="button" aria-label="Close" className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={close} />
       <div className="relative w-full max-w-md" style={{ animation: 'primeFadeIn 0.35s var(--prime-ease) both' }}>
-        <PopupCard popup={popup} onClose={close} dir={locale === 'ar' ? 'rtl' : 'ltr'} />
+        {popup.kind === 'offer' ? (
+          <OfferPopupCard popup={popup} onClose={close} dir={locale === 'ar' ? 'rtl' : 'ltr'} />
+        ) : (
+          <PopupCard popup={popup} onClose={close} dir={locale === 'ar' ? 'rtl' : 'ltr'} />
+        )}
       </div>
     </div>,
     document.body

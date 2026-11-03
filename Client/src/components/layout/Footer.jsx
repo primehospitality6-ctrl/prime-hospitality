@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowUp, ArrowUpRight, Facebook, Instagram, Linkedin, Music2 } from 'lucide-react';
-import { brand, whatsappHref } from '../../theme/brand';
+import { brand, phoneLines, whatsappHref } from '../../theme/brand';
 import { useLocale } from '../../context/LocaleContext';
 import { useBrands, useSite } from '../../context/SiteContext';
 import Wordmark from '../ui/Wordmark';
@@ -42,7 +42,7 @@ const SOCIAL = [
 ];
 
 export default function Footer() {
-  const { t, term } = useLocale();
+  const { t, term, locale } = useLocale();
   const brands = useBrands();
   useSite();
   const social = SOCIAL.filter(([key]) => brand.social[key] && brand.social[key] !== '#');
@@ -88,10 +88,15 @@ export default function Footer() {
             <img src={brand.logoLight} alt={brand.name} width="640" height="228" loading="lazy" className="h-10 w-auto" />
             <address className="mt-9 space-y-2.5 text-[13.5px] font-light not-italic leading-relaxed text-white/60">
               <p>{term(brand.address)}</p>
-              <a href={`tel:${brand.phone || brand.whatsapp}`} className="prime-tap flex gap-2 transition hover:text-white">
-                <span className="text-prime-gold-soft">m.</span>
-                <span dir="ltr">{brand.phoneDisplay}</span>
-              </a>
+              {phoneLines().map((line, i) => (
+                <a key={`${line.number}-${i}`} href={`tel:${line.number}`} className="prime-tap flex gap-2 transition hover:text-white">
+                  <span className="text-prime-gold-soft">m.</span>
+                  <span dir="ltr">{line.display}</span>
+                  {line.label?.[locale] || line.label?.en ? (
+                    <span className="text-white/40">· {line.label[locale] || line.label.en}</span>
+                  ) : null}
+                </a>
+              ))}
               <a href={`mailto:${brand.email}`} className="prime-tap flex gap-2 transition hover:text-white">
                 <span className="text-prime-gold-soft">e.</span>
                 {brand.email}

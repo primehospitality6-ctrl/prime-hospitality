@@ -3,15 +3,12 @@ import api from '../../api/client';
 import { AdminPageHeader, MoveButtons, reorderList } from '../../components/admin/AdminUi';
 import { Card, Field, SaveBar, useSiteSection, useToast } from '../../components/admin/kit';
 import { useSite } from '../../context/SiteContext';
-import { brand } from '../../theme/brand';
+import { brand, phoneLines, whatsappLines } from '../../theme/brand';
 
 const CONTACT = [
   ['name', 'Business name', 'Prime Hospitality'],
   ['tagline', 'Tagline', 'Prime stays for Prime customers.'],
   ['email', 'Guest email', 'hello@primehospitality.com'],
-  ['whatsapp', 'WhatsApp number (international)', '+201000000000'],
-  ['phone', 'Phone number to dial', '+201000000000'],
-  ['phoneDisplay', 'Phone as shown', '0100 000 0000'],
   ['address', 'Office address', 'New Cairo, Egypt'],
 ];
 
@@ -21,6 +18,96 @@ const SOCIAL = [
   ['tiktok', 'TikTok', 'https://tiktok.com/@…'],
   ['linkedin', 'LinkedIn', 'https://linkedin.com/company/…'],
 ];
+
+/**
+ * Editable list of contact numbers. The first number is the main one (used by single links
+ * such as "WhatsApp us" in the footer); every number shows on the contact page.
+ */
+function NumbersCard({ title, description, addLabel, emptyText, items, withDisplay, onChange }) {
+  const update = (i, patch) => onChange(items.map((it, j) => (j === i ? { ...it, ...patch } : it)));
+  const blank = withDisplay ? { number: '', display: '', label: { en: '', ar: '' } } : { number: '', label: { en: '', ar: '' } };
+  return (
+    <Card
+      title={title}
+      description={description}
+      actions={
+        <button type="button" className="prime-btn-outline" onClick={() => onChange([...items, blank])}>
+          <Plus size={14} /> {addLabel}
+        </button>
+      }
+    >
+      {items.length ? (
+        <ol className="space-y-3">
+          {items.map((item, i) => (
+            <li key={i} className="border border-prime-line p-3">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-prime-muted">
+                  {i === 0 ? 'Main number' : `Number ${i + 1}`}
+                </span>
+                <div className="flex items-center gap-2">
+                  <MoveButtons
+                    disableUp={i === 0}
+                    disableDown={i === items.length - 1}
+                    onUp={() => onChange(reorderList(items, i, i - 1))}
+                    onDown={() => onChange(reorderList(items, i, i + 1))}
+                  />
+                  <button
+                    type="button"
+                    className="grid h-8 w-8 place-items-center text-red-600"
+                    aria-label="Remove number"
+                    onClick={() => onChange(items.filter((_, j) => j !== i))}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Number (international)" hint={withDisplay ? undefined : 'With country code, e.g. +20 100 000 0000'}>
+                  <input
+                    dir="ltr"
+                    inputMode="tel"
+                    className="prime-input"
+                    value={item.number || ''}
+                    placeholder="+201000000000"
+                    onChange={(e) => update(i, { number: e.target.value })}
+                  />
+                </Field>
+                {withDisplay ? (
+                  <Field label="As shown on the site">
+                    <input
+                      dir="ltr"
+                      className="prime-input"
+                      value={item.display || ''}
+                      placeholder="0100 000 0000"
+                      onChange={(e) => update(i, { display: e.target.value })}
+                    />
+                  </Field>
+                ) : null}
+                <Field label="Label (English)" hint="Optional, e.g. Reservations">
+                  <input
+                    className="prime-input"
+                    value={item.label?.en || ''}
+                    onChange={(e) => update(i, { label: { ...item.label, en: e.target.value } })}
+                  />
+                </Field>
+                <Field label="Label (Arabic)">
+                  <input
+                    dir="rtl"
+                    className="prime-input"
+                    value={item.label?.ar || ''}
+                    onChange={(e) => update(i, { label: { ...item.label, ar: e.target.value } })}
+                  />
+                </Field>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-sm text-prime-muted">{emptyText}</p>
+      )}
+    </Card>
+  );
+}
 
 function RulesCard({ title, description, emptyText, rules, onChange }) {
   const update = (i, key, value) => onChange(rules.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
@@ -125,6 +212,23 @@ export default function AdminBusinessPage() {
                 ))}
               </div>
             </Card>
+            <NumbersCard
+              title="WhatsApp numbers"
+              description="With more than one number, the floating WhatsApp button lets guests pick who to message. The first number is used by the other WhatsApp links."
+              addLabel="Add WhatsApp"
+              emptyText="No WhatsApp numbers — the site uses the built-in number."
+              items={draft.business.whatsapps || []}
+              onChange={(next) => set('whatsapps', next)}
+            />
+            <NumbersCard
+              withDisplay
+              title="Phone numbers"
+              description="All numbers show in the footer and on the contact page."
+              addLabel="Add phone"
+              emptyText="No phone numbers — the site uses the built-in number."
+              items={draft.business.phones || []}
+              onChange={(next) => set('phones', next)}
+            />
             <Card title="Social links" description="Icons appear in the footer only for links you fill in.">
               <div className="grid gap-4 sm:grid-cols-2">
                 {SOCIAL.map(([key, label, placeholder]) => (
@@ -160,8 +264,8 @@ export default function AdminBusinessPage() {
               {[
                 ['Name', brand.name],
                 ['Email', brand.email],
-                ['WhatsApp', brand.whatsapp],
-                ['Phone', brand.phoneDisplay],
+                ['WhatsApp', whatsappLines().map((l) => l.number).join(' · ')],
+                ['Phone', phoneLines().map((l) => l.display).join(' · ')],
                 ['Address', brand.address],
               ].map(([k, v]) => (
                 <div key={k}>

@@ -4,11 +4,13 @@ import { formatMoney } from '../theme/brand';
 
 const CurrencyContext = createContext(null);
 const STORAGE_KEY = 'prime_display_currency';
+/** The only currencies guests can pick, in menu order */
+const ALLOWED = ['USD', 'EGP'];
 
 function preferredCurrency() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return saved.toUpperCase();
+    if (saved && ALLOWED.includes(saved.toUpperCase())) return saved.toUpperCase();
   } catch {
     /* private mode */
   }
@@ -26,7 +28,8 @@ export function CurrencyProvider({ children }) {
   const applyRows = useCallback((data) => {
     const next = {};
     for (const row of data?.currencies || []) {
-      if (row?.code && Number(row.factor) > 0) next[String(row.code).toUpperCase()] = Number(row.factor);
+      const code = String(row?.code || '').toUpperCase();
+      if (ALLOWED.includes(code) && Number(row.factor) > 0) next[code] = Number(row.factor);
     }
     if (Object.keys(next).length) setFactors(next);
   }, []);
@@ -49,7 +52,7 @@ export function CurrencyProvider({ children }) {
     }
   }, []);
 
-  const currencies = useMemo(() => Object.keys(factors).sort(), [factors]);
+  const currencies = useMemo(() => ALLOWED.filter((code) => factors[code] > 0), [factors]);
 
   useEffect(() => {
     if (currencies.length && !currencies.includes(currency)) setCurrency('USD');

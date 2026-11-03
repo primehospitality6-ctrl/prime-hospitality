@@ -13,7 +13,7 @@ import StaysFiltersBar, {
 } from '../components/search/StaysFilters';
 import api from '../api/client';
 import { useLocale } from '../context/LocaleContext';
-import { useSite } from '../context/SiteContext';
+import { liveOffers, useSite } from '../context/SiteContext';
 import { cn } from '../utils/cn';
 
 const SORT_OPTIONS = [
@@ -52,7 +52,7 @@ function ConciergeBand() {
 }
 
 export default function SearchPage() {
-  const { t, term } = useLocale();
+  const { t, term, locale } = useLocale();
   const { site } = useSite();
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState([]);
@@ -87,6 +87,7 @@ export default function SearchPage() {
     checkIn: params.get('checkIn') || '',
     checkOut: params.get('checkOut') || '',
     q: params.get('q') || '',
+    offer: params.get('offer') || '',
     sort: params.get('sort') || 'recommended',
   });
   const filters = useMemo(() => JSON.parse(filterKey), [filterKey]);
@@ -185,14 +186,20 @@ export default function SearchPage() {
         .find((p) => p.id === filters.compound)
     : null;
 
-  const heading = property
+  const offer = filters.offer ? liveOffers(site.offers).find((o) => o.id === filters.offer) || null : null;
+  const offerName = offer ? offer.name?.[locale] || offer.name?.en || '' : '';
+  const offerText = offer ? offer.text?.[locale] || offer.text?.en || '' : '';
+
+  const heading = offer
+    ? offerName
+    : property
     ? term(shortName(property.name))
     : destination
       ? t('search.staysIn', { name: term(destination.name) })
       : t('search.allStays');
 
-  const contextText = property?.description || destination?.description;
-  const heroImage = property?.image || destination?.image || site.pages?.search?.heroImage || '';
+  const contextText = offer ? offerText : property?.description || destination?.description;
+  const heroImage = (offer && offer.image) || property?.image || destination?.image || site.pages?.search?.heroImage || '';
   const pageItems = items.slice(0, shown);
 
   function setView(next) {
@@ -219,8 +226,8 @@ export default function SearchPage() {
             <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-white/50">
               <Link to="/" className="transition hover:text-white">{t('search.home')}</Link>
               <span aria-hidden>/</span>
-              {destination || property ? (
-                <button type="button" onClick={() => patchParams({ destination: '', compound: '' })} className="uppercase transition hover:text-white">
+              {destination || property || offer ? (
+                <button type="button" onClick={() => patchParams({ destination: '', compound: '', offer: '' })} className="uppercase transition hover:text-white">
                   {t('search.stays')}
                 </button>
               ) : (
@@ -244,12 +251,27 @@ export default function SearchPage() {
                   <span className="text-white/90">{term(shortName(property.name))}</span>
                 </>
               ) : null}
+              {offer ? (
+                <>
+                  <span aria-hidden>/</span>
+                  <span className="text-white/90">{offerName}</span>
+                </>
+              ) : null}
             </nav>
 
             <div className="max-w-4xl">
-              <p className="prime-eyebrow text-prime-gold-soft">
-                {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
-              </p>
+              {offer ? (
+                <p className="prime-eyebrow flex flex-wrap items-center gap-3 text-prime-gold-soft">
+                  {t('offers.eyebrow')}
+                  {offer.percent ? (
+                    <span className="bg-brand-gold px-2.5 py-1 tracking-[0.18em] text-white">{t('offers.percentOff', { n: offer.percent })}</span>
+                  ) : null}
+                </p>
+              ) : (
+                <p className="prime-eyebrow text-prime-gold-soft">
+                  {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
+                </p>
+              )}
               <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{heading}</h1>
               {contextText ? <p className="mt-6 max-w-xl text-[15px] font-light leading-[1.85] text-white/65 md:text-[16.5px]">{contextText}</p> : null}
               <p className="mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] text-white/45" aria-live="polite">

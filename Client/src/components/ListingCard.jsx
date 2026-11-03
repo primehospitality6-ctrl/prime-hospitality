@@ -88,6 +88,17 @@ function FeaturedChip() {
   );
 }
 
+/** Running offer on this stay — gold, reads as the strongest chip */
+function OfferChip({ offer }) {
+  const { t } = useLocale();
+  if (!offer?.percent) return null;
+  return (
+    <span className="bg-brand-gold px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.6)]">
+      {t('offers.percentOff', { n: offer.percent })}
+    </span>
+  );
+}
+
 function SaveButton({ listing, className }) {
   const { has, toggle } = useWishlist();
   const { t, term } = useLocale();
@@ -169,6 +180,7 @@ export function ListingRow({ listing, priority = false }) {
         <CardMedia listing={listing} href={href} priority={priority} sizes="(min-width: 768px) 42vw, 100vw" />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
           <span className="flex flex-wrap gap-1.5">
+            <OfferChip offer={listing.offer} />
             {listing.featured ? <FeaturedChip /> : null}
             {listing.brand ? <BrandChip name={listing.brand} /> : null}
           </span>
@@ -239,6 +251,7 @@ export default function ListingCard({ listing, priority = false, featured = fals
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3 sm:p-3.5">
           <span className="flex flex-wrap gap-1.5">
+            <OfferChip offer={listing.offer} />
             {featured ? <FeaturedChip /> : null}
             {listing.brand ? <BrandChip name={listing.brand} /> : null}
           </span>

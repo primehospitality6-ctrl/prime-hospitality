@@ -1,5 +1,6 @@
 const { Router } = require('express');
-const { getPublicUnits, findUnit, findCompound, updateUnit } = require('../lib/cmsStore');
+const { getPublicUnits, findUnit, findCompound, updateUnit, getSite } = require('../lib/cmsStore');
+const { offerIsLive, offerIncludes } = require('../lib/siteContent');
 const { resolveWindow, buildPricing } = require('../lib/mockCalendar');
 const sync = require('../services/kwentraSync');
 const { normalizeOccupancies, occupancyMax } = require('../lib/occupancy');
@@ -27,10 +28,31 @@ function byOrder(field) {
   return (a, b) => (Number(a[field]) || 0) - (Number(b[field]) || 0);
 }
 
+/** Offers running today, cached like the catalog. A site read failure just means no offer badges. */
+let offerCache = { at: 0, items: [] };
+
+async function liveOffers() {
+  if (Date.now() - offerCache.at >= CATALOG_MS) {
+    try {
+      const site = await getSite();
+      offerCache = { at: Date.now(), items: site?.offers?.items || [] };
+    } catch {
+      return offerCache.items.filter((o) => offerIsLive(o));
+    }
+  }
+  return offerCache.items.filter((o) => offerIsLive(o));
+}
+
+/** The best running offer for a unit, trimmed to what the card shows */
+function offerFor(unit, offers) {
+  const best = offers.filter((o) => offerIncludes(o, unit)).sort((a, b) => b.percent - a.percent)[0];
+  return best ? { id: best.id, name: best.name, percent: best.percent } : null;
+}
+
 /** Room numbers, Drive links and sync bookkeeping are for staff only */
-function publicUnit(unit) {
+function publicUnit(unit, offers = []) {
   const { unitNumbers: _n, kwentraSnapshot: _s, driveFolderUrl: _d, completeness: _c, live: _l, ...rest } = unit;
-  return { ...rest, currency: 'USD' };
+  return { ...rest, currency: 'USD', offer: offerFor(unit, offers) };
 }
 
 function matchesFilters(listing, params = {}) {
@@ -88,13 +110,19 @@ router.get(
     let items = [...(await publicCatalog())];
     items.sort(byOrder(featuredOnly ? 'homeOrder' : 'searchOrder'));
 
+    const offers = await liveOffers();
     items = items.filter((l) => matchesFilters(l, req.query));
     if (featuredOnly) items = items.filter((l) => l.featured);
+    if (req.query.offer) {
+      // An offer that has ended (or never existed) shows no stays rather than everything
+      const offer = offers.find((o) => o.id === String(req.query.offer));
+      items = offer ? items.filter((l) => offerIncludes(offer, l)) : [];
+    }
 
     const total = items.length;
     const limit = req.query.limit ? Number(req.query.limit) : items.length;
     const offset = req.query.offset ? Number(req.query.offset) : 0;
-    items = items.slice(offset, offset + limit).map(publicUnit);
+    items = items.slice(offset, offset + limit).map((l) => publicUnit(l, offers));
     res.set('Cache-Control', 'public, max-age=15');
     res.json({ items, total });
   })
@@ -189,8 +217,8 @@ router.get(
     if (!item?.live) {
       return res.status(404).json({ error: 'Listing not found' });
     }
-    const compound = item.compoundId ? await findCompound(item.compoundId) : null;
-    res.json({ item: { ...publicUnit(item), property: compound ? publicProperty(compound) : null } });
+    const [compound, offers] = await Promise.all([item.compoundId ? findCompound(item.compoundId) : null, liveOffers()]);
+    res.json({ item: { ...publicUnit(item, offers), property: compound ? publicProperty(compound) : null } });
   })
 );
 

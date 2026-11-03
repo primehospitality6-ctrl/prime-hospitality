@@ -4,13 +4,13 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import PageHero from '../components/ui/PageHero';
 import Reveal from '../components/ui/Reveal';
-import { brand, whatsappHref } from '../theme/brand';
+import { brand, phoneLines, whatsappHref, whatsappLines } from '../theme/brand';
 import api from '../api/client';
 import { useLocale } from '../context/LocaleContext';
 import { useSite } from '../context/SiteContext';
 
 export default function ContactPage() {
-  const { t, term } = useLocale();
+  const { t, term, locale } = useLocale();
   const { site } = useSite();
   const heroImage = site.pages?.contact?.heroImage || '';
   const [sent, setSent] = useState(false);
@@ -34,11 +34,27 @@ export default function ContactPage() {
     }
   }
 
+  const lineLabel = (base, line) => {
+    const name = line.label?.[locale] || line.label?.en;
+    return name ? `${base} · ${name}` : base;
+  };
+  const waLines = whatsappLines();
   const channels = [
-    { label: t('common.whatsapp'), value: t('contact.whatsappValue'), href: whatsappHref(`Hi ${brand.shortName} — I have a question.`), external: true },
-    { label: t('contact.email'), value: brand.email, href: `mailto:${brand.email}` },
-    { label: t('contact.phone'), value: brand.phoneDisplay, href: `tel:${brand.phone || brand.whatsapp}` },
-    { label: t('contact.office'), value: term(brand.address) },
+    ...waLines.map((line, i) => ({
+      key: `wa-${i}`,
+      label: lineLabel(t('common.whatsapp'), line),
+      value: waLines.length > 1 ? <span dir="ltr">{line.number}</span> : t('contact.whatsappValue'),
+      href: whatsappHref(`Hi ${brand.shortName} — I have a question.`, line.number),
+      external: true,
+    })),
+    { key: 'email', label: t('contact.email'), value: brand.email, href: `mailto:${brand.email}` },
+    ...phoneLines().map((line, i) => ({
+      key: `tel-${i}`,
+      label: lineLabel(t('contact.phone'), line),
+      value: <span dir="ltr">{line.display}</span>,
+      href: `tel:${line.number}`,
+    })),
+    { key: 'office', label: t('contact.office'), value: term(brand.address) },
   ];
 
   return (
@@ -67,7 +83,7 @@ export default function ContactPage() {
                 </>
               );
               return (
-                <li key={c.label} className="border-b border-prime-line">
+                <li key={c.key} className="border-b border-prime-line">
                   {c.href ? (
                     <a
                       href={c.href}

@@ -55,6 +55,7 @@ const AdminBookingsPage = lazy(() => import('./pages/admin/AdminBookingsPage'));
 const MarketingOverviewPage = lazy(() => import('./pages/admin/marketing/MarketingOverviewPage'));
 const MarketingAnnouncementPage = lazy(() => import('./pages/admin/marketing/MarketingAnnouncementPage'));
 const MarketingPopupPage = lazy(() => import('./pages/admin/marketing/MarketingPopupPage'));
+const MarketingOffersPage = lazy(() => import('./pages/admin/marketing/MarketingOffersPage'));
 const MarketingSeoPage = lazy(() => import('./pages/admin/marketing/MarketingSeoPage'));
 const MarketingTrackingPage = lazy(() => import('./pages/admin/marketing/MarketingTrackingPage'));
 const MarketingCampaignsPage = lazy(() => import('./pages/admin/marketing/MarketingCampaignsPage'));
@@ -114,6 +115,7 @@ export default function App() {
                       <Route path="content" element={<AdminContentListsPage />} />
                       <Route path="marketing" element={<MarketingOverviewPage />} />
                       <Route path="marketing/announcement" element={<MarketingAnnouncementPage />} />
+                      <Route path="marketing/offers" element={<MarketingOffersPage />} />
                       <Route path="marketing/popup" element={<MarketingPopupPage />} />
                       <Route path="marketing/seo" element={<MarketingSeoPage />} />
                       <Route path="marketing/tracking" element={<MarketingTrackingPage />} />

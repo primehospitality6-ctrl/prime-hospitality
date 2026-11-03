@@ -108,7 +108,8 @@ function DestinationMarquee() {
 
 function Hero() {
   const { t } = useLocale();
-  const [images, setImages] = useState(HERO_FALLBACK);
+  const [slides, setSlides] = useState(() => HERO_FALLBACK.map((image) => ({ image, href: '' })));
+  const images = slides.map((s) => s.image);
   const [index, setIndex] = useState(0);
   const [prev, setPrev] = useState(-1);
 
@@ -117,9 +118,9 @@ function Hero() {
     api
       .getSlideshow()
       .then((res) => {
-        const urls = (res.items || []).map((s) => s.image).filter(Boolean);
-        if (!cancelled && urls.length) {
-          setImages(urls);
+        const next = (res.items || []).filter((s) => s.image).map((s) => ({ image: s.image, href: s.href || '' }));
+        if (!cancelled && next.length) {
+          setSlides(next);
           setIndex(0);
           setPrev(-1);
         }
@@ -137,7 +138,7 @@ function Hero() {
       setIndex((index + 1) % images.length);
     }, SLIDE_MS);
     return () => clearTimeout(id);
-  }, [index, images]);
+  }, [index, images.length]);
 
   function goTo(i) {
     if (i === index) return;
@@ -146,6 +147,10 @@ function Hero() {
   }
 
   const next = (index + 1) % images.length;
+  const activeHref = slides[index]?.href || '';
+  const external = /^https?:/i.test(activeHref);
+  const slideLinkProps = external ? { href: activeHref, target: '_blank', rel: 'noreferrer' } : { to: activeHref };
+  const SlideLink = external ? 'a' : Link;
 
   return (
     <section className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-brand-black text-white">
@@ -173,6 +178,10 @@ function Hero() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/85" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(140,112,77,0.22),transparent_50%)]" />
       </div>
+      {activeHref ? (
+        // The photo itself is the link; the visible "View offer" button below is the accessible one
+        <SlideLink {...slideLinkProps} tabIndex={-1} aria-hidden className="absolute inset-0 -z-[5] cursor-pointer" />
+      ) : null}
 
       <Wordmark
         word="Prime"
@@ -207,7 +216,7 @@ function Hero() {
         </div>
       ) : null}
 
-      <div className="prime-container relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36">
+      <div className="prime-container pointer-events-none relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_label]:pointer-events-auto [&_select]:pointer-events-auto">
         <div className="grid items-end gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
           <div className="max-w-3xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-soft">
@@ -221,6 +230,16 @@ function Hero() {
           </div>
           <div className="prime-fade-up max-w-md lg:justify-self-end lg:pb-3" style={{ animationDelay: '180ms' }}>
             <p className="text-[15px] font-light leading-[1.85] text-white/70 md:text-[16.5px]">{t('home.heroSubtitle')}</p>
+            {activeHref ? (
+              <SlideLink
+                {...slideLinkProps}
+                key={activeHref}
+                className="prime-fade-up group mt-6 inline-flex min-h-[2.75rem] items-center gap-2.5 rounded-full border border-prime-gold-soft/70 bg-black/25 px-5 text-[10.5px] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-sm transition duration-500 ease-prime hover:border-prime-gold hover:bg-prime-gold"
+              >
+                {t(activeHref.includes('offer=') ? 'home.slideViewOffer' : 'home.slideExplore')}
+                <ArrowRight size={14} strokeWidth={1.5} className="transition-transform duration-500 group-hover:translate-x-1 rtl:-scale-x-100" />
+              </SlideLink>
+            ) : null}
             <div className="mt-6 flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.24em] text-white/50">
               <span className="tabular-nums text-white/80">
                 {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
@@ -230,7 +249,7 @@ function Hero() {
           </div>
         </div>
 
-        <div className="prime-fade-up mt-8 sm:mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
+        <div className="prime-fade-up pointer-events-auto mt-8 sm:mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
           <div className="overflow-hidden rounded-[1.75rem] border border-white/15 bg-white/[0.97] shadow-[0_40px_100px_rgba(0,0,0,0.45)]">
             <div className="h-1 w-full bg-gradient-to-r from-prime-gold via-prime-gold-soft to-transparent" />
             <HeroSearch />

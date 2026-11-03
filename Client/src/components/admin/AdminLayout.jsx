@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  BadgePercent,
   Building2,
   ChartColumn,
   ClipboardList,
@@ -66,6 +67,7 @@ const NAV_SECTIONS = [
     label: 'Marketing',
     items: [
       { to: '/admin/marketing', end: true, label: 'Overview', icon: Megaphone },
+      { to: '/admin/marketing/offers', label: 'Offers', icon: BadgePercent },
       { to: '/admin/marketing/announcement', label: 'Announcement bar', icon: PanelTop },
       { to: '/admin/marketing/popup', label: 'Pop-up', icon: MessageSquareText },
       { to: '/admin/marketing/seo', label: 'SEO & sharing', icon: Search },
