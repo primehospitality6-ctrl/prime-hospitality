@@ -126,7 +126,8 @@ const navLinkCls = ({ isActive }) =>
     isActive ? 'opacity-100 after:scale-x-100' : 'opacity-75 after:scale-x-0 hover:opacity-100 hover:after:scale-x-100'
   );
 
-export default function Header({ overHero = false }) {
+/** `heroTone="dark"`: the page opens on a shaded photo, so the floating header uses white until it scrolls */
+export default function Header({ overHero = false, heroTone = 'theme' }) {
   const { t, locale, toggleLocale } = useLocale();
   const { isAdmin } = useAdminAuth();
   const { ids } = useWishlist();
@@ -186,6 +187,7 @@ export default function Header({ overHero = false }) {
   }, [menuOpen]);
 
   const transparent = overHero && !scrolled;
+  const onDark = transparent && heroTone === 'dark';
   const staffTo = isAdmin ? '/admin' : '/admin/login';
 
   return (
@@ -196,7 +198,9 @@ export default function Header({ overHero = false }) {
         <div
           className={cn(
             'relative mx-auto grid h-16 max-w-prime grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full border px-3 transition-[background-color,box-shadow,color,border-color] duration-500 ease-prime sm:gap-3 sm:px-5',
-            transparent
+            onDark
+              ? 'border-white/20 bg-black/30 text-white shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
+              : transparent
               ? 'border-prime-on/15 bg-prime-band/80 text-prime-on shadow-[0_18px_50px_-28px_rgba(0,0,0,0.65)] backdrop-blur-md'
               : 'border-prime-line bg-prime-sand/[0.88] text-prime-ink shadow-[0_18px_48px_-28px_rgba(35,31,32,0.4)] backdrop-blur-xl'
           )}
@@ -222,7 +226,11 @@ export default function Header({ overHero = false }) {
           </div>
 
           <Link to="/" className="block" aria-label={brand.name}>
-            <BrandLogo className="h-6 w-auto sm:h-7 md:h-8" />
+            {onDark ? (
+              <img src={brand.logoLight} alt={brand.name} width="640" height="228" className="h-6 w-auto sm:h-7 md:h-8" />
+            ) : (
+              <BrandLogo className="h-6 w-auto sm:h-7 md:h-8" />
+            )}
           </Link>
 
           <div className="flex items-center justify-end gap-1 sm:gap-3">
@@ -252,7 +260,9 @@ export default function Header({ overHero = false }) {
               to="/search"
               className={cn(
                 'ms-1 hidden min-h-[2.5rem] items-center whitespace-nowrap rounded-full px-4 text-[11px] font-semibold uppercase tracking-[0.16em] transition duration-300 sm:inline-flex lg:px-5 lg:tracking-[0.2em]',
-                transparent
+                onDark
+                  ? 'border border-white/45 hover:border-white hover:bg-[#fff] hover:text-brand-black'
+                  : transparent
                   ? 'border border-prime-on/45 hover:border-prime-on hover:bg-prime-on hover:text-prime-band'
                   : 'bg-prime-ink text-prime-sand hover:bg-brand-gold'
               )}
