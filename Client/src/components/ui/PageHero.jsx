@@ -2,59 +2,52 @@ import Img from './Img';
 import Wordmark from './Wordmark';
 import { cn } from '../../utils/cn';
 
-function Eyebrow({ children, light, centered }) {
+function Eyebrow({ children, centered }) {
   return (
-    <p
-      className={cn(
-        'prime-eyebrow prime-fade-up flex items-center gap-4',
-        centered && 'justify-center',
-        light ? 'text-prime-on/80' : 'text-prime-gold'
-      )}
-    >
-      <span className={cn('h-px w-8', light ? 'bg-prime-gold-soft' : 'bg-prime-gold')} aria-hidden />
+    <p className={cn('prime-eyebrow prime-fade-up flex items-center gap-4 text-prime-gold', centered && 'justify-center')}>
+      <span className="h-px w-8 bg-prime-gold" aria-hidden />
       {children}
     </p>
   );
 }
 
 /**
- * Inner-page opener. With `image` it is a full-bleed photo (pair with <Header overHero />);
+ * Inner-page opener. With `image`, the words sit beside a framed photo (pair with <Header overHero />);
  * without, a typographic header with the page's word as a watermark.
  */
 export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hospitality', align = 'start', children, className }) {
   const centered = align === 'center';
 
   if (image) {
+    // Words on the page colour beside the photo; nothing is laid over the photo
     return (
-      <section className={cn('relative isolate flex min-h-vh-78 items-end overflow-hidden bg-prime-band text-prime-on md:min-h-vh-100', className)}>
-        <Img
-          src={image}
-          alt=""
-          priority
-          sizes="100vw"
-          widths={[640, 960, 1440, 1920, 2400]}
-          fallbackWidth={1920}
-          className="prime-kenburns absolute inset-0 -z-10 h-full w-full object-cover"
-        />
-        <div className={cn('prime-container pb-16 pt-36 md:pb-24', centered && 'text-center')}>
-          <div className={cn('prime-plate w-fit max-w-3xl p-6 sm:p-9 md:p-11', centered && 'mx-auto')}>
-            {eyebrow ? (
-              <Eyebrow light centered={centered}>
-                {eyebrow}
-              </Eyebrow>
-            ) : null}
+      <section className={cn('relative isolate overflow-hidden bg-prime-sand text-prime-ink', className)}>
+        <div className="prime-container grid items-center gap-10 pb-14 pt-[calc(var(--prime-header-h)+2.5rem)] md:pb-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16 lg:pt-[calc(var(--prime-header-h)+3.5rem)]">
+          <div className={cn('max-w-2xl', centered && 'mx-auto text-center lg:mx-0 lg:text-start')}>
+            {eyebrow ? <Eyebrow centered={centered}>{eyebrow}</Eyebrow> : null}
             <h1 className="prime-fade-up mt-7 font-display text-display-xl font-extralight text-balance" style={{ animationDelay: '80ms' }}>
               {title}
             </h1>
             {lede ? (
               <p
-                className={cn('prime-fade-up mt-7 max-w-lg text-[15px] font-light leading-[1.8] text-prime-on/75 md:text-[16.5px]', centered && 'mx-auto')}
+                className={cn('prime-lede prime-fade-up mt-7 max-w-lg', centered && 'mx-auto lg:mx-0')}
                 style={{ animationDelay: '160ms' }}
               >
                 {lede}
               </p>
             ) : null}
             {children}
+          </div>
+          <div className="prime-fade-up relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist lg:aspect-[5/6]" style={{ animationDelay: '120ms' }}>
+            <Img
+              src={image}
+              alt=""
+              priority
+              sizes="(min-width: 1024px) 52vw, 100vw"
+              widths={[640, 960, 1440, 1920]}
+              fallbackWidth={1440}
+              className="prime-kenburns absolute inset-0 h-full w-full object-cover"
+            />
           </div>
         </div>
       </section>

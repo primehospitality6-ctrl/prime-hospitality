@@ -76,11 +76,11 @@ export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false })
   const ar = dir === 'rtl';
   const body = (
     <>
-      <img src={popup.image} alt={popup.title} className="block max-h-[78vh] w-full object-cover" />
-      <span className="prime-plate absolute inset-x-3 bottom-3 flex items-end justify-between gap-4 rounded-[1.1rem] px-5 py-4 text-prime-on">
+      <img src={popup.image} alt={popup.title} className="block max-h-[64vh] w-full object-cover" />
+      <span className="flex items-end justify-between gap-4 px-6 py-5 text-prime-on">
         <span className="min-w-0">
           {popup.percent ? (
-            <span className="mb-2 inline-block bg-brand-gold px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]">
+            <span className="mb-2 inline-block bg-brand-gold px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
               {ar ? `خصم ${popup.percent}%` : `${popup.percent}% off`}
             </span>
           ) : null}
@@ -95,7 +95,7 @@ export function OfferPopupCard({ popup, onClose, dir = 'ltr', preview = false })
   );
   return (
     <div dir={dir} className="relative w-full max-w-md overflow-hidden bg-prime-band shadow-2xl">
-      <button type="button" onClick={onClose} aria-label={ar ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-prime-band/45 text-prime-on backdrop-blur transition hover:bg-prime-band/70">
+      <button type="button" onClick={onClose} aria-label={ar ? 'إغلاق' : 'Close'} className="absolute end-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-prime-band text-prime-on shadow transition hover:bg-prime-surface">
         <X size={15} />
       </button>
       {preview ? (

@@ -419,21 +419,10 @@ export default function ListingDetailPage() {
     <div>
       <Header overHero />
       <main className="pb-28 lg:pb-0">
-        {/* Full-bleed gallery hero */}
-        <section className="relative isolate min-h-[64svh] overflow-hidden bg-prime-band text-prime-on sm:min-h-[72svh] md:min-h-[85svh]">
-          <button type="button" onClick={() => setLightbox(true)} className="absolute inset-0 block" aria-label={t('listing.showAllPhotos', { count: photos.length })}>
-            <Img
-              src={photos[0]}
-              alt={listing.title}
-              priority
-              sizes="100vw"
-              className="prime-kenburns absolute inset-0 h-full w-full object-cover"
-            />
-          </button>
-
-          <div className="relative flex min-h-[64svh] flex-col justify-end sm:min-h-[72svh] md:min-h-[85svh]">
-            <div className="prime-container pb-8 pt-28 sm:pb-12 sm:pt-32 md:pb-16">
-              <div className="prime-plate p-6 sm:p-8 md:p-10">
+        {/* Title on the page colour, then the photos as they are */}
+        <section className="bg-prime-sand text-prime-ink">
+          <div className="prime-container pb-2 pt-[calc(var(--prime-header-h)+2rem)] md:pt-[calc(var(--prime-header-h)+3rem)]">
+              <div>
               <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on/55">
                 <Link to="/" className="transition hover:text-prime-on">
                   {t('listing.egypt')}
@@ -506,14 +495,24 @@ export default function ListingDetailPage() {
               </div>
               </div>
 
+              <button type="button" onClick={() => setLightbox(true)} className="relative mt-8 block aspect-[4/3] w-full overflow-hidden rounded-[1.75rem] bg-prime-mist sm:aspect-[16/10] md:mt-12 lg:aspect-[21/9]" aria-label={t('listing.showAllPhotos', { count: photos.length })}>
+              <Img
+                src={photos[0]}
+                alt={listing.title}
+                priority
+                sizes="(min-width: 1440px) 1360px, 100vw"
+                className="prime-kenburns absolute inset-0 h-full w-full object-cover"
+              />
+            </button>
+
               {photos.length > 1 ? (
-                <div className="mt-10 hidden gap-2 md:grid md:grid-cols-4">
+                <div className="mt-2 hidden gap-2 md:grid md:grid-cols-4">
                   {photos.slice(1, 5).map((src, i) => (
                     <button
                       type="button"
                       key={`${src}-${i}`}
                       onClick={() => setLightbox(true)}
-                      className="group relative aspect-[4/3] overflow-hidden bg-prime-on/5"
+                      className="group relative aspect-[4/3] overflow-hidden rounded-[1rem] bg-prime-mist"
                     >
                       <Img
                         src={src}
@@ -526,7 +525,6 @@ export default function ListingDetailPage() {
                   ))}
                 </div>
               ) : null}
-            </div>
           </div>
         </section>
 

@@ -214,15 +214,16 @@ export default function SearchPage() {
       <Header overHero />
       <main>
         <section className="relative isolate overflow-hidden bg-prime-band text-prime-on">
-          {heroImage ? (
-            <>
-              <img src={heroImage} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover" />
-            </>
-          ) : (
+          {!heroImage ? (
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.25),transparent_55%)]" />
-          )}
-          <div className="prime-container pb-16 pt-28 md:pb-24 md:pt-36">
-            <div className={heroImage ? 'prime-plate w-fit max-w-full p-6 sm:p-8 md:p-10' : undefined}>
+          ) : null}
+          <div
+            className={cn(
+              'prime-container pb-16 pt-28 md:pb-24 md:pt-36',
+              heroImage && 'grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16'
+            )}
+          >
+            <div className="min-w-0">
             <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-prime-on/50">
               <Link to="/" className="transition hover:text-prime-on">{t('search.home')}</Link>
               <span aria-hidden>/</span>
@@ -279,6 +280,11 @@ export default function SearchPage() {
               </p>
             </div>
             </div>
+            {heroImage ? (
+              <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist lg:aspect-[5/4]">
+                <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              </div>
+            ) : null}
           </div>
         </section>
 

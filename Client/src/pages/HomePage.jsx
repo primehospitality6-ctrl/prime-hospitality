@@ -154,134 +154,104 @@ function Hero() {
   const SlideLink = external ? 'a' : Link;
 
   return (
-    <section className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-prime-band text-prime-on">
-      <div className="absolute inset-0 -z-10" aria-hidden>
-        {images.map((src, i) => {
-          if (i !== index && i !== prev && i !== next) return null;
-          const active = i === index;
-          return (
-            <img
-              key={src}
-              src={sizedSrc(src, 1920)}
-              srcSet={srcSetFor(src, HERO_WIDTHS)}
-              sizes="100vw"
-              alt=""
-              fetchPriority={i === 0 ? 'high' : 'low'}
-              loading={i === 0 ? 'eager' : 'lazy'}
-              decoding="async"
-              className={cn(
-                'absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out',
-                active ? 'prime-kenburns opacity-100' : 'opacity-0'
-              )}
-            />
-          );
-        })}
-      </div>
-      {activeHref ? (
-        // The photo itself is the link; the visible "View offer" button below is the accessible one
-        <SlideLink {...slideLinkProps} tabIndex={-1} aria-hidden className="absolute inset-0 -z-[5] cursor-pointer" />
-      ) : null}
-
+    <section className="relative isolate overflow-hidden bg-prime-sand text-prime-ink">
       <Wordmark
         word="Prime"
-        className="prime-fade-in pointer-events-none absolute inset-x-0 top-[18%] -z-10 mx-auto hidden w-max text-center text-[clamp(6rem,22vw,22rem)] text-prime-on/[0.08] md:block"
+        className="prime-fade-in pointer-events-none absolute -bottom-[0.1em] start-[-0.04em] -z-10 hidden text-[clamp(8rem,22vw,22rem)] text-prime-ink/[0.035] lg:block"
       />
 
-      {/* Vertical slide index — editorial rail */}
-      {images.length > 1 ? (
-        <div className="prime-plate pointer-events-auto absolute end-5 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-center gap-3 rounded-full px-2.5 py-4 lg:end-10 lg:flex">
-          {images.map((src, i) => (
-            <button
-              key={src}
-              type="button"
-              onClick={() => goTo(i)}
-              aria-label={t('a11y.showSlide', { n: i + 1 })}
-              aria-current={i === index}
-              className={cn(
-                'font-display text-[13px] font-light tabular-nums tracking-[0.12em] transition duration-500',
-                i === index ? 'scale-125 text-prime-gold-deep' : 'text-prime-on/35 hover:text-prime-on/80'
-              )}
-            >
-              {String(i + 1).padStart(2, '0')}
-            </button>
-          ))}
-          <span className="mt-2 h-16 w-px overflow-hidden bg-prime-on/20">
-            <span
-              key={index}
-              className="block w-full bg-prime-gold-soft"
-              style={{ height: `${((index + 1) / images.length) * 100}%`, transition: 'height 0.6s var(--prime-ease)' }}
-            />
-          </span>
-        </div>
-      ) : null}
-
-      <div className="prime-container pointer-events-none relative flex flex-1 flex-col justify-start pb-24 pt-28 sm:pt-32 lg:justify-end lg:pb-16 lg:pt-36 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_label]:pointer-events-auto [&_select]:pointer-events-auto">
-        <div className="prime-plate grid items-end gap-6 p-6 sm:gap-10 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16 lg:p-10">
-          <div className="max-w-3xl">
+      <div className="prime-container pb-16 pt-[calc(var(--prime-header-h)+2.5rem)] md:pb-20 lg:pt-[calc(var(--prime-header-h)+3.5rem)]">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-16">
+          {/* Words on the page colour */}
+          <div className="max-w-2xl">
             <p className="prime-fade-up flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.32em] text-prime-gold-deep">
-              <span className="inline-block h-2 w-2 rotate-45 border border-prime-gold-soft" aria-hidden />
+              <span className="inline-block h-2 w-2 rotate-45 border border-prime-gold" aria-hidden />
               {t('home.introEyebrow')}
             </p>
-            <h1 className="prime-fade-up mt-5 font-display text-display-2xl font-extralight sm:mt-8" style={{ animationDelay: '80ms' }}>
+            <h1 className="prime-fade-up mt-6 font-display text-display-2xl font-extralight sm:mt-8" style={{ animationDelay: '80ms' }}>
               <span className="block">{t('home.heroLine1')}</span>
               <span className="mt-1 block text-prime-gold-deep">{t('home.heroLine2')}</span>
             </h1>
-          </div>
-          <div className="prime-fade-up max-w-md lg:justify-self-end lg:pb-3" style={{ animationDelay: '180ms' }}>
-            <p className="text-[15px] font-light leading-[1.85] text-prime-on/70 md:text-[16.5px]">{t('home.heroSubtitle')}</p>
+            <p className="prime-fade-up mt-7 max-w-md text-[15px] font-light leading-[1.85] text-prime-muted md:text-[16.5px]" style={{ animationDelay: '180ms' }}>
+              {t('home.heroSubtitle')}
+            </p>
             {activeHref ? (
               <SlideLink
                 {...slideLinkProps}
                 key={activeHref}
-                className="prime-fade-up group mt-6 inline-flex min-h-[2.75rem] items-center gap-2.5 rounded-full border border-prime-gold-soft/70 bg-prime-band/25 px-5 text-[10.5px] font-semibold uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm transition duration-500 ease-prime hover:border-prime-gold hover:bg-prime-gold hover:text-white"
+                className="prime-fade-up group mt-8 inline-flex min-h-[2.75rem] items-center gap-2.5 rounded-full border border-prime-gold/60 px-5 text-[10.5px] font-semibold uppercase tracking-[0.22em] text-prime-ink transition duration-500 ease-prime hover:border-prime-gold hover:bg-prime-gold hover:text-white"
               >
                 {t(activeHref.includes('offer=') ? 'home.slideViewOffer' : 'home.slideExplore')}
                 <ArrowRight size={14} strokeWidth={1.5} className="transition-transform duration-500 group-hover:translate-x-1 rtl:-scale-x-100" />
               </SlideLink>
             ) : null}
-            <div className="mt-6 flex items-center gap-4 text-[10.5px] font-medium uppercase tracking-[0.24em] text-prime-on/50">
-              <span className="tabular-nums text-prime-on/80">
-                {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
-              </span>
-              <span className="h-px flex-1 bg-prime-on/20" />
+          </div>
+
+          {/* The slideshow, photos exactly as they are */}
+          <div className="prime-fade-up" style={{ animationDelay: '140ms' }}>
+            <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist sm:aspect-[16/11] lg:aspect-[5/6] xl:aspect-[1/1]">
+              {images.map((src, i) => {
+                if (i !== index && i !== prev && i !== next) return null;
+                const active = i === index;
+                return (
+                  <img
+                    key={src}
+                    src={sizedSrc(src, 1440)}
+                    srcSet={srcSetFor(src, HERO_WIDTHS)}
+                    sizes="(min-width: 1024px) 52vw, 100vw"
+                    alt=""
+                    fetchPriority={i === 0 ? 'high' : 'low'}
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    className={cn(
+                      'absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out',
+                      active ? 'prime-kenburns opacity-100' : 'opacity-0'
+                    )}
+                  />
+                );
+              })}
+              {activeHref ? (
+                // The photo itself is the link; the visible button beside it is the accessible one
+                <SlideLink {...slideLinkProps} tabIndex={-1} aria-hidden className="absolute inset-0 cursor-pointer" />
+              ) : null}
             </div>
+
+            {images.length > 1 ? (
+              <div className="mt-5 flex items-center gap-5">
+                <span className="text-[10.5px] font-medium uppercase tracking-[0.24em] tabular-nums text-prime-muted">
+                  {String(index + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
+                </span>
+                <div className="flex flex-1 items-center gap-1.5">
+                  {images.map((src, i) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => goTo(i)}
+                      aria-label={t('a11y.showSlide', { n: i + 1 })}
+                      aria-current={i === index}
+                      className="group grid h-11 flex-1 place-items-center"
+                    >
+                      <span className="relative block h-px w-full overflow-hidden bg-prime-line">
+                        <span
+                          className={cn(
+                            'absolute inset-y-0 start-0 bg-prime-gold transition-all duration-700 ease-prime',
+                            i === index ? 'w-full' : 'w-0 group-hover:w-1/3'
+                          )}
+                        />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="prime-fade-up pointer-events-auto mt-8 sm:mt-12 md:mt-14" style={{ animationDelay: '280ms' }}>
-          <div className="overflow-hidden rounded-[1.75rem] border border-prime-on/15 bg-prime-surface/[0.97] shadow-[0_40px_100px_rgba(0,0,0,0.45)]">
+        <div className="prime-fade-up mt-10 md:mt-14" style={{ animationDelay: '280ms' }}>
+          <div className="overflow-hidden rounded-[1.75rem] border border-prime-line bg-prime-surface shadow-[0_30px_80px_-40px_rgba(0,0,0,0.35)]">
             <div className="h-1 w-full bg-gradient-to-r from-prime-gold via-prime-gold-soft to-transparent" />
             <HeroSearch />
           </div>
-        </div>
-
-        {images.length > 1 ? (
-          <div className="prime-plate mx-auto mt-4 flex w-fit items-center justify-center rounded-full px-1.5 lg:hidden">
-            {images.map((src, i) => (
-              <button
-                key={src}
-                type="button"
-                onClick={() => goTo(i)}
-                aria-label={t('a11y.showSlide', { n: i + 1 })}
-                aria-current={i === index}
-                className="grid h-11 w-8 place-items-center"
-              >
-                <span
-                  className={cn(
-                    'h-1.5 rounded-full transition-all',
-                    i === index ? 'w-5 bg-prime-gold-soft' : 'w-1.5 bg-prime-on/45'
-                  )}
-                />
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="prime-plate mx-auto mt-8 hidden w-fit items-center justify-center gap-3 rounded-full px-5 py-2 text-prime-on/70 lg:flex">
-          <span className="text-[10px] font-medium uppercase tracking-[0.28em]">{t('home.scroll')}</span>
-          <span className="relative h-10 w-px overflow-hidden bg-prime-on/25">
-            <span className="absolute inset-x-0 top-0 h-1/2 bg-prime-gold-soft" style={{ animation: 'primeScrollCue 1.8s var(--prime-ease) infinite' }} />
-          </span>
         </div>
       </div>
     </section>

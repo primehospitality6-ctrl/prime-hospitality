@@ -87,7 +87,7 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
 
   return (
     <aside className={cn('relative flex-col overflow-y-auto bg-prime-band text-prime-on', className)}>
-      <div className="relative h-72 shrink-0 overflow-hidden lg:h-80">
+      <div className="relative h-56 shrink-0 overflow-hidden lg:h-64">
         {cover && (
           <img
             src={cover}
@@ -96,17 +96,17 @@ export function SummaryPanel({ listing, stay, plan, planName, price, config, cla
             className="absolute inset-0 h-full w-full object-cover transition duration-[1.2s] ease-out hover:scale-105"
           />
         )}
+      </div>
+      <div className="px-6 pt-6">
         {listing.brand && (
-          <span className="absolute start-5 top-5 rounded-full border border-prime-gold/50 bg-prime-band/40 px-3 py-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm">
+          <span className="mb-3 inline-block rounded-full border border-prime-gold/50 px-3 py-1 text-[10.5px] font-medium uppercase tracking-[0.22em] text-prime-on">
             {term(`Prime ${listing.brand}`)}
           </span>
         )}
-        <div className="absolute inset-x-0 bottom-0 px-6 pb-6">
-          <Crumbs listing={listing} className="text-prime-gold-deep" />
-          <h3 className="mt-2 font-display text-3xl font-bold leading-tight tracking-[-0.03em]">
-            {term(listing.compound || listing.title)}
-          </h3>
-        </div>
+        <Crumbs listing={listing} className="text-prime-gold-deep" />
+        <h3 className="mt-2 font-display text-3xl font-bold leading-tight tracking-[-0.03em]">
+          {term(listing.compound || listing.title)}
+        </h3>
       </div>
 
       <div className="px-6 pt-4">

@@ -81,7 +81,8 @@ export default function BrandsSection() {
         <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-20">
           {/* Wide screens: the photo of the brand in focus */}
           <Reveal className="relative hidden lg:block">
-            <div className="sticky top-[calc(var(--prime-header-h)+2rem)] aspect-[4/5] overflow-hidden">
+            <div className="sticky top-[calc(var(--prime-header-h)+2rem)]">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem]">
               {brands.map((b, i) => (
                 <div
                   key={b.name}
@@ -94,7 +95,8 @@ export default function BrandsSection() {
                   <BrandVisual brand={b} sizes="40vw" className="h-full w-full" />
                 </div>
               ))}
-              <div className="prime-plate absolute inset-x-6 bottom-6 flex items-end justify-between gap-6 px-6 py-5">
+            </div>
+              <div className="mt-5 flex items-end justify-between gap-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.42em]" dir="ltr">
                   Prime <span className="font-light">{current.name}</span>
                 </p>

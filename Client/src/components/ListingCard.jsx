@@ -73,7 +73,7 @@ function BrandChip({ name }) {
   const sb = subBrand(name);
   return (
     <span
-      className="border border-prime-on/40 bg-prime-band/85 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-prime-on backdrop-blur-sm"
+      className="border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-prime-ink"
       style={{ borderColor: `${cms?.color || sb?.color || '#8C704D'}99` }}
     >
       {term(`Prime ${cms?.name || sb?.name || name}`)}
@@ -93,7 +93,7 @@ function OfferChip({ offer }) {
   const { t } = useLocale();
   if (!offer?.percent) return null;
   return (
-    <span className="bg-brand-gold px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.6)]">
+    <span className="bg-brand-gold px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white">
       {t('offers.percentOff', { n: offer.percent })}
     </span>
   );
@@ -162,7 +162,9 @@ export function ListingCardSkeleton({ className, row = false }) {
   }
   return (
     <div className={cn('animate-pulse', className)}>
-      <div className="aspect-[5/4] bg-prime-mist sm:aspect-[4/5]" />
+      <div className="aspect-[4/3] rounded-[1.25rem] bg-prime-mist sm:aspect-[1/1]" />
+      <div className="mt-4 h-2.5 w-1/3 bg-prime-mist" />
+      <div className="mt-3 h-5 w-3/4 bg-prime-mist" />
     </div>
   );
 }
@@ -178,18 +180,20 @@ export function ListingRow({ listing, priority = false }) {
     <article className="prime-card group grid min-w-0 grid-cols-1 gap-6 border-t border-prime-line pt-10 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-12 lg:gap-16">
       <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-prime-mist">
         <CardMedia listing={listing} href={href} priority={priority} sizes="(min-width: 768px) 42vw, 100vw" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
-          <span className="flex flex-wrap gap-1.5">
-            <OfferChip offer={listing.offer} />
-            {listing.featured ? <FeaturedChip /> : null}
-            {listing.brand ? <BrandChip name={listing.brand} /> : null}
-          </span>
+        <div className="pointer-events-none absolute end-4 top-4">
           <SaveButton listing={listing} />
         </div>
         {accent ? <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: accent }} /> : null}
       </div>
 
       <div className="flex min-w-0 flex-col md:py-2">
+        {listing.offer?.percent || listing.featured || listing.brand ? (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            <OfferChip offer={listing.offer} />
+            {listing.featured ? <FeaturedChip /> : null}
+            {listing.brand ? <BrandChip name={listing.brand} /> : null}
+          </div>
+        ) : null}
         <div className="flex items-start justify-between gap-4">
           <p className="prime-label min-w-0 truncate">{metaOf(listing, term)}</p>
           <Rating listing={listing} />
@@ -231,55 +235,57 @@ export function ListingRow({ listing, priority = false }) {
   );
 }
 
-/** Editorial stay tile — title and price live on the photograph */
+/** Stay tile: the photo as it is, with the words underneath it */
 export default function ListingCard({ listing, priority = false, featured = false, sizes = GRID_SIZES, className }) {
   const { t, term } = useLocale();
   const href = `/listings/${listing.slug}`;
   const specs = specsOf(listing, t);
+  const hasChips = listing.offer?.percent || featured || listing.brand;
 
   const accent = brandColorOf(listing.brand, useBrands());
   return (
     <article className={cn('prime-card group relative min-w-0', className)}>
       <div
         className={cn(
-          'relative overflow-hidden rounded-[1.25rem] bg-prime-band',
-          featured ? 'aspect-[4/5] sm:aspect-[3/4]' : 'aspect-[5/4] sm:aspect-[4/5]'
+          'relative overflow-hidden rounded-[1.25rem] bg-prime-mist',
+          featured ? 'aspect-[4/5]' : 'aspect-[4/3] sm:aspect-[1/1]'
         )}
       >
         <CardMedia listing={listing} href={href} sizes={sizes} priority={priority} />
+        <div className="pointer-events-none absolute end-3 top-3 sm:end-3.5 sm:top-3.5">
+          <SaveButton listing={listing} />
+        </div>
+        {accent ? <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: accent }} /> : null}
+      </div>
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3 sm:p-3.5">
-          <span className="flex flex-wrap gap-1.5">
+      <div className="pt-4 sm:pt-5">
+        {hasChips ? (
+          <div className="mb-3 flex flex-wrap gap-1.5">
             <OfferChip offer={listing.offer} />
             {featured ? <FeaturedChip /> : null}
             {listing.brand ? <BrandChip name={listing.brand} /> : null}
-          </span>
-          <SaveButton listing={listing} />
-        </div>
-
-        <div className="prime-plate absolute inset-x-2 bottom-2 rounded-[1rem] p-3 text-prime-on sm:inset-x-2.5 sm:bottom-2.5 sm:p-3.5 md:p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="prime-label truncate text-[10px] text-prime-on/65 sm:text-[11px]">{metaOf(listing, term)}</p>
-            <Rating listing={listing} light />
           </div>
-          <h3
-            className={cn(
-              'mt-2 font-display font-extralight leading-[1.12] tracking-[-0.03em] text-balance sm:mt-2.5',
-              featured ? 'text-[1.55rem] sm:text-[1.85rem] md:text-[2.1rem]' : 'text-[1.2rem] sm:text-[1.35rem] md:text-[1.45rem]'
-            )}
-          >
-            <Link to={href} className="prime-tap transition-colors hover:text-prime-gold-deep">
-              {term(listing.title)}
-            </Link>
-          </h3>
-          {specs.length ? (
-            <p className="mt-1.5 line-clamp-1 text-[11px] font-light text-prime-on/55 sm:mt-2">{specs.join('  ·  ')}</p>
-          ) : null}
-          <div className="mt-2.5 border-t border-prime-on/20 pt-2.5 sm:mt-3.5 sm:pt-3.5">
-            <Price listing={listing} light />
-          </div>
+        ) : null}
+        <div className="flex items-center justify-between gap-2">
+          <p className="prime-label truncate text-[10px] sm:text-[11px]">{metaOf(listing, term)}</p>
+          <Rating listing={listing} />
         </div>
-          {accent ? <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: accent }} /> : null}
+        <h3
+          className={cn(
+            'mt-2 font-display font-extralight leading-[1.12] tracking-[-0.03em] text-prime-ink text-balance sm:mt-2.5',
+            featured ? 'text-[1.55rem] sm:text-[1.85rem] md:text-[2.1rem]' : 'text-[1.2rem] sm:text-[1.35rem] md:text-[1.45rem]'
+          )}
+        >
+          <Link to={href} className="prime-tap transition-colors hover:text-prime-gold-deep">
+            {term(listing.title)}
+          </Link>
+        </h3>
+        {specs.length ? (
+          <p className="mt-1.5 line-clamp-1 text-[11.5px] font-light text-prime-muted sm:mt-2">{specs.join('  ·  ')}</p>
+        ) : null}
+        <div className="mt-3 border-t border-prime-line pt-3 sm:mt-4 sm:pt-3.5">
+          <Price listing={listing} />
+        </div>
       </div>
     </article>
   );

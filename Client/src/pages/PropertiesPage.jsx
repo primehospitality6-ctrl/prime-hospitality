@@ -169,7 +169,7 @@ export default function PropertiesPage() {
           lede={t('properties.lede')}
         >
           {stats.properties ? (
-            <dl className="prime-fade-up mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-prime-on/20 pt-6" style={{ animationDelay: '240ms' }}>
+            <dl className="prime-fade-up mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-prime-line pt-6" style={{ animationDelay: '240ms' }}>
               {[
                 [stats.destinations, t('home.statDestinations')],
                 [stats.properties, t('home.statProperties')],
@@ -177,7 +177,7 @@ export default function PropertiesPage() {
                 <div key={label}>
                   <dt className="sr-only">{label}</dt>
                   <dd className="font-display text-[2.4rem] font-medium leading-none tabular-nums">{value}</dd>
-                  <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-on/70">{label}</p>
+                  <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">{label}</p>
                 </div>
               ))}
             </dl>
