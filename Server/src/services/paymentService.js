@@ -326,17 +326,29 @@ function verifyPaymobHmac(obj, receivedHmac) {
     'is_refunded',
     'is_standalone_payment',
     'is_voided',
-    'order',
+    'order.id',
     'owner',
     'pending',
-    'source_data_pan',
-    'source_data_sub_type',
-    'source_data_type',
+    'source_data.pan',
+    'source_data.sub_type',
+    'source_data.type',
     'success',
   ];
-  const concat = order.map((k) => String(obj[k] ?? '')).join('');
+  // The processed callback (POST) nests order and source_data; the response callback (GET)
+  // sends them flat ("order", "source_data.pan"). Read either shape.
+  const pick = (key) => {
+    if (!key.includes('.')) return obj[key];
+    const [parent, child] = key.split('.');
+    const nested = obj[parent];
+    if (nested && typeof nested === 'object') return nested[child];
+    if (key in obj) return obj[key];
+    return parent === 'order' ? nested : undefined;
+  };
+  const concat = order.map((k) => String(pick(k) ?? '')).join('');
   const calc = crypto.createHmac('sha512', secret).update(concat).digest('hex');
-  return calc === receivedHmac;
+  const a = Buffer.from(calc);
+  const b = Buffer.from(String(receivedHmac).toLowerCase());
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 module.exports = {

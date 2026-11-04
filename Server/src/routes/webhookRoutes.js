@@ -21,15 +21,27 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
     console.warn('[email] confirmation failed:', err.message);
   });
   if (!kwentra.isConfigured()) return { pushed: false, reason: 'not_configured' };
-  const result = await sync.pushPaidBooking(booking, {
-    amount: booking.rateAmount ?? booking.amount,
-    currency: booking.rateCurrency || booking.currency || 'USD',
-    merchantOrderId: merchantOrderId || booking.externalRef,
-    provider,
-    transactionId,
-    cardLast4,
-    cardType,
-  });
+  let result;
+  try {
+    result = await sync.pushPaidBooking(booking, {
+      amount: booking.rateAmount ?? booking.amount,
+      currency: booking.rateCurrency || booking.currency || 'USD',
+      merchantOrderId: merchantOrderId || booking.externalRef,
+      provider,
+      transactionId,
+      cardLast4,
+      cardType,
+    });
+  } catch (err) {
+    // The booking is already marked paid, so a retry from the gateway would skip Kwentra.
+    // Record the failure where staff will see it instead of losing it.
+    console.error('[kwentra] paid booking push failed:', err.message);
+    result = {
+      pushed: false,
+      errors: [err.message],
+      issue: `Guest paid online (${provider}${transactionId ? ` ref ${transactionId}` : ''}) but sending it to Kwentra failed (${err.message}). Create the reservation and post the payment in Kwentra by hand.`,
+    };
+  }
   await sync.recordPaymentResult(booking, result);
   return result;
 }
@@ -38,8 +50,15 @@ router.post('/paymob', async (req, res, next) => {
   try {
     const obj = req.body?.obj || req.body || {};
     const hmac = req.query.hmac || req.body?.hmac || req.headers['x-paymob-hmac'];
-    if (process.env.PAYMOB_HMAC_SECRET && !payment.verifyPaymobHmac(obj, hmac)) {
-      return res.status(401).json({ error: 'Invalid Paymob HMAC' });
+    if (process.env.PAYMOB_HMAC_SECRET) {
+      if (!payment.verifyPaymobHmac(obj, hmac)) {
+        console.warn('[webhook/paymob] rejected: HMAC does not match PAYMOB_HMAC_SECRET');
+        return res.status(401).json({ error: 'Invalid Paymob HMAC' });
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      // Without the secret anyone could post a fake "paid" callback and confirm a stay in Kwentra.
+      console.error('[webhook/paymob] rejected: PAYMOB_HMAC_SECRET is not set');
+      return res.status(503).json({ error: 'PAYMOB_HMAC_SECRET is not configured' });
     }
 
     const success = obj.success === true || obj.success === 'true';
@@ -62,6 +81,57 @@ router.post('/paymob', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+/**
+ * Paymob "Transaction response callback" — after the card step the Paymob iframe navigates here,
+ * inside the payment popup. The page tells the website (window.parent) how it went, so the popup
+ * can react at once. The server-side processed callback above stays the source of truth; this also
+ * confirms the booking when its signature checks out, in case that callback is slow or missing.
+ */
+router.get('/paymob/response', async (req, res) => {
+  const q = req.query || {};
+  const merchantOrderId = String(q.merchant_order_id || '');
+  const signed = Boolean(process.env.PAYMOB_HMAC_SECRET) && payment.verifyPaymobHmac(q, q.hmac);
+  const success = signed && String(q.success) === 'true' && String(q.pending) !== 'true';
+  const pending = signed && String(q.pending) === 'true';
+
+  if (success && merchantOrderId) {
+    try {
+      const all = await listBookings();
+      const booking = all.find((b) => b.externalRef === merchantOrderId);
+      await markPaidAndPush(booking, {
+        provider: 'paymob',
+        transactionId: q.id,
+        merchantOrderId,
+        cardLast4: String(q['source_data.pan'] || '').slice(-4),
+        cardType: q['source_data.sub_type'],
+      });
+    } catch (err) {
+      console.warn('[webhook/paymob/response] could not confirm booking:', err.message);
+    }
+  }
+
+  const status = success ? 'paid' : pending ? 'pending' : signed ? 'declined' : 'unknown';
+  const message = String(q['data.message'] || q.message || '').slice(0, 200);
+  const payload = JSON.stringify({ source: 'prime-paymob', status, merchantOrderId, message }).replace(/</g, '\\u003c');
+  const text = {
+    paid: 'Payment received',
+    pending: 'Payment is processing',
+    declined: 'Payment did not go through',
+    unknown: 'Checking your payment',
+  }[status];
+
+  // This page is framed by the guest website (another origin) and runs one inline script.
+  res.removeHeader('X-Frame-Options');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors *"
+  );
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:transparent;font:500 14px/1.5 system-ui,sans-serif;color:#58595b}body{display:grid;place-items:center;text-align:center}</style>
+</head><body><p>${text}…</p><script>try{window.parent.postMessage(${payload},'*')}catch(e){}</script></body></html>`);
 });
 
 router.post('/stripe', async (req, res, next) => {
