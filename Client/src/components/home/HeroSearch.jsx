@@ -162,9 +162,6 @@ export default function HeroSearch() {
                     <MapPin size={12} aria-hidden />
                     <span className="truncate">{term(d.name)}</span>
                   </span>
-                  <span className="shrink-0 text-[11px] text-prime-muted">
-                    {t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 })}
-                  </span>
                 </button>
                 {(d.projects || []).map((option) => (
                   <button

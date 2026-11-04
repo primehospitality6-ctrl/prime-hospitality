@@ -99,7 +99,7 @@ export default function SearchPage() {
     if (destination) {
       return (destination.projects || []).map((p) => ({ id: p.id, name: p.name }));
     }
-    return destinations.map((d) => ({ id: d.id, name: d.name, count: d.projectCount }));
+    return destinations.map((d) => ({ id: d.id, name: d.name }));
   }, [destinations, destination]);
 
   useEffect(() => {

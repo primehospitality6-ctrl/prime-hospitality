@@ -180,7 +180,6 @@ export default function StaysFiltersBar({
                   key={d.id}
                   active={destination?.id === d.id}
                   title={term(d.name)}
-                  subtitle={t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 })}
                   onClick={() => {
                     const keep = (d.projects || []).some((p) => p.id === filters.compound) ? filters.compound : '';
                     pick({ destination: d.id, compound: keep });

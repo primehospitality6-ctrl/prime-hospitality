@@ -68,12 +68,8 @@ export default function CompoundGrid({ limit, hideIntro = false, homeOnly = fals
     };
   }, [limit, homeOnly]);
 
-  const destinationMeta = (d) =>
-    [
-      t('home.propertiesCount', { count: d.projectCount ?? d.projects?.length ?? 0 }),
-    ]
-      .filter(Boolean)
-      .join(' · ');
+  // No property/unit counts on the public site.
+  const destinationMeta = () => '';
 
   return (
     <section className="overflow-hidden">

@@ -65,9 +65,6 @@ function DestinationBlock({ destination, index, properties }) {
             {String(index + 1).padStart(2, '0')}
           </span>
           <h2 className="mt-4 font-display text-display-md font-medium text-prime-ink text-balance">{term(destination.name)}</h2>
-          <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">
-            {t('home.propertiesCount', { count: properties.length })}
-          </p>
           {destination.description ? (
             <p className="mt-5 max-w-sm text-[15px] font-light leading-[1.8] text-prime-muted">{destination.description}</p>
           ) : null}
@@ -131,14 +128,6 @@ export default function PropertiesPage() {
     };
   }, []);
 
-  const stats = useMemo(() => {
-    const projects = destinations.flatMap((d) => d.projects || []);
-    return {
-      destinations: destinations.length,
-      properties: projects.length,
-    };
-  }, [destinations]);
-
   const visible = useMemo(
     () =>
       destinations
@@ -167,27 +156,12 @@ export default function PropertiesPage() {
           eyebrow={t('home.brandsEyebrow')}
           title={t('properties.title')}
           lede={t('properties.lede')}
-        >
-          {stats.properties ? (
-            <dl className="prime-fade-up mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-prime-line pt-6" style={{ animationDelay: '240ms' }}>
-              {[
-                [stats.destinations, t('home.statDestinations')],
-                [stats.properties, t('home.statProperties')],
-              ].map(([value, label]) => (
-                <div key={label}>
-                  <dt className="sr-only">{label}</dt>
-                  <dd className="font-display text-[2.4rem] font-medium leading-none tabular-nums">{value}</dd>
-                  <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.26em] text-prime-muted">{label}</p>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-        </PageHero>
+        />
 
         <div className="sticky top-[var(--prime-header-h)] z-30 border-b border-prime-line bg-prime-sand/95 backdrop-blur-md">
           <div className="prime-container flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="prime-scroll-x -mx-5 gap-2 px-5 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
-              <Chip active={!activeDest} onClick={() => patch('destination', '')} count={stats.properties || null}>
+              <Chip active={!activeDest} onClick={() => patch('destination', '')}>
                 {t('properties.all')}
               </Chip>
               {destinations.map((d) => (
@@ -195,7 +169,6 @@ export default function PropertiesPage() {
                   key={d.id}
                   active={activeDest === d.id}
                   onClick={() => patch('destination', activeDest === d.id ? '' : d.id)}
-                  count={d.projects?.length ?? d.projectCount}
                 >
                   {term(d.name)}
                 </Chip>

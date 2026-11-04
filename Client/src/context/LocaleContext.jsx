@@ -6,13 +6,15 @@ import { setActiveLocale, translateTerm } from '../i18n/terms';
 /** Built-in guest copy; the admin can override any key per language (Website › Pages & text) */
 export const defaultCopy = {
   en: {
+    'nav.home': 'Home',
     'nav.stays': 'Stays',
+    'nav.destinations': 'Destinations',
     'nav.compounds': 'Properties',
     'nav.menu': 'Menu',
     'nav.close': 'Close',
     'nav.book': 'Book a stay',
     'nav.currency': 'Currency',
-    'nav.about': 'About',
+    'nav.about': 'About Us',
     'nav.faq': 'FAQ',
     'nav.becomePartner': 'Become a Partner',
     'nav.contact': 'Contact',
@@ -512,7 +514,9 @@ export const defaultCopy = {
     'bs.home': 'Back home',
   },
   ar: {
+    'nav.home': 'الرئيسية',
     'nav.stays': 'الإقامات',
+    'nav.destinations': 'الوجهات',
     'nav.compounds': 'العقارات',
     'nav.menu': 'القائمة',
     'nav.close': 'إغلاق',

@@ -13,8 +13,9 @@ import Wordmark from '../ui/Wordmark';
 import BrandLogo from '../ui/BrandLogo';
 
 const MENU = [
+  { labelKey: 'nav.home', to: '/', inline: true },
   { labelKey: 'nav.stays', to: '/search', inline: true },
-  { labelKey: 'nav.compounds', to: '/compounds', inline: true },
+  { labelKey: 'nav.destinations', to: '/compounds', inline: true },
   { labelKey: 'nav.about', to: '/about', inline: true },
   { labelKey: 'nav.becomePartner', to: '/owners' },
   { labelKey: 'nav.faq', to: '/faq' },
@@ -249,7 +250,7 @@ export default function Header({ overHero = false, heroTone = 'theme' }) {
             </button>
             <nav className="hidden items-center gap-7 lg:flex" aria-label={t('a11y.primaryNav')}>
               {MENU.filter((m) => m.inline).map((item) => (
-                <NavLink key={item.to} to={item.to} className={navLinkCls}>
+                <NavLink key={item.to} to={item.to} end={item.to === '/'} className={navLinkCls}>
                   {t(item.labelKey)}
                 </NavLink>
               ))}
@@ -349,6 +350,7 @@ export default function Header({ overHero = false, heroTone = 'theme' }) {
                   >
                     <NavLink
                       to={item.to}
+                      end={item.to === '/'}
                       className={({ isActive }) =>
                         cn(
                           'group flex items-baseline gap-6 py-3 font-display text-[clamp(1.9rem,5vw,3.4rem)] font-extralight leading-[1.1] tracking-[-0.03em] transition-colors duration-300 md:py-4',

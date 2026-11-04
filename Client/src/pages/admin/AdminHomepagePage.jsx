@@ -20,7 +20,7 @@ const HERO = {
 const SECTION_INFO = {
   intro: {
     name: 'Introduction',
-    about: 'Brand statement with live destination and property counts.',
+    about: 'Brand statement with a link to the About page.',
     icon: Sparkles,
     keys: ['home.introTitle', 'home.introBody', 'home.ourStory'],
   },
