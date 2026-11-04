@@ -16,8 +16,8 @@ const PAYMOB_BASE = process.env.PAYMOB_BASE_URL || 'https://accept.paymob.com/ap
 const SITE_CURRENCY = 'USD';
 
 function isPaymobConfigured() {
-  return Boolean(
-    process.env.PAYMOB_API_KEY && process.env.PAYMOB_INTEGRATION_ID && process.env.PAYMOB_IFRAME_ID
+  return ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].every((name) =>
+    Boolean(String(process.env[name] || '').trim())
   );
 }
 
@@ -117,6 +117,15 @@ async function paymobAuthToken() {
 }
 
 async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing }) {
+  const missing = ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].filter(
+    (name) => !String(process.env[name] || '').trim()
+  );
+  if (missing.length) {
+    console.error(`[paymob] cannot start a card payment: ${missing.join(', ')} not set`);
+    const err = new Error('Card payment is not set up yet. Please try again later.');
+    err.status = 503;
+    throw err;
+  }
   const priced = await amountForPaymob(amount, currency);
   const amountCents = Math.round(Number(priced.chargeAmount) * 100);
   const token = await paymobAuthToken();
@@ -158,14 +167,14 @@ async function initializePaymobEmbedded({ amount, currency, merchantOrderId, bil
       state: 'NA',
     },
     currency: priced.chargeCurrency,
-    integration_id: Number(process.env.PAYMOB_INTEGRATION_ID),
+    integration_id: Number(String(process.env.PAYMOB_INTEGRATION_ID).trim()),
   });
   if (keyRes.status >= 400 || !keyRes.data?.token) {
     throw new Error(`Paymob payment key failed: ${JSON.stringify(keyRes.data)}`);
   }
 
   const paymentKey = keyRes.data.token;
-  const iframeId = process.env.PAYMOB_IFRAME_ID;
+  const iframeId = encodeURIComponent(String(process.env.PAYMOB_IFRAME_ID).trim());
   const iframeSrc = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentKey}`;
 
   return {
