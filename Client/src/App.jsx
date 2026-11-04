@@ -14,6 +14,7 @@ import SeoManager from './components/SeoManager';
 import PromoPopup from './components/PromoPopup';
 import AdminGuard from './components/admin/AdminGuard';
 import AdminLayout from './components/admin/AdminLayout';
+import { BuilderProvider } from './components/pageBuilder/BuilderFrame';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
@@ -47,7 +48,6 @@ const BecomeAHostPage = lazy(() => import('./pages/BecomeAHostPage'));
 
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
-const AdminSlideshowPage = lazy(() => import('./pages/admin/AdminSlideshowPage'));
 const AdminDestinationsPage = lazy(() => import('./pages/admin/AdminDestinationsPage'));
 const AdminCompoundsPage = lazy(() => import('./pages/admin/AdminCompoundsPage'));
 const AdminUnitsPage = lazy(() => import('./pages/admin/AdminUnitsPage'));
@@ -60,10 +60,7 @@ const MarketingSeoPage = lazy(() => import('./pages/admin/marketing/MarketingSeo
 const MarketingTrackingPage = lazy(() => import('./pages/admin/marketing/MarketingTrackingPage'));
 const MarketingCampaignsPage = lazy(() => import('./pages/admin/marketing/MarketingCampaignsPage'));
 const AdminSyncPage = lazy(() => import('./pages/admin/AdminSyncPage'));
-const AdminPageBuilderPage = lazy(() => import('./pages/admin/AdminPageBuilderPage'));
-const AdminBrandsPage = lazy(() => import('./pages/admin/AdminBrandsPage'));
-const AdminPagesPage = lazy(() => import('./pages/admin/AdminPagesPage'));
-const AdminContentListsPage = lazy(() => import('./pages/admin/AdminContentListsPage'));
+const WebsiteBuilderPage = lazy(() => import('./pages/admin/WebsiteBuilderPage'));
 const AdminBusinessPage = lazy(() => import('./pages/admin/AdminBusinessPage'));
 
 const previewFrame = isPreviewFrame();
@@ -77,6 +74,7 @@ export default function App() {
           <CurrencyProvider>
           <ThemeProvider>
             <WishlistProvider>
+            <BuilderProvider>
               <ScrollToTop />
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
@@ -101,19 +99,21 @@ export default function App() {
 
                   <Route path="/admin/login" element={<AdminLoginPage />} />
                   <Route path="/admin" element={<AdminGuard />}>
+                    {/* Full-screen editor: outside the admin sidebar layout */}
+                    <Route path="website" element={<WebsiteBuilderPage />} />
                     <Route element={<AdminLayout />}>
                       <Route index element={<AdminDashboardPage />} />
-                      <Route path="slideshow" element={<AdminSlideshowPage />} />
+                      <Route path="slideshow" element={<Navigate to="/admin/website?panel=slideshow" replace />} />
                       <Route path="destinations" element={<AdminDestinationsPage />} />
                       <Route path="compounds" element={<AdminCompoundsPage />} />
                       <Route path="units" element={<AdminUnitsPage />} />
                       <Route path="sync" element={<AdminSyncPage />} />
                       <Route path="bookings" element={<AdminBookingsPage />} />
-                      <Route path="builder" element={<AdminPageBuilderPage />} />
-                      <Route path="homepage" element={<Navigate to="/admin/builder" replace />} />
-                      <Route path="brands" element={<AdminBrandsPage />} />
-                      <Route path="pages" element={<AdminPagesPage />} />
-                      <Route path="content" element={<AdminContentListsPage />} />
+                      <Route path="builder" element={<Navigate to="/admin/website" replace />} />
+                      <Route path="homepage" element={<Navigate to="/admin/website" replace />} />
+                      <Route path="brands" element={<Navigate to="/admin/website?panel=brands" replace />} />
+                      <Route path="pages" element={<Navigate to="/admin/website?panel=texts" replace />} />
+                      <Route path="content" element={<Navigate to="/admin/website?panel=lists" replace />} />
                       <Route path="marketing" element={<MarketingOverviewPage />} />
                       <Route path="marketing/announcement" element={<MarketingAnnouncementPage />} />
                       <Route path="marketing/offers" element={<MarketingOffersPage />} />
@@ -132,6 +132,7 @@ export default function App() {
               <SeoManager />
               {previewFrame ? null : <PromoPopup />}
               <WhatsAppFAB />
+            </BuilderProvider>
             </WishlistProvider>
           </ThemeProvider>
           </CurrencyProvider>

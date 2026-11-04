@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ExternalLink, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, MoveButtons, reorderList } from '../../components/admin/AdminUi';
-import { Card, Field, SaveBar, SearchInput, Tabs, Toggle, labelCls, useSiteSection, useToast } from '../../components/admin/kit';
+import { Card, Field, SaveBar, SearchInput, Tabs, Toggle, labelCls, useSiteSection, useToast, useEmbeddedAdmin } from '../../components/admin/kit';
 import CopyFields, { isOverridden, keyLabel } from '../../components/admin/CopyFields';
 import LivePreview from '../../components/admin/LivePreview';
 import { defaultCopy } from '../../context/LocaleContext';
@@ -58,8 +58,9 @@ function setPageValue(pages, path, value) {
 const ALL_KEYS = Object.keys(defaultCopy.en);
 
 function WithPreview({ path, site, children }) {
+  const embedded = useEmbeddedAdmin();
   return (
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className={embedded ? 'grid items-start gap-6' : 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}>
       <div className="min-w-0">{children}</div>
       <div className="hidden min-w-0 xl:sticky xl:top-20 xl:block">
         <LivePreview path={path} site={site} />

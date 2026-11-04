@@ -64,6 +64,7 @@ export default function ContactPage() {
       <main>
         <PageHero
           image={heroImage || undefined}
+          editImage="contact.heroImage"
           eyebrow={t('contact.eyebrow')}
           title={t('contact.title')}
           lede={t('contact.lede')}

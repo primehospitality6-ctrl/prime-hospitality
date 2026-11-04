@@ -133,6 +133,7 @@ export function FaqPage() {
       <main>
         <PageHero
           image={heroImage || undefined}
+          editImage="faq.heroImage"
           eyebrow={t('faq.eyebrow')}
           title={t('faq.title')}
           lede={t('faq.lede')}
@@ -218,7 +219,7 @@ export function AboutPage() {
     <div>
       <Header overHero />
       <main>
-        <PageHero image={images.heroImage || ABOUT_HERO} eyebrow={t('about.eyebrow')} title={t('about.title')} lede={t('about.lede')} />
+        <PageHero image={images.heroImage || ABOUT_HERO} editImage="about.heroImage" eyebrow={t('about.eyebrow')} title={t('about.title')} lede={t('about.lede')} />
 
         <PageBlocks
           page="about"
@@ -242,7 +243,7 @@ export function AboutPage() {
             ),
             wideImage: (
         <Reveal className="prime-container">
-          <div className="relative aspect-[4/5] overflow-hidden bg-prime-mist sm:aspect-[16/9] lg:aspect-[21/9]">
+          <div data-edit-image="page:about.wideImage" className="relative aspect-[4/5] overflow-hidden bg-prime-mist sm:aspect-[16/9] lg:aspect-[21/9]">
             <Img src={images.wideImage || ABOUT_WIDE} alt="" sizes="(min-width: 1360px) 1360px, 100vw" className="h-full w-full object-cover" />
           </div>
         </Reveal>
@@ -251,7 +252,7 @@ export function AboutPage() {
         <section className="prime-section">
           <div className="prime-container grid gap-14 lg:grid-cols-[1fr_1.2fr] lg:gap-24">
             <Reveal className="order-2 lg:order-1">
-              <div className="relative aspect-[4/5] overflow-hidden bg-prime-mist">
+              <div data-edit-image="page:about.portraitImage" className="relative aspect-[4/5] overflow-hidden bg-prime-mist">
                 <Img
                   src={images.portraitImage || ABOUT_PORTRAIT}
                   alt=""

@@ -1,19 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+/**
+ * Shared pieces of the Website Builder: what each page contains, the block types,
+ * and the settings forms shown in the inspector.
+ */
 import {
   AlignVerticalSpaceAround,
   Award,
-  ChevronDown,
-  Copy,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  GripVertical,
   Handshake,
   Image as ImageIcon,
   Images,
   LayoutPanelLeft,
-  Lock,
   MapPin,
   Megaphone,
   MousePointerClick,
@@ -24,18 +19,14 @@ import {
   Trash2,
   Type,
 } from 'lucide-react';
-import api from '../../api/client';
-import { AdminPageHeader, ImageUploadField, MoveButtons, reorderList } from '../../components/admin/AdminUi';
-import { BilingualField, ConfirmDialog, Field, SaveBar, Tabs, Toggle, labelCls, useSiteSection, useToast } from '../../components/admin/kit';
-import CopyFields from '../../components/admin/CopyFields';
-import LivePreview from '../../components/admin/LivePreview';
-import { blockDomId, localText, newBlock, newBlockId, pageBlocks, sectionBlock } from '../../components/pageBuilder/layout';
-import { useSite } from '../../context/SiteContext';
+import { ImageUploadField, MoveButtons, reorderList } from '../admin/AdminUi';
+import { BilingualField, Field, Toggle, labelCls } from '../admin/kit';
+import { localText } from './layout';
 import { cn } from '../../utils/cn';
 
 /* ——— What can be built ——— */
 
-const BLOCK_TYPES = {
+export const BLOCK_TYPES = {
   text: { name: 'Text', about: 'Heading and paragraphs', icon: Type },
   image: { name: 'Photo', about: 'One photo, any size, with a caption', icon: ImageIcon },
   imageText: { name: 'Photo + text', about: 'Photo beside a heading, text and button', icon: LayoutPanelLeft },
@@ -47,7 +38,7 @@ const BLOCK_TYPES = {
 const keysOf = (prefix, ...names) => names.map((n) => `${prefix}.${n}`);
 
 /** Built-in sections of each page: what they are and which texts/photos they use */
-const PAGES = {
+export const PAGES = {
   home: {
     label: 'Homepage',
     path: '/',
@@ -164,7 +155,7 @@ const PAGES = {
 
 /* ——— Small form controls ——— */
 
-function Segmented({ label, value, options, onChange }) {
+export function Segmented({ label, value, options, onChange }) {
   return (
     <div>
       {label ? <span className={labelCls}>{label}</span> : null}
@@ -206,7 +197,7 @@ const ASPECT_OPTIONS = [
   ['3/4', '3:4'],
 ];
 
-function LayoutFields({ block, set }) {
+export function LayoutFields({ block, set }) {
   return (
     <div className="space-y-4 border-t border-prime-line pt-5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-ink">Layout</p>
@@ -283,7 +274,7 @@ function TextFields({ block, set }) {
   );
 }
 
-function BlockFields({ block, set }) {
+export function BlockFields({ block, set }) {
   switch (block.type) {
     case 'text':
       return <TextFields block={block} set={set} />;
@@ -431,7 +422,7 @@ function BlockFields({ block, set }) {
 
 /* ——— Block list ——— */
 
-function blockSummary(block) {
+export function blockSummary(block) {
   const type = BLOCK_TYPES[block.type];
   const text =
     localText(block.title, 'en') ||
@@ -443,7 +434,7 @@ function blockSummary(block) {
   return text.length > 70 ? `${text.slice(0, 70)}…` : text;
 }
 
-function AddMenu({ onAdd, onClose }) {
+export function AddMenu({ onAdd, onClose }) {
   return (
     <div className="grid gap-2 border border-prime-gold bg-prime-surface p-3 sm:grid-cols-2">
       {Object.entries(BLOCK_TYPES).map(([type, info]) => {
@@ -472,312 +463,3 @@ function AddMenu({ onAdd, onClose }) {
   );
 }
 
-function InsertPoint({ open, onOpen, onAdd, onClose }) {
-  if (open) return <li className="bg-prime-mist/50 p-2"><AddMenu onAdd={onAdd} onClose={onClose} /></li>;
-  return (
-    <li className="group relative h-0" aria-hidden={false}>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="absolute inset-x-0 -top-2.5 z-10 mx-auto flex h-5 w-max items-center gap-1 rounded-full border border-prime-gold bg-prime-surface px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-prime-gold-deep opacity-0 shadow-sm transition focus:opacity-100 group-hover:opacity-100"
-      >
-        <Plus size={11} /> Add here
-      </button>
-    </li>
-  );
-}
-
-function Row({ icon: Icon, name, about, hidden, locked, expanded, onToggleOpen, onToggleHidden, onDuplicate, onDelete, move, drag, children }) {
-  return (
-    <li
-      {...drag}
-      className={cn('bg-prime-surface transition', hidden && 'bg-prime-mist/60', expanded && 'ring-1 ring-inset ring-prime-gold', drag?.['data-over'] && 'border-t-2 border-prime-gold')}
-    >
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        {locked ? (
-          <span className="grid w-[76px] place-items-center text-prime-muted" title="Always first">
-            <Lock size={13} />
-          </span>
-        ) : (
-          <div className="flex items-center gap-1">
-            <span className="cursor-grab text-prime-muted active:cursor-grabbing" title="Drag to move">
-              <GripVertical size={16} />
-            </span>
-            {move}
-          </div>
-        )}
-        <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-start" onClick={onToggleOpen}>
-          <span className={cn('grid h-9 w-9 shrink-0 place-items-center border', expanded ? 'border-prime-gold bg-prime-gold/10 text-prime-gold-deep' : 'border-prime-line text-prime-muted')}>
-            <Icon size={16} />
-          </span>
-          <span className="min-w-0">
-            <span className={cn('block text-sm font-semibold', hidden && 'text-prime-muted line-through')}>{name}</span>
-            <span className="block truncate text-xs text-prime-muted">{about}</span>
-          </span>
-        </button>
-        {onDuplicate ? (
-          <button type="button" onClick={onDuplicate} className="grid h-8 w-8 place-items-center border border-prime-line text-prime-muted hover:text-prime-ink" title="Duplicate" aria-label="Duplicate block">
-            <Copy size={13} />
-          </button>
-        ) : null}
-        {onDelete ? (
-          <button type="button" onClick={onDelete} className="grid h-8 w-8 place-items-center border border-prime-line text-red-600 hover:border-red-400" title="Delete" aria-label="Delete block">
-            <Trash2 size={13} />
-          </button>
-        ) : null}
-        {onToggleHidden ? (
-          <button
-            type="button"
-            onClick={onToggleHidden}
-            className={cn('grid h-8 w-8 place-items-center border', hidden ? 'border-dashed border-prime-line text-prime-muted' : 'border-prime-line text-prime-ink hover:border-prime-ink')}
-            title={hidden ? 'Hidden — click to show' : 'Visible — click to hide'}
-            aria-label={hidden ? 'Show block' : 'Hide block'}
-          >
-            {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
-        ) : null}
-        <button type="button" onClick={onToggleOpen} className="grid h-8 w-8 place-items-center text-prime-muted" aria-label={expanded ? 'Collapse' : 'Edit'}>
-          <ChevronDown size={16} className={cn('transition', expanded && 'rotate-180')} />
-        </button>
-      </div>
-      {expanded ? <div className="space-y-5 border-t border-prime-line px-4 py-5">{children}</div> : null}
-    </li>
-  );
-}
-
-/* ——— Page ——— */
-
-const pageImage = (pages, [page, field]) => pages?.[page]?.[field] || '';
-const withPageImage = (pages, [page, field], value) => ({ ...pages, [page]: { ...(pages?.[page] || {}), [field]: value } });
-
-export default function AdminPageBuilderPage() {
-  const toast = useToast();
-  const { replace } = useSite();
-  const { draft, setDraft, dirty, saving, error, save, discard, loaded } = useSiteSection(api, ['layouts', 'home', 'pages', 'copy'], replace);
-  const [page, setPage] = useState('home');
-  const [open, setOpen] = useState('');
-  const [adding, setAdding] = useState(-1);
-  const [focus, setFocus] = useState(null);
-  const [dragFrom, setDragFrom] = useState(-1);
-  const [dragOver, setDragOver] = useState(-1);
-  const [confirmDelete, setConfirmDelete] = useState(null);
-
-  const def = PAGES[page];
-  const blocks = useMemo(() => (draft ? pageBlocks(draft, page) : []), [draft, page]);
-
-  function setBlocks(next) {
-    setDraft((d) => {
-      const layouts = { ...(d.layouts || {}), [page]: { blocks: next } };
-      // Keep the older homepage section list in step with the builder.
-      const home =
-        page === 'home'
-          ? { ...d.home, sections: next.filter((b) => b.type === 'section').map((b) => ({ id: b.key, enabled: !b.hidden })) }
-          : d.home;
-      return { ...d, layouts, home };
-    });
-  }
-
-  const updateBlock = (id, patch) => setBlocks(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-
-  function scrollTo(block) {
-    setFocus({ id: blockDomId(page, block), at: Date.now() });
-  }
-
-  function toggleOpen(block) {
-    const next = open === block.id ? '' : block.id;
-    setOpen(next);
-    if (next && !block.hidden) scrollTo(block);
-  }
-
-  function addBlock(type, at) {
-    const block = newBlock(type);
-    const next = [...blocks];
-    next.splice(at, 0, block);
-    setBlocks(next);
-    setAdding(-1);
-    setOpen(block.id);
-    setTimeout(() => scrollTo(block), 400);
-  }
-
-  function duplicate(index) {
-    const copy = { ...structuredClone(blocks[index]), id: newBlockId() };
-    const next = [...blocks];
-    next.splice(index + 1, 0, copy);
-    setBlocks(next);
-    setOpen(copy.id);
-  }
-
-  function choosePage(id) {
-    setPage(id);
-    setOpen('');
-    setAdding(-1);
-    setFocus(null);
-  }
-
-  function resetPage() {
-    setBlocks((PAGES[page] ? Object.keys(PAGES[page].sections) : []).map((key) => sectionBlock(key)));
-    setOpen('');
-  }
-
-  async function onSave() {
-    if (await save()) toast.success('Published — the website now shows these changes.');
-  }
-
-  const dragProps = (index) => ({
-    draggable: true,
-    onDragStart: (e) => {
-      setDragFrom(index);
-      e.dataTransfer.effectAllowed = 'move';
-    },
-    onDragOver: (e) => {
-      e.preventDefault();
-      if (dragOver !== index) setDragOver(index);
-    },
-    onDragEnd: () => {
-      setDragFrom(-1);
-      setDragOver(-1);
-    },
-    onDrop: (e) => {
-      e.preventDefault();
-      if (dragFrom >= 0 && dragFrom !== index) setBlocks(reorderList(blocks, dragFrom, index));
-      setDragFrom(-1);
-      setDragOver(-1);
-    },
-    'data-over': dragOver === index && dragFrom >= 0 && dragFrom !== index ? true : undefined,
-  });
-
-  const heroEditor = (info) => (
-    <>
-      {info.image ? (
-        <ImageUploadField label="Hero photo" value={pageImage(draft.pages, info.image)} onChange={(v) => setDraft((d) => ({ ...d, pages: withPageImage(d.pages, info.image, v) }))} folder="pages" ratio="16:9" />
-      ) : null}
-      {info.keys?.length ? <CopyFields keys={info.keys} copy={draft.copy} onChange={(copy) => setDraft((d) => ({ ...d, copy }))} /> : null}
-      {info.link ? (
-        <Link to={info.link[0]} className="prime-link inline-flex items-center gap-1 text-xs">
-          {info.link[1]} →
-        </Link>
-      ) : null}
-      {info.keys?.length ? <p className="text-[11px] text-prime-muted">Leave a box empty to keep the built-in wording shown in grey.</p> : null}
-    </>
-  );
-
-  return (
-    <div>
-      <AdminPageHeader
-        title="Page builder"
-        lede="Pick a page, then add, remove, hide and reorder its blocks — drag them or use the arrows. Click a block to edit its text, photos, size and position. The preview updates as you type; nothing goes live until you press Save."
-        actions={
-          <a href={def.path} target="_blank" rel="noreferrer" className="prime-btn-outline">
-            <ExternalLink size={14} /> Open page
-          </a>
-        }
-      />
-      <Tabs tabs={Object.entries(PAGES).map(([id, p]) => [id, p.label])} value={page} onChange={choosePage} />
-      {error ? <p className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      {!loaded ? (
-        <p className="text-sm text-prime-muted">Loading…</p>
-      ) : (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
-          <div className="min-w-0">
-            <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-prime-muted">
-              <span>Blocks, top to bottom</span>
-              <button type="button" onClick={resetPage} className="normal-case tracking-normal underline hover:text-prime-ink">
-                Reset page layout
-              </button>
-            </div>
-            <ol className="divide-y divide-prime-line border border-prime-line">
-              <Row
-                icon={ImageIcon}
-                name={def.hero.name}
-                about={def.hero.about}
-                locked
-                expanded={open === 'hero'}
-                onToggleOpen={() => {
-                  setOpen(open === 'hero' ? '' : 'hero');
-                  setFocus(page === 'home' ? { id: 'home-hero', at: Date.now() } : null);
-                }}
-              >
-                {heroEditor(def.hero)}
-              </Row>
-              {blocks.map((block, index) => {
-                const isSection = block.type === 'section';
-                const info = isSection ? def.sections[block.key] || { name: block.key, about: '', icon: Sparkles, keys: [] } : BLOCK_TYPES[block.type];
-                return [
-                  <InsertPoint
-                    key={`add-${block.id}`}
-                    open={adding === index}
-                    onOpen={() => setAdding(index)}
-                    onClose={() => setAdding(-1)}
-                    onAdd={(type) => addBlock(type, index)}
-                  />,
-                  <Row
-                    key={block.id}
-                    icon={info.icon}
-                    name={isSection ? info.name : `${info.name}`}
-                    about={isSection ? info.about : blockSummary(block)}
-                    hidden={block.hidden}
-                    expanded={open === block.id}
-                    drag={dragProps(index)}
-                    onToggleOpen={() => toggleOpen(block)}
-                    onToggleHidden={() => updateBlock(block.id, { hidden: !block.hidden })}
-                    onDuplicate={isSection ? undefined : () => duplicate(index)}
-                    onDelete={isSection ? undefined : () => setConfirmDelete(block)}
-                    move={
-                      <MoveButtons
-                        disableUp={index === 0}
-                        disableDown={index === blocks.length - 1}
-                        onUp={() => setBlocks(reorderList(blocks, index, index - 1))}
-                        onDown={() => setBlocks(reorderList(blocks, index, index + 1))}
-                      />
-                    }
-                  >
-                    {isSection ? (
-                      <>
-                        <p className="text-xs text-prime-muted">A built-in section. Edit its wording below, hide it with the eye, or move it. Add your own blocks around it.</p>
-                        {heroEditor(info)}
-                      </>
-                    ) : (
-                      <>
-                        <BlockFields block={block} set={(patch) => updateBlock(block.id, patch)} />
-                        <LayoutFields block={block} set={(patch) => updateBlock(block.id, patch)} />
-                      </>
-                    )}
-                  </Row>,
-                ];
-              })}
-            </ol>
-            <div className="mt-3">
-              {adding === blocks.length ? (
-                <AddMenu onAdd={(type) => addBlock(type, blocks.length)} onClose={() => setAdding(-1)} />
-              ) : (
-                <button type="button" className="prime-btn w-full justify-center" onClick={() => setAdding(blocks.length)}>
-                  <Plus size={15} /> Add block
-                </button>
-              )}
-            </div>
-            <p className="mt-3 text-xs text-prime-muted">
-              Hover between two blocks to add one there. The header, footer and announcement bar are shared by every page — edit them under Pages &amp; text and Marketing.
-            </p>
-          </div>
-          <div className="hidden min-w-0 xl:sticky xl:top-20 xl:block">
-            <LivePreview path={def.path} site={{ layouts: draft.layouts, home: draft.home, pages: draft.pages, copy: draft.copy }} focus={focus} />
-          </div>
-        </div>
-      )}
-      <ConfirmDialog
-        open={Boolean(confirmDelete)}
-        title="Delete this block?"
-        message="It is removed from the page when you save. Built-in sections can only be hidden."
-        confirmText="Delete"
-        danger
-        onClose={() => setConfirmDelete(null)}
-        onConfirm={() => {
-          setBlocks(blocks.filter((b) => b.id !== confirmDelete.id));
-          if (open === confirmDelete.id) setOpen('');
-          setConfirmDelete(null);
-        }}
-      />
-      <SaveBar dirty={dirty} saving={saving} onSave={onSave} onDiscard={discard} />
-    </div>
-  );
-}

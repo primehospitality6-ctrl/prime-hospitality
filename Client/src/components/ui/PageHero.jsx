@@ -15,7 +15,7 @@ function Eyebrow({ children, centered }) {
  * Inner-page opener. With `image`, the words sit beside a framed photo (pair with <Header overHero />);
  * without, a typographic header with the page's word as a watermark.
  */
-export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hospitality', align = 'start', children, className }) {
+export default function PageHero({ eyebrow, title, lede, image, editImage, watermark = 'Hospitality', align = 'start', children, className }) {
   const centered = align === 'center';
 
   if (image) {
@@ -38,7 +38,11 @@ export default function PageHero({ eyebrow, title, lede, image, watermark = 'Hos
             ) : null}
             {children}
           </div>
-          <div className="prime-fade-up relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist lg:aspect-[5/6]" style={{ animationDelay: '120ms' }}>
+          <div
+            data-edit-image={editImage ? `page:${editImage}` : undefined}
+            className="prime-fade-up relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist lg:aspect-[5/6]"
+            style={{ animationDelay: '120ms' }}
+          >
             <Img
               src={image}
               alt=""

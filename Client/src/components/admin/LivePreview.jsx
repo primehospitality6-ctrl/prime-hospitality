@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ExternalLink, Monitor, RotateCw, Smartphone } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useEmbeddedAdmin } from './kit';
 
 const DEVICE_WIDTH = { desktop: 1280, mobile: 390 };
 
@@ -31,7 +32,13 @@ function Toggle({ value, onChange, options }) {
  * is pushed into the frame on every change, so edits show before saving.
  * `focus` = { id, at } scrolls the frame to the element with that id and highlights it.
  */
-export default function LivePreview({ path = '/', site, focus, reloadKey = 0, className, height = 'calc(100vh - 8.5rem)' }) {
+export default function LivePreview(props) {
+  // Inside the Website Builder the builder's own preview is already on screen.
+  if (useEmbeddedAdmin()) return null;
+  return <LivePreviewFrame {...props} />;
+}
+
+function LivePreviewFrame({ path = '/', site, focus, reloadKey = 0, className, height = 'calc(100vh - 8.5rem)' }) {
   const frameRef = useRef(null);
   const boxRef = useRef(null);
   const siteRef = useRef(site);

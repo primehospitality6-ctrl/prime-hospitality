@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Images, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, reorderList } from '../../components/admin/AdminUi';
-import { Badge, ConfirmDialog, Drawer, EmptyState, Field, Toggle, useToast } from '../../components/admin/kit';
+import { Badge, ConfirmDialog, Drawer, EmptyState, Field, Toggle, useToast, useEmbeddedAdmin } from '../../components/admin/kit';
 import LivePreview from '../../components/admin/LivePreview';
 import { offerHref, useSite } from '../../context/SiteContext';
 import { cn } from '../../utils/cn';
@@ -110,6 +110,7 @@ function SlideDrawer({ slide, onClose, onSave }) {
 }
 
 export default function AdminSlideshowPage() {
+  const embedded = useEmbeddedAdmin();
   const toast = useToast();
   const [items, setItems] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -192,7 +193,7 @@ export default function AdminSlideshowPage() {
       {!items ? (
         <p className="text-sm text-prime-muted">Loading…</p>
       ) : (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
+        <div className={embedded ? 'grid items-start gap-6' : 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,520px)]'}>
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-prime-muted">
               <Badge tone={shown ? 'green' : 'red'}>{shown} showing</Badge>

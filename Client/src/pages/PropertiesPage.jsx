@@ -154,6 +154,7 @@ export default function PropertiesPage() {
       <main>
         <PageHero
           image={site.pages?.compounds?.heroImage || HERO}
+          editImage="compounds.heroImage"
           eyebrow={t('home.brandsEyebrow')}
           title={t('properties.title')}
           lede={t('properties.lede')}

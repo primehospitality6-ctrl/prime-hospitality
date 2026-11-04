@@ -320,6 +320,10 @@ export function SaveBar({ dirty, saving, onSave, onDiscard, message = 'Unsaved c
 }
 
 /** Load a whole site section, edit a draft, save it back — shared by the Website/Marketing/Settings pages */
+/** True when an admin screen is shown inside the Website Builder's drawer (its own preview is hidden there). */
+export const EmbeddedAdminContext = createContext(false);
+export const useEmbeddedAdmin = () => useContext(EmbeddedAdminContext);
+
 export function useSiteSection(api, sectionKeys, onSaved) {
   const keys = Array.isArray(sectionKeys) ? sectionKeys : [sectionKeys];
   const [saved, setSaved] = useState(null);
@@ -327,6 +331,7 @@ export function useSiteSection(api, sectionKeys, onSaved) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const keyStr = keys.join(',');
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     api
@@ -337,7 +342,7 @@ export function useSiteSection(api, sectionKeys, onSaved) {
         setDraft(structuredClone(picked));
       })
       .catch((err) => setError(err.message));
-  }, [api, keyStr]);
+  }, [api, keyStr, version]);
 
   const dirty = saved != null && JSON.stringify(saved) !== JSON.stringify(draft);
 
@@ -363,5 +368,8 @@ export function useSiteSection(api, sectionKeys, onSaved) {
     setDraft(structuredClone(saved));
   }
 
-  return { draft, setDraft, dirty, saving, error, save, discard, loaded: draft != null };
+  /** Load the saved version again (after another screen saved the same sections). */
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+
+  return { draft, setDraft, dirty, saving, error, save, discard, reload, loaded: draft != null };
 }

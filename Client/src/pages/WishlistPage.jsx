@@ -40,6 +40,7 @@ export default function WishlistPage() {
       <main>
         <PageHero
           image={heroImage || undefined}
+          editImage="wishlist.heroImage"
           eyebrow={t('wishlist.eyebrow')}
           title={t('wishlist.title')}
           lede={t('wishlist.lede')}

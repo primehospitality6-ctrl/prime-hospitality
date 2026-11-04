@@ -154,7 +154,7 @@ function Hero() {
   const SlideLink = external ? 'a' : Link;
 
   return (
-    <section className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-brand-black text-white">
+    <section data-edit-image="slideshow" className="relative isolate flex min-h-vh-100 flex-col overflow-hidden bg-brand-black text-white">
       <div className="absolute inset-0 -z-10" aria-hidden>
         {images.map((src, i) => {
           if (i !== index && i !== prev && i !== next) return null;

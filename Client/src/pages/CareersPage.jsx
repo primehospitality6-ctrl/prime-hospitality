@@ -19,7 +19,7 @@ export default function CareersPage() {
     <div>
       <Header overHero />
       <main>
-        <PageHero image={careers.heroImage || HERO} eyebrow={t('careers.eyebrow')} title={t('careers.title')} lede={t('careers.lede')} />
+        <PageHero image={careers.heroImage || HERO} editImage="careers.heroImage" eyebrow={t('careers.eyebrow')} title={t('careers.title')} lede={t('careers.lede')} />
         <PageBlocks
           page="careers"
           sections={{

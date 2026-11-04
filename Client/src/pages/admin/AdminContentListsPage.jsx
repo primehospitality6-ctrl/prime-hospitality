@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, Copy, Lightbulb, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/client';
 import { AdminPageHeader, ImageUploadField, MoveButtons, reorderList } from '../../components/admin/AdminUi';
-import { Badge, BilingualField, Card, Field, SaveBar, Tabs, useToast } from '../../components/admin/kit';
+import { Badge, BilingualField, Card, Field, SaveBar, Tabs, useToast, useEmbeddedAdmin } from '../../components/admin/kit';
 import LivePreview from '../../components/admin/LivePreview';
 import { cn } from '../../utils/cn';
 
@@ -160,6 +160,7 @@ function Suggestions({ items, onAdd }) {
 }
 
 export default function AdminContentListsPage() {
+  const embedded = useEmbeddedAdmin();
   const toast = useToast();
   const [tab, setTab] = useState('faqs');
   const [saved, setSaved] = useState(null);
@@ -236,7 +237,7 @@ export default function AdminContentListsPage() {
       {!draft ? (
         <p className="text-sm text-prime-muted">Loading…</p>
       ) : (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className={embedded ? 'grid items-start gap-6' : 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}>
           <Card
             className="min-w-0"
             title={info.title}

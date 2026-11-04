@@ -51,7 +51,7 @@ export default function BecomeAHostPage() {
     <div>
       <Header overHero />
       <main>
-        <PageHero image={images.heroImage || HERO} eyebrow={t('owners.eyebrow')} title={t('owners.title')} lede={t('owners.lede')}>
+        <PageHero image={images.heroImage || HERO} editImage="owners.heroImage" eyebrow={t('owners.eyebrow')} title={t('owners.title')} lede={t('owners.lede')}>
           <a href="#inquiry" className="prime-btn-ghost prime-fade-up mt-10" style={{ animationDelay: '240ms' }}>
             {t('owners.cta')}
           </a>
@@ -89,7 +89,7 @@ export default function BecomeAHostPage() {
         <section id="inquiry" className="scroll-mt-[var(--prime-header-h)] bg-prime-mist">
           <div className="grid lg:grid-cols-2">
             <div className="relative hidden min-h-[640px] lg:block">
-              <Img src={images.sideImage || SIDE} alt="" sizes="50vw" className="absolute inset-0 h-full w-full object-cover" />
+              <Img data-edit-image="page:owners.sideImage" src={images.sideImage || SIDE} alt="" sizes="50vw" className="absolute inset-0 h-full w-full object-cover" />
             </div>
             <div className="px-5 py-20 sm:px-8 md:py-28 lg:px-16 xl:px-24">
               {sent ? (
