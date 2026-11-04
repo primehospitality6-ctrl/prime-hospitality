@@ -43,21 +43,52 @@ function CurrencySelect({ className }) {
   );
 }
 
-function ThemeToggle() {
+/** iPhone-style switch: off = light mode, on = dark mode. The knob stretches while pressed, like iOS. */
+function ThemeToggle({ onDark = false }) {
   const { isDark, toggleTheme } = useTheme();
   const { t } = useLocale();
-  const iconCls = 'absolute inset-0 m-auto transition-all duration-500 ease-prime';
+  const iconCls = 'absolute inset-0 m-auto transition-all duration-300 ease-prime';
   return (
     <button
       type="button"
-      aria-pressed={isDark}
-      aria-label={t(isDark ? 'a11y.toLight' : 'a11y.toDark')}
-      title={t(isDark ? 'a11y.lightMode' : 'a11y.darkMode')}
+      role="switch"
+      aria-checked={isDark}
+      aria-label={t('a11y.darkMode')}
+      title={t(isDark ? 'a11y.toLight' : 'a11y.toDark')}
       onClick={toggleTheme}
-      className="prime-tap relative inline-flex h-11 w-11 shrink-0 items-center justify-center opacity-85 transition-opacity hover:opacity-100"
+      className="prime-tap group inline-flex h-11 shrink-0 items-center px-1 focus-visible:outline-none"
     >
-      <Sun size={18} strokeWidth={1.5} className={cn(iconCls, isDark ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-50 opacity-0')} />
-      <Moon size={17} strokeWidth={1.5} className={cn(iconCls, isDark ? 'rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100')} />
+      <span
+        aria-hidden
+        className={cn(
+          'relative block h-[31px] w-[51px] rounded-full transition-colors duration-300 ease-prime',
+          'group-focus-visible:ring-2 group-focus-visible:ring-prime-gold group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-transparent',
+          isDark && 'bg-brand-gold'
+        )}
+        // Off: a tint of the header's own text colour, so it reads on light, dark and photo headers alike
+        style={isDark ? undefined : { backgroundColor: `color-mix(in srgb, currentColor ${onDark ? 30 : 18}%, transparent)` }}
+      >
+        <span
+          className={cn(
+            'absolute top-[2px] h-[27px] w-[27px] rounded-full bg-[#fff] text-brand-black',
+            'shadow-[0_3px_8px_rgba(0,0,0,0.15),0_3px_1px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]',
+            'transition-[inset-inline-start,width] duration-300 ease-[cubic-bezier(0.3,1.25,0.5,1)]',
+            'group-active:w-[33px]',
+            isDark ? 'start-[calc(100%-29px)] group-active:start-[calc(100%-35px)]' : 'start-[2px]'
+          )}
+        >
+          <Sun
+            size={14}
+            strokeWidth={2}
+            className={cn(iconCls, 'text-brand-gold', isDark ? '-rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100')}
+          />
+          <Moon
+            size={13}
+            strokeWidth={2}
+            className={cn(iconCls, 'text-brand-gold', isDark ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-50 opacity-0')}
+          />
+        </span>
+      </span>
     </button>
   );
 }
@@ -243,7 +274,7 @@ export default function Header({ overHero = false, heroTone = 'theme' }) {
             >
               {locale === 'en' ? 'عربي' : 'EN'}
             </button>
-            <ThemeToggle />
+            <ThemeToggle onDark={onDark} />
             <Link
               to="/wishlist"
               className="relative inline-flex h-11 w-11 items-center justify-center opacity-85 transition-opacity hover:opacity-100"
