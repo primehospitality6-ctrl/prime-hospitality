@@ -55,7 +55,7 @@ const NAV_SECTIONS = [
     id: 'website',
     label: 'Website',
     items: [
-      { to: '/admin/homepage', label: 'Homepage', icon: LayoutTemplate },
+      { to: '/admin/builder', label: 'Page builder', icon: LayoutTemplate },
       { to: '/admin/brands', label: 'Brands', icon: Palette },
       { to: '/admin/slideshow', label: 'Hero slideshow', icon: ImageIcon },
       { to: '/admin/pages', label: 'Pages & text', icon: FileText },

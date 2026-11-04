@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PageBlocks from '../components/pageBuilder/Blocks';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import PageHero from '../components/ui/PageHero';
@@ -55,6 +56,11 @@ export default function BecomeAHostPage() {
             {t('owners.cta')}
           </a>
         </PageHero>
+        <PageBlocks
+          page="owners"
+          sections={{
+            main: (
+              <>
 
         <section className="prime-section">
           <div className="prime-container">
@@ -134,6 +140,10 @@ export default function BecomeAHostPage() {
             </div>
           </div>
         </section>
+              </>
+            ),
+          }}
+        />
       </main>
       <Footer />
     </div>

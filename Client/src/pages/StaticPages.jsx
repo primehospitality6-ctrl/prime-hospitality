@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PageBlocks from '../components/pageBuilder/Blocks';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import Header from '../components/layout/Header';
@@ -136,6 +137,11 @@ export function FaqPage() {
           title={t('faq.title')}
           lede={t('faq.lede')}
         />
+        <PageBlocks
+          page="faq"
+          sections={{
+            main: (
+              <>
         <section className="prime-container grid gap-14 pb-28 lg:grid-cols-[0.8fr_1.6fr] lg:gap-24">
           <aside className="lg:sticky lg:top-[calc(var(--prime-header-h)+2rem)] lg:self-start">
             <div className="bg-prime-mist p-8 md:p-10">
@@ -157,6 +163,10 @@ export function FaqPage() {
             ))}
           </div>
         </section>
+              </>
+            ),
+          }}
+        />
       </main>
       <Footer />
     </div>
@@ -210,6 +220,10 @@ export function AboutPage() {
       <main>
         <PageHero image={images.heroImage || ABOUT_HERO} eyebrow={t('about.eyebrow')} title={t('about.title')} lede={t('about.lede')} />
 
+        <PageBlocks
+          page="about"
+          sections={{
+            story: (
         <section className="prime-section">
           <div className="prime-container grid gap-12 lg:grid-cols-2 lg:gap-24">
             <Reveal>
@@ -225,13 +239,15 @@ export function AboutPage() {
             </Reveal>
           </div>
         </section>
-
+            ),
+            wideImage: (
         <Reveal className="prime-container">
           <div className="relative aspect-[4/5] overflow-hidden bg-prime-mist sm:aspect-[16/9] lg:aspect-[21/9]">
             <Img src={images.wideImage || ABOUT_WIDE} alt="" sizes="(min-width: 1360px) 1360px, 100vw" className="h-full w-full object-cover" />
           </div>
         </Reveal>
-
+            ),
+            values: (
         <section className="prime-section">
           <div className="prime-container grid gap-14 lg:grid-cols-[1fr_1.2fr] lg:gap-24">
             <Reveal className="order-2 lg:order-1">
@@ -270,9 +286,9 @@ export function AboutPage() {
             </div>
           </div>
         </section>
-
-        <BrandsSection />
-
+            ),
+            brands: BrandsSection,
+            cta: (
         <section className="prime-section text-center">
           <Reveal className="prime-container max-w-3xl">
             <h2 className="font-display text-display-lg font-medium text-prime-ink text-balance">{t('about.ctaTitle')}</h2>
@@ -287,6 +303,9 @@ export function AboutPage() {
             </div>
           </Reveal>
         </section>
+            ),
+          }}
+        />
       </main>
       <Footer />
     </div>

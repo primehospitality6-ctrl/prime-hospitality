@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PageBlocks from '../components/pageBuilder/Blocks';
 import { ArrowUpRight } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -67,6 +68,11 @@ export default function ContactPage() {
           title={t('contact.title')}
           lede={t('contact.lede')}
         />
+        <PageBlocks
+          page="contact"
+          sections={{
+            main: (
+              <>
 
         <section className="prime-container grid gap-16 pb-28 lg:grid-cols-[0.9fr_1.1fr] lg:gap-24">
           <Reveal as="ul" className="border-t border-prime-line">
@@ -155,6 +161,10 @@ export default function ContactPage() {
             )}
           </Reveal>
         </section>
+              </>
+            ),
+          }}
+        />
       </main>
       <Footer />
     </div>

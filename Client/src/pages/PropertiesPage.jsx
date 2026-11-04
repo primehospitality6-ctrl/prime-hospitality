@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PageBlocks from '../components/pageBuilder/Blocks';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import Header from '../components/layout/Header';
@@ -157,6 +158,11 @@ export default function PropertiesPage() {
           title={t('properties.title')}
           lede={t('properties.lede')}
         />
+        <PageBlocks
+          page="compounds"
+          sections={{
+            main: (
+              <>
 
         <div className="sticky top-[var(--prime-header-h)] z-30 border-b border-prime-line bg-prime-sand/95 backdrop-blur-md">
           <div className="prime-container flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
@@ -208,6 +214,10 @@ export default function PropertiesPage() {
             </div>
           )}
         </div>
+              </>
+            ),
+          }}
+        />
       </main>
       <Footer />
     </div>

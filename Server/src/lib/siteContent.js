@@ -12,7 +12,21 @@ const TONES = ['night', 'gold', 'sand'];
 const POPUP_TRIGGERS = ['delay', 'scroll'];
 const POPUP_PAGES = ['all', 'home', 'listings', 'search'];
 const POPUP_FREQUENCIES = [0, 1, 7, 30];
-const SECTIONS = ['business', 'brands', 'announcement', 'popup', 'offers', 'home', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+const SECTIONS = ['business', 'brands', 'announcement', 'popup', 'offers', 'home', 'layouts', 'pages', 'copy', 'seo', 'tracking', 'campaigns'];
+
+/* ——— Page builder: each page is a stack of blocks (its built-in sections plus custom blocks) ——— */
+const LAYOUT_BUILTINS = {
+  home: HOME_SECTIONS,
+  about: ['story', 'wideImage', 'values', 'brands', 'cta'],
+  compounds: ['main'],
+  contact: ['main'],
+  faq: ['main'],
+  owners: ['main'],
+  careers: ['main'],
+};
+const BLOCK_TYPES = ['text', 'image', 'imageText', 'gallery', 'buttons', 'spacer'];
+const MAX_BLOCKS = 60;
+const ASPECTS = ['auto', '21/9', '16/9', '4/3', '1/1', '4/5', '3/4'];
 const MAX_OFFERS = 30;
 const MAX_CONTACT_NUMBERS = 10;
 const MAX_BRANDS = 12;
@@ -55,6 +69,105 @@ function date(value) {
 function localized(value, max) {
   const src = value && typeof value === 'object' ? value : {};
   return Object.fromEntries(LOCALES.map((l) => [l, str(src[l], max)]));
+}
+
+/** Multi-line English + Arabic text (paragraphs kept) */
+function localizedText(value, max = 6000) {
+  const src = value && typeof value === 'object' ? value : {};
+  return Object.fromEntries(LOCALES.map((l) => [l, text(src[l], max)]));
+}
+
+const oneOf = (value, list, fallback) => (list.includes(value) ? value : fallback);
+
+function layoutBlock(b, builtins) {
+  if (!b || typeof b !== 'object') return null;
+  const id = str(b.id, 40);
+  if (!/^[\w-]{1,40}$/.test(id)) return null;
+  const hidden = b.hidden === true;
+  if (b.type === 'section') return builtins.includes(b.key) ? { id: `section-${b.key}`, type: 'section', key: b.key, hidden } : null;
+  if (!BLOCK_TYPES.includes(b.type)) return null;
+  const base = {
+    id,
+    type: b.type,
+    hidden,
+    width: oneOf(b.width, ['narrow', 'normal', 'wide', 'full'], 'normal'),
+    align: oneOf(b.align, ['start', 'center', 'end'], 'start'),
+    background: oneOf(b.background, ['none', 'mist', 'band', 'gold'], 'none'),
+    spacing: oneOf(b.spacing, ['none', 'sm', 'md', 'lg'], 'md'),
+  };
+  const image = () => ({ src: link(b.src), alt: localized(b.alt, 200), aspect: oneOf(b.aspect, ASPECTS, 'auto') });
+  switch (b.type) {
+    case 'text':
+      return {
+        ...base,
+        eyebrow: localized(b.eyebrow, 120),
+        title: localized(b.title, 300),
+        body: localizedText(b.body),
+        titleSize: oneOf(b.titleSize, ['sm', 'md', 'lg', 'xl'], 'md'),
+      };
+    case 'image':
+      return {
+        ...base,
+        ...image(),
+        caption: localized(b.caption, 300),
+        size: Math.min(100, Math.max(20, Math.round(Number(b.size) || 100))),
+        rounded: b.rounded === true,
+        href: link(b.href),
+      };
+    case 'imageText':
+      return {
+        ...base,
+        ...image(),
+        eyebrow: localized(b.eyebrow, 120),
+        title: localized(b.title, 300),
+        body: localizedText(b.body),
+        buttonLabel: localized(b.buttonLabel, 60),
+        buttonHref: link(b.buttonHref),
+        imageSide: oneOf(b.imageSide, ['start', 'end'], 'start'),
+        imageShare: oneOf(Number(b.imageShare), [40, 50, 60], 50),
+        rounded: b.rounded === true,
+      };
+    case 'gallery':
+      return {
+        ...base,
+        images: (Array.isArray(b.images) ? b.images : [])
+          .map((img) => ({ src: link(img?.src), alt: localized(img?.alt, 200) }))
+          .filter((img) => img.src)
+          .slice(0, 24),
+        columns: oneOf(Number(b.columns), [2, 3, 4], 3),
+        aspect: oneOf(b.aspect, ASPECTS, '4/3'),
+        rounded: b.rounded === true,
+      };
+    case 'buttons':
+      return {
+        ...base,
+        items: (Array.isArray(b.items) ? b.items : [])
+          .map((item) => ({ label: localized(item?.label, 60), href: link(item?.href), style: oneOf(item?.style, ['solid', 'outline'], 'solid') }))
+          .filter((item) => item.href && (item.label.en || item.label.ar))
+          .slice(0, 3),
+      };
+    case 'spacer':
+      return { ...base, height: oneOf(b.height, ['sm', 'md', 'lg', 'xl'], 'md'), line: b.line === true };
+    default:
+      return null;
+  }
+}
+
+/** Every built-in section stays in the list (new ones are appended), so nothing can be lost — only hidden. */
+function layoutPage(value, builtins) {
+  const seen = new Set();
+  const blocks = [];
+  for (const raw of Array.isArray(value?.blocks) ? value.blocks : []) {
+    if (blocks.length >= MAX_BLOCKS) break;
+    const block = layoutBlock(raw, builtins);
+    if (!block || seen.has(block.id)) continue;
+    seen.add(block.id);
+    blocks.push(block);
+  }
+  for (const key of builtins) {
+    if (!seen.has(`section-${key}`)) blocks.push({ id: `section-${key}`, type: 'section', key, hidden: false });
+  }
+  return { blocks };
 }
 
 /** {guests} is replaced with the unit's maximum guests on each stay page */
@@ -224,6 +337,7 @@ function defaultSite() {
     },
     offers: { items: [] },
     home: { sections: HOME_SECTIONS.map((id) => ({ id, enabled: true })) },
+    layouts: {},
     pages: {
       about: { heroImage: '', wideImage: '', portraitImage: '' },
       careers: {
@@ -393,6 +507,10 @@ const sanitizers = {
     return { sections };
   },
 
+  layouts(v = {}) {
+    return Object.fromEntries(Object.entries(LAYOUT_BUILTINS).map(([page, builtins]) => [page, layoutPage(v[page], builtins)]));
+  },
+
   pages(v = {}) {
     const base = defaultSite().pages;
     const about = v.about || {};
@@ -468,7 +586,14 @@ function normalizeSite(stored) {
   const base = defaultSite();
   const src = stored && typeof stored === 'object' ? stored : {};
   const out = {};
-  for (const key of SECTIONS) out[key] = sanitizers[key]({ ...base[key], ...(src[key] || {}) });
+  for (const key of SECTIONS) {
+    let value = { ...base[key], ...(src[key] || {}) };
+    // Sites saved before the page builder: the homepage keeps its section order and hidden sections.
+    if (key === 'layouts' && !src.layouts?.home) {
+      value = { ...value, home: { blocks: out.home.sections.map((x) => ({ id: `section-${x.id}`, type: 'section', key: x.id, hidden: !x.enabled })) } };
+    }
+    out[key] = sanitizers[key](value);
+  }
   out.updatedAt = str(src.updatedAt, 40);
   return out;
 }
@@ -477,7 +602,10 @@ function normalizeSite(stored) {
 function mergeSite(current, patch = {}) {
   const next = normalizeSite(current);
   for (const key of SECTIONS) {
-    if (patch[key] !== undefined) next[key] = sanitizers[key](patch[key]);
+    if (patch[key] === undefined) continue;
+    // Page layouts merge per page, so saving one page never resets the others.
+    const value = key === 'layouts' && patch.layouts && typeof patch.layouts === 'object' ? { ...next.layouts, ...patch.layouts } : patch[key];
+    next[key] = sanitizers[key](value);
   }
   next.updatedAt = new Date().toISOString();
   return next;

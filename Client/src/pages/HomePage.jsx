@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import PageBlocks from '../components/pageBuilder/Blocks';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import Header from '../components/layout/Header';
@@ -16,7 +17,6 @@ import Wordmark from '../components/ui/Wordmark';
 import api from '../api/client';
 import { brand } from '../theme/brand';
 import { useLocale } from '../context/LocaleContext';
-import { useSite } from '../context/SiteContext';
 import { sizedSrc, srcSetFor } from '../utils/img';
 import { cn } from '../utils/cn';
 import BrandLogo from '../components/ui/BrandLogo';
@@ -414,8 +414,6 @@ const SECTIONS = {
 };
 
 export default function HomePage() {
-  const { site } = useSite();
-
   return (
     <div>
       <IntroCurtain />
@@ -425,15 +423,7 @@ export default function HomePage() {
           <Hero />
         </div>
         <DestinationMarquee />
-        {(site.home?.sections || []).map(({ id, enabled }) => {
-          if (!enabled) return null;
-          const Section = SECTIONS[id];
-          return Section ? (
-            <div key={id} id={`home-${id}`}>
-              <Section />
-            </div>
-          ) : null;
-        })}
+        <PageBlocks page="home" sections={SECTIONS} />
       </main>
       <Footer />
     </div>

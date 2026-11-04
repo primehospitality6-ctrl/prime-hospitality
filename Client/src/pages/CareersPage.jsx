@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import PageBlocks from '../components/pageBuilder/Blocks';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import PageHero from '../components/ui/PageHero';
@@ -19,6 +20,11 @@ export default function CareersPage() {
       <Header overHero />
       <main>
         <PageHero image={careers.heroImage || HERO} eyebrow={t('careers.eyebrow')} title={t('careers.title')} lede={t('careers.lede')} />
+        <PageBlocks
+          page="careers"
+          sections={{
+            main: (
+              <>
 
         <section className="prime-section">
           <div className="prime-container grid gap-14 lg:grid-cols-[0.8fr_1.6fr] lg:gap-24">
@@ -52,6 +58,10 @@ export default function CareersPage() {
             </ul>
           </div>
         </section>
+              </>
+            ),
+          }}
+        />
       </main>
       <Footer />
     </div>

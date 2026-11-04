@@ -7,7 +7,7 @@ import { Card } from '../../components/admin/kit';
 import { activeAnnouncement } from '../../context/SiteContext';
 
 const QUICK_LINKS = [
-  { to: '/admin/homepage', label: 'Edit homepage', icon: Home },
+  { to: '/admin/builder', label: 'Edit pages', icon: Home },
   { to: '/admin/pages', label: 'Pages & text', icon: FileText },
   { to: '/admin/marketing', label: 'Marketing', icon: Megaphone },
   { to: '/admin/settings', label: 'Business info', icon: Store },
