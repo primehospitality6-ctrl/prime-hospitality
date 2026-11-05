@@ -114,11 +114,13 @@
         if (res.success === true || res.success === 'true') return done();
 
         setBusy(false);
-        var msg = (res.data && (res.data.message || res.data['txn_response_code'])) ||
+        var msg = (res.data && (res.data.message || res.data.txn_response_code)) ||
           res.detail || res.message || '';
-        showError(msg && msg !== 'Approved'
-          ? 'Payment was declined: ' + msg
-          : 'Payment was not completed. Please check your card details or try another card.');
+        if (msg && msg !== 'Approved') {
+          showError('Payment was declined: ' + msg);
+        } else {
+          showError('Payment was not completed. Please check your card details or try another card.');
+        }
       })
       .catch(function () {
         setBusy(false);
