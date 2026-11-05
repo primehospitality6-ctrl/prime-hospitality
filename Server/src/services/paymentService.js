@@ -15,10 +15,21 @@ const PAYMOB_BASE = process.env.PAYMOB_BASE_URL || 'https://accept.paymob.com/ap
 /** Rates on the website are USD. Paymob's charge is always EGP. */
 const SITE_CURRENCY = 'USD';
 
+const envSet = (name) => Boolean(String(process.env[name] || '').trim());
+const env = (name) => String(process.env[name] || '').trim();
+
+/** New Paymob checkout (Intention API): needs the secret + public keys, no iframe. */
+function isPaymobCheckoutConfigured() {
+  return ['PAYMOB_SECRET_KEY', 'PAYMOB_PUBLIC_KEY', 'PAYMOB_INTEGRATION_ID'].every(envSet);
+}
+
+/** Older Paymob iframe flow. */
+function isPaymobIframeConfigured() {
+  return ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].every(envSet);
+}
+
 function isPaymobConfigured() {
-  return ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].every((name) =>
-    Boolean(String(process.env[name] || '').trim())
-  );
+  return isPaymobCheckoutConfigured() || isPaymobIframeConfigured();
 }
 
 function isStripeConfigured() {
@@ -116,12 +127,98 @@ async function paymobAuthToken() {
   return data.token;
 }
 
+function paymobBilling(billing = {}) {
+  const nameParts = String(billing.name || 'Guest').trim().split(/\s+/);
+  return {
+    apartment: 'NA',
+    email: billing.email || 'guest@primehospitality.com',
+    floor: 'NA',
+    first_name: nameParts[0] || 'Guest',
+    street: 'NA',
+    building: 'NA',
+    phone_number: billing.phone || '+200000000000',
+    shipping_method: 'NA',
+    postal_code: 'NA',
+    city: 'Cairo',
+    country: 'EG',
+    last_name: nameParts.slice(1).join(' ') || 'Prime',
+    state: 'NA',
+  };
+}
+
+/** Public address of this API, for Paymob's callbacks. Render sets RENDER_EXTERNAL_URL itself. */
+function publicApiUrl() {
+  return (env('PUBLIC_API_URL') || env('RENDER_EXTERNAL_URL')).replace(/\/$/, '');
+}
+
+/**
+ * Paymob's current checkout. Creates a payment intention and returns the
+ * Unified Checkout page, which our popup shows in its frame. No iframe ID needed.
+ */
+async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing }) {
+  const priced = await amountForPaymob(amount, currency);
+  const amountCents = Math.round(Number(priced.chargeAmount) * 100);
+  const integrationIds = env('PAYMOB_INTEGRATION_ID')
+    .split(',')
+    .map((v) => Number(v.trim()))
+    .filter(Boolean);
+  const api = publicApiUrl();
+  const base = PAYMOB_BASE.replace(/\/api\/?$/, '');
+
+  const res = await requestJson(
+    'POST',
+    `${base}/v1/intention/`,
+    {
+      amount: amountCents,
+      currency: priced.chargeCurrency,
+      payment_methods: integrationIds,
+      items: [{ name: 'Stay booking', amount: amountCents, description: merchantOrderId, quantity: 1 }],
+      billing_data: paymobBilling(billing),
+      special_reference: merchantOrderId,
+      expiration: 3600,
+      ...(api
+        ? {
+            notification_url: `${api}/api/webhooks/paymob`,
+            redirection_url: `${api}/api/webhooks/paymob/response`,
+          }
+        : {}),
+    },
+    { Authorization: `Token ${env('PAYMOB_SECRET_KEY')}` }
+  );
+  if (res.status >= 400 || !res.data?.client_secret) {
+    throw new Error(`Paymob intention failed: ${JSON.stringify(res.data)}`);
+  }
+
+  const iframeSrc = `${base}/unifiedcheckout/?publicKey=${encodeURIComponent(env('PAYMOB_PUBLIC_KEY'))}&clientSecret=${encodeURIComponent(res.data.client_secret)}`;
+  return {
+    provider: 'paymob',
+    mode: 'embedded_iframe',
+    amountCents,
+    currency: priced.chargeCurrency,
+    displayAmount: priced.displayAmount,
+    displayCurrency: priced.displayCurrency,
+    chargeAmount: priced.chargeAmount,
+    chargeCurrency: priced.chargeCurrency,
+    fxRate: priced.fxRate,
+    converted: priced.converted,
+    merchantOrderId,
+    providerOrderId: String(res.data.intention_order_id || res.data.id || ''),
+    iframeSrc,
+    redirectForbidden: true,
+  };
+}
+
 async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing }) {
+  if (isPaymobCheckoutConfigured()) {
+    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing });
+  }
   const missing = ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].filter(
     (name) => !String(process.env[name] || '').trim()
   );
   if (missing.length) {
-    console.error(`[paymob] cannot start a card payment: ${missing.join(', ')} not set`);
+    console.error(
+      `[paymob] cannot start a card payment: set PAYMOB_SECRET_KEY + PAYMOB_PUBLIC_KEY + PAYMOB_INTEGRATION_ID (or ${missing.join(', ')})`
+    );
     const err = new Error('Card payment is not set up yet. Please try again later.');
     err.status = 503;
     throw err;
@@ -142,30 +239,12 @@ async function initializePaymobEmbedded({ amount, currency, merchantOrderId, bil
     throw new Error(`Paymob order failed: ${JSON.stringify(orderRes.data)}`);
   }
 
-  const nameParts = String(billing.name || 'Guest').trim().split(/\s+/);
-  const firstName = nameParts[0] || 'Guest';
-  const lastName = nameParts.slice(1).join(' ') || 'Prime';
-
   const keyRes = await requestJson('POST', `${PAYMOB_BASE}/acceptance/payment_keys`, {
     auth_token: token,
     amount_cents: amountCents,
     expiration: 3600,
     order_id: orderRes.data.id,
-    billing_data: {
-      apartment: 'NA',
-      email: billing.email || 'guest@primehospitality.com',
-      floor: 'NA',
-      first_name: firstName,
-      street: 'NA',
-      building: 'NA',
-      phone_number: billing.phone || '+200000000000',
-      shipping_method: 'NA',
-      postal_code: 'NA',
-      city: 'Cairo',
-      country: 'EG',
-      last_name: lastName,
-      state: 'NA',
-    },
+    billing_data: paymobBilling(billing),
     currency: priced.chargeCurrency,
     integration_id: Number(String(process.env.PAYMOB_INTEGRATION_ID).trim()),
   });
@@ -363,6 +442,7 @@ function verifyPaymobHmac(obj, receivedHmac) {
 module.exports = {
   activeProvider,
   isPaymobConfigured,
+  isPaymobCheckoutConfigured,
   isStripeConfigured,
   createPaymentSession,
   verifyPaymobHmac,
