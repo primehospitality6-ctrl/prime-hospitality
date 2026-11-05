@@ -1,0 +1,60 @@
+<div class="pp">
+  <div class="pp-card" id="ppCard" aria-hidden="true">
+    <div class="pp-face pp-front">
+      <div class="pp-row">
+        <span class="pp-logo">PRIME</span>
+        <span class="pp-brand" id="ppBrand"></span>
+      </div>
+      <div class="pp-chip"></div>
+      <div class="pp-num" id="ppNum">•••• •••• •••• ••••</div>
+      <div class="pp-row pp-meta">
+        <div><small>Card holder</small><span id="ppName">YOUR NAME</span></div>
+        <div><small>Expires</small><span id="ppExp">MM/YY</span></div>
+      </div>
+    </div>
+    <div class="pp-face pp-back">
+      <div class="pp-stripe"></div>
+      <div class="pp-cvv"><span id="ppCvv">•••</span></div>
+      <p class="pp-note">Secured by Paymob</p>
+    </div>
+  </div>
+
+  <form class="pp-form" id="ppForm" novalidate autocomplete="on">
+    <label class="pp-field">
+      <span>Card number</span>
+      <input id="fNum" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="23" required />
+    </label>
+    <label class="pp-field">
+      <span>Name on card</span>
+      <input id="fName" autocomplete="cc-name" placeholder="As written on the card" maxlength="60" required />
+    </label>
+    <div class="pp-two">
+      <label class="pp-field">
+        <span>Expiry</span>
+        <input id="fExp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM / YY" maxlength="7" required />
+      </label>
+      <label class="pp-field">
+        <span>CVV</span>
+        <input id="fCvv" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required />
+      </label>
+    </div>
+
+    <p class="pp-error" id="ppError" role="alert"></p>
+
+    <button type="submit" class="pp-pay" id="ppPay">
+      <span class="pp-pay-label">Pay securely</span>
+      <span class="pp-spin" aria-hidden="true"></span>
+    </button>
+
+    <p class="pp-secure">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 1 4 4.5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11v-6L12 1Zm0 6a3 3 0 0 1 3 3v1h.5c.8 0 1.5.7 1.5 1.5v4c0 .8-.7 1.5-1.5 1.5h-7A1.5 1.5 0 0 1 7 16.5v-4c0-.8.7-1.5 1.5-1.5H9v-1a3 3 0 0 1 3-3Zm0 1.6c-.8 0-1.4.6-1.4 1.4v1h2.8v-1c0-.8-.6-1.4-1.4-1.4Z"/></svg>
+      Encrypted and processed by Paymob. Prime never sees your card.
+    </p>
+  </form>
+
+  <div class="pp-done" id="ppDone" hidden>
+    <div class="pp-tick"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>
+    <h2>Payment received</h2>
+    <p>Your stay is confirmed. You can close this window.</p>
+  </div>
+</div>

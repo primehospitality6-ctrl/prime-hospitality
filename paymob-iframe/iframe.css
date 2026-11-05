@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #ffffff; }
+body {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #1f1b16;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pp { max-width: 440px; margin: 0 auto; padding: 22px 18px 18px; }
+
+/* ---------- Card preview ---------- */
+.pp-card {
+  position: relative;
+  height: 196px;
+  margin-bottom: 22px;
+  perspective: 1200px;
+}
+.pp-face {
+  position: absolute; inset: 0;
+  border-radius: 18px;
+  padding: 20px 22px;
+  color: #fff;
+  backface-visibility: hidden;
+  transition: transform .7s cubic-bezier(.2,.8,.2,1);
+  box-shadow: 0 18px 40px -18px rgba(60, 44, 25, .55), inset 0 1px 0 rgba(255,255,255,.18);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 45%),
+    radial-gradient(90% 120% at 0% 100%, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 55%),
+    linear-gradient(135deg, #a88a63 0%, #8c704d 45%, #5e4a31 100%);
+}
+.pp-face::after {
+  content: ''; position: absolute; inset: -40% -10% auto auto; width: 70%; height: 180%;
+  background: linear-gradient(100deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.14) 50%, rgba(255,255,255,0) 60%);
+  transform: rotate(8deg); pointer-events: none;
+}
+.pp-back { transform: rotateY(180deg); padding: 0; }
+.pp-card.flip .pp-front { transform: rotateY(-180deg); }
+.pp-card.flip .pp-back { transform: rotateY(0deg); }
+
+.pp-row { display: flex; align-items: center; justify-content: space-between; }
+.pp-logo { font-weight: 700; letter-spacing: .32em; font-size: 13px; opacity: .95; }
+.pp-brand { font-weight: 700; font-size: 15px; letter-spacing: .04em; font-style: italic; min-height: 18px; }
+.pp-chip {
+  width: 42px; height: 31px; margin: 20px 0 16px; border-radius: 7px;
+  background: linear-gradient(135deg, #f3e2b8, #c9a86a 55%, #e9d39d);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+}
+.pp-num {
+  font-size: 21px; font-weight: 600; letter-spacing: .1em; white-space: nowrap;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.pp-meta { margin-top: 16px; align-items: flex-end; }
+.pp-meta small { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .14em; opacity: .75; margin-bottom: 3px; }
+.pp-meta span { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; max-width: 230px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-stripe { height: 44px; margin-top: 26px; background: #1f1b16; }
+.pp-cvv {
+  margin: 20px 22px 0; height: 38px; border-radius: 6px; background: #fbf8f2;
+  display: flex; align-items: center; justify-content: flex-end; padding: 0 14px;
+  color: #1f1b16; font-weight: 700; letter-spacing: .2em;
+}
+.pp-note { margin: 22px 22px 0; font-size: 11px; opacity: .8; letter-spacing: .08em; }
+
+/* ---------- Form ---------- */
+.pp-form { display: grid; gap: 14px; }
+.pp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pp-field { display: grid; gap: 6px; }
+.pp-field span { font-size: 12px; font-weight: 600; color: #6b6156; letter-spacing: .02em; }
+.pp-field input {
+  width: 100%; height: 48px; padding: 0 14px;
+  font: 500 15px/1 'Montserrat', system-ui, sans-serif; color: #1f1b16;
+  background: #faf8f5; border: 1.5px solid #e6dfd4; border-radius: 12px;
+  outline: none; transition: border-color .2s, box-shadow .2s, background .2s;
+  font-variant-numeric: tabular-nums;
+}
+.pp-field input::placeholder { color: #b3a999; }
+.pp-field input:focus { background: #fff; border-color: #8c704d; box-shadow: 0 0 0 4px rgba(140,112,77,.14); }
+.pp-field input.bad { border-color: #c0392b; box-shadow: 0 0 0 4px rgba(192,57,43,.1); }
+
+.pp-error { margin: 0; min-height: 0; font-size: 13px; color: #b03a2e; font-weight: 500; }
+.pp-error:empty { display: none; }
+.pp-error:not(:empty) { padding: 10px 12px; background: #fdf1ef; border-radius: 10px; }
+
+.pp-pay {
+  position: relative; height: 52px; margin-top: 4px; border: 0; border-radius: 999px; cursor: pointer;
+  font: 700 15px 'Montserrat', system-ui, sans-serif; letter-spacing: .03em; color: #fff;
+  background: linear-gradient(135deg, #a1835d, #8c704d 50%, #6f583b);
+  box-shadow: 0 10px 22px -10px rgba(140,112,77,.8);
+  transition: transform .15s, box-shadow .2s, opacity .2s;
+}
+.pp-pay:hover { transform: translateY(-1px); box-shadow: 0 14px 26px -10px rgba(140,112,77,.9); }
+.pp-pay:active { transform: translateY(0); }
+.pp-pay:disabled { cursor: default; opacity: .85; transform: none; }
+.pp-spin {
+  display: none; width: 20px; height: 20px; margin: 0 auto;
+  border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%;
+  animation: ppspin .8s linear infinite;
+}
+.pp-pay.busy .pp-pay-label { display: none; }
+.pp-pay.busy .pp-spin { display: block; }
+@keyframes ppspin { to { transform: rotate(360deg); } }
+
+.pp-secure {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 2px 0 0; font-size: 11.5px; color: #8a8076; text-align: center;
+}
+.pp-secure svg { color: #8c704d; flex: none; }
+
+/* ---------- Success ---------- */
+.pp-done { text-align: center; padding: 40px 10px; animation: ppfade .5s ease both; }
+.pp-done h2 { margin: 18px 0 6px; font-size: 22px; }
+.pp-done p { margin: 0; color: #6b6156; font-size: 14px; }
+.pp-tick svg { width: 74px; height: 74px; }
+.pp-tick circle { fill: none; stroke: #8c704d; stroke-width: 2.5; stroke-dasharray: 151; stroke-dashoffset: 151; animation: ppdraw .7s ease forwards; }
+.pp-tick path { fill: none; stroke: #8c704d; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: ppdraw .45s .55s ease forwards; }
+@keyframes ppdraw { to { stroke-dashoffset: 0; } }
+@keyframes ppfade { from { opacity: 0; transform: translateY(8px); } }
+
+.shake { animation: ppshake .4s; }
+@keyframes ppshake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+@media (max-width: 380px) {
+  .pp { padding: 16px 12px; }
+  .pp-card { height: 178px; }
+  .pp-num { font-size: 18px; }
+}
