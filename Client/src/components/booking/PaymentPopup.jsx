@@ -68,7 +68,41 @@ export default function PaymentPopup({
   const [loaded, setLoaded] = useState(false);
   const closable = phase !== 'paid';
 
-  useEffect(() => setLoaded(false), [frameKey, payment?.iframeSrc]);
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setSlow(false);
+  }, [frameKey, payment?.iframeSrc]);
+
+  // Open the connection to Paymob early so its checkout appears sooner.
+  useEffect(() => {
+    if (!open || !payment?.iframeSrc || typeof document === 'undefined') return undefined;
+    let origin = '';
+    try {
+      origin = new URL(payment.iframeSrc).origin;
+    } catch {
+      return undefined;
+    }
+    const added = [origin, 'https://accept.paymob.com']
+      .filter((o, i, all) => all.indexOf(o) === i && !document.querySelector(`link[rel="preconnect"][href="${o}"]`))
+      .map((href) => {
+        const link = document.createElement('link');
+        link.rel = 'preconnect';
+        link.href = href;
+        link.crossOrigin = '';
+        document.head.appendChild(link);
+        return link;
+      });
+    return () => added.forEach((link) => link.remove());
+  }, [open, payment?.iframeSrc]);
+
+  // If Paymob takes long, offer a reload instead of an endless skeleton.
+  useEffect(() => {
+    if (!open || loaded || !payment?.iframeSrc) return undefined;
+    const id = window.setTimeout(() => setSlow(true), 15000);
+    return () => window.clearTimeout(id);
+  }, [open, loaded, frameKey, payment?.iframeSrc]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -85,7 +119,7 @@ export default function PaymentPopup({
 
   if (!open || !payment || typeof document === 'undefined') return null;
 
-  const showForm = !isMock && payment.iframeSrc && (phase === 'form' || phase === 'checking');
+  const showForm = Boolean(!isMock && payment.iframeSrc && (phase === 'form' || phase === 'checking'));
 
   return createPortal(
     <div className="fixed inset-0 z-[300] flex items-end justify-center sm:items-center sm:p-6">
@@ -101,9 +135,14 @@ export default function PaymentPopup({
         aria-modal="true"
         aria-labelledby="pay-title"
         tabIndex={-1}
-        className="relative flex max-h-dvh-90 w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-prime-line/70 bg-prime-surface shadow-premium-lg outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:max-w-[31rem] sm:rounded-[1.75rem]"
+        className={cn(
+          'relative flex w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-prime-line/70 bg-prime-surface shadow-premium-lg outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:rounded-[1.75rem]',
+          showForm
+            ? 'h-[calc(100dvh-0.75rem)] sm:h-[min(52rem,calc(100dvh-3rem))] sm:max-w-[34rem]'
+            : 'max-h-dvh-90 sm:max-w-[31rem]'
+        )}
       >
-        <header className="flex shrink-0 items-start justify-between gap-4 px-6 pb-4 pt-6">
+        <header className={cn('flex shrink-0 items-start justify-between gap-4 px-6', showForm ? 'pb-3 pt-5' : 'pb-4 pt-6')}>
           <div className="min-w-0">
             <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.26em] text-prime-gold-deep">
               <Lock size={12} strokeWidth={2.2} aria-hidden />
@@ -125,7 +164,7 @@ export default function PaymentPopup({
           ) : null}
         </header>
 
-        <div className="mx-6 flex shrink-0 items-end justify-between gap-4 rounded-2xl bg-prime-mist/70 px-5 py-4">
+        <div className={cn('mx-6 flex shrink-0 items-end justify-between gap-4 rounded-2xl bg-prime-mist/70', showForm ? 'px-4 py-3' : 'px-5 py-4')}>
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('pay.total')}</p>
             {chargeLabel ? (
@@ -137,17 +176,32 @@ export default function PaymentPopup({
           </p>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+        <div
+          className={cn(
+            'relative min-h-0 flex-1',
+            showForm ? 'flex flex-col px-3 pb-3 pt-3 sm:px-4 sm:pb-4' : 'overflow-y-auto overscroll-contain px-4 py-4 sm:px-5'
+          )}
+        >
           {showForm ? (
-            <div className="relative overflow-hidden rounded-2xl border border-prime-line/70 bg-white">
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-prime-line/70 bg-white">
               {!loaded ? <FormSkeleton /> : null}
+              {!loaded && slow ? (
+                <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-white via-white to-white/0 px-6 pb-6 pt-10 text-center">
+                  <p className="text-[13px] text-prime-muted">{t('pay.slow')}</p>
+                  <button type="button" className="prime-btn min-h-[44px] rounded-full px-6" onClick={onRetry}>
+                    <RotateCcw size={14} aria-hidden />
+                    {t('pay.reload')}
+                  </button>
+                </div>
+              ) : null}
               <iframe
                 key={frameKey}
                 title={t('bm.cardPayment')}
                 src={payment.iframeSrc}
                 onLoad={() => setLoaded(true)}
-                className={cn('block h-[600px] w-full border-0 transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
-                allow="payment *"
+                className={cn('absolute inset-0 block h-full w-full border-0 transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
+                allow="payment *; clipboard-write"
+                referrerPolicy="origin"
               />
               {phase === 'checking' ? (
                 <div className="absolute inset-0 grid place-items-center bg-prime-surface/90 backdrop-blur-sm animate-[primeFadeIn_0.3s_var(--prime-ease)_both]">
@@ -203,12 +257,17 @@ export default function PaymentPopup({
           ) : null}
         </div>
 
-        <footer className="flex shrink-0 flex-col gap-3 border-t border-prime-line/70 bg-prime-sand/60 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between">
+        <footer
+          className={cn(
+            'flex shrink-0 flex-col gap-3 border-t border-prime-line/70 bg-prime-sand/60 px-6 sm:flex-row sm:items-center sm:justify-between',
+            showForm ? 'py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]' : 'py-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
+          )}
+        >
           <p className="inline-flex items-start gap-2 text-[11.5px] leading-snug text-prime-muted">
             <ShieldCheck size={15} className="mt-px shrink-0 text-prime-gold-deep" aria-hidden />
             {t('pay.privacy')}
           </p>
-          <ul className="flex shrink-0 items-center gap-1.5" aria-label={t('pay.cardsAccepted')}>
+          <ul className={cn('shrink-0 items-center gap-1.5', showForm ? 'hidden sm:flex' : 'flex')} aria-label={t('pay.cardsAccepted')}>
             {CARD_MARKS.map((mark) => (
               <li
                 key={mark}
