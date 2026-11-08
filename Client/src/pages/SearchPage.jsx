@@ -211,80 +211,81 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-prime-sand">
-      <Header overHero />
+      <Header overHero heroTone={heroImage ? 'dark' : 'theme'} />
       <main>
-        <section className="relative isolate overflow-hidden bg-prime-band text-prime-on">
-          {!heroImage ? (
+        <section
+          className={cn(
+            'relative isolate overflow-hidden',
+            heroImage ? 'flex min-h-[460px] items-end bg-[#14110d] text-white md:min-h-[560px] lg:min-h-[620px]' : 'bg-prime-band text-prime-on'
+          )}
+        >
+          {heroImage ? (
+            <>
+              <img src={heroImage} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover" />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/40 to-black/35" />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/45 via-black/10 to-transparent rtl:bg-gradient-to-l" />
+            </>
+          ) : (
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(140,112,77,0.25),transparent_55%)]" />
-          ) : null}
-          <div
-            className={cn(
-              'prime-container pb-16 pt-28 md:pb-24 md:pt-36',
-              heroImage && 'grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16'
-            )}
-          >
+          )}
+          <div className={cn('prime-container w-full pb-16 pt-28 md:pb-24 md:pt-36', heroImage && 'text-white')}>
             <div className="min-w-0">
-            <nav aria-label={t('search.breadcrumb')} className="mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] text-prime-on/50">
-              <Link to="/" className="transition hover:text-prime-on">{t('search.home')}</Link>
+            <nav aria-label={t('search.breadcrumb')} className={`mb-8 flex flex-wrap items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.26em] ${heroImage ? 'text-white/70' : 'text-prime-on/50'}`}>
+              <Link to="/" className={`transition ${heroImage ? 'hover:text-white' : 'hover:text-prime-on'}`}>{t('search.home')}</Link>
               <span aria-hidden>/</span>
               {destination || property || offer ? (
-                <button type="button" onClick={() => patchParams({ destination: '', compound: '', offer: '' })} className="uppercase transition hover:text-prime-on">
+                <button type="button" onClick={() => patchParams({ destination: '', compound: '', offer: '' })} className={`uppercase transition ${heroImage ? 'hover:text-white' : 'hover:text-prime-on'}`}>
                   {t('search.stays')}
                 </button>
               ) : (
-                <span className="text-prime-on/90">{t('search.stays')}</span>
+                <span className={`${heroImage ? 'text-white/90' : 'text-prime-on/90'}`}>{t('search.stays')}</span>
               )}
               {destination ? (
                 <>
                   <span aria-hidden>/</span>
                   {property ? (
-                    <button type="button" onClick={() => patchParams({ compound: '' })} className="uppercase transition hover:text-prime-on">
+                    <button type="button" onClick={() => patchParams({ compound: '' })} className={`uppercase transition ${heroImage ? 'hover:text-white' : 'hover:text-prime-on'}`}>
                       {term(destination.name)}
                     </button>
                   ) : (
-                    <span className="text-prime-on/90">{term(destination.name)}</span>
+                    <span className={`${heroImage ? 'text-white/90' : 'text-prime-on/90'}`}>{term(destination.name)}</span>
                   )}
                 </>
               ) : null}
               {property ? (
                 <>
                   <span aria-hidden>/</span>
-                  <span className="text-prime-on/90">{term(shortName(property.name))}</span>
+                  <span className={`${heroImage ? 'text-white/90' : 'text-prime-on/90'}`}>{term(shortName(property.name))}</span>
                 </>
               ) : null}
               {offer ? (
                 <>
                   <span aria-hidden>/</span>
-                  <span className="text-prime-on/90">{offerName}</span>
+                  <span className={`${heroImage ? 'text-white/90' : 'text-prime-on/90'}`}>{offerName}</span>
                 </>
               ) : null}
             </nav>
 
             <div className="max-w-4xl">
               {offer ? (
-                <p className="prime-eyebrow flex flex-wrap items-center gap-3 text-prime-gold-deep">
+                <p className={`prime-eyebrow flex flex-wrap items-center gap-3 ${heroImage ? 'text-[#d9bf94]' : 'text-prime-gold-deep'}`}>
                   {t('offers.eyebrow')}
                   {offer.percent ? (
                     <span className="bg-brand-gold px-2.5 py-1 tracking-[0.18em] text-white">{t('offers.percentOff', { n: offer.percent })}</span>
                   ) : null}
                 </p>
               ) : (
-                <p className="prime-eyebrow text-prime-gold-deep">
+                <p className={`prime-eyebrow ${heroImage ? 'text-[#d9bf94]' : 'text-prime-gold-deep'}`}>
                   {property?.brand ? term(`Prime ${property.brand}`) : t('search.bookDirect')}
                 </p>
               )}
               <h1 className="mt-5 font-display text-display-xl font-extralight text-balance">{heading}</h1>
-              {contextText ? <p className="mt-6 max-w-xl text-[15px] font-light leading-[1.85] text-prime-on/65 md:text-[16.5px]">{contextText}</p> : null}
-              <p className="mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] text-prime-on/45" aria-live="polite">
+              {contextText ? <p className={`mt-6 max-w-xl text-[15px] font-light leading-[1.85] ${heroImage ? 'text-white/85' : 'text-prime-on/65'} md:text-[16.5px]`}>{contextText}</p> : null}
+              <p className={`mt-7 min-h-[1em] text-[11px] font-medium uppercase tracking-[0.24em] ${heroImage ? 'text-white/60' : 'text-prime-on/45'}`} aria-live="polite">
                 {loading ? t('search.searching') : null}
               </p>
             </div>
             </div>
-            {heroImage ? (
-              <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-prime-mist lg:aspect-[5/4]">
-                <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-              </div>
-            ) : null}
           </div>
         </section>
 
