@@ -8,7 +8,7 @@ const CARD_MARKS = ['Visa', 'Mastercard', 'Meeza'];
 
 /** Placeholder card form shown while Paymob's iframe loads. */
 function FormSkeleton() {
-  const bar = 'rounded-lg bg-prime-line/70 animate-pulse';
+  const bar = 'rounded-lg bg-black/[0.06] animate-pulse';
   return (
     <div className="absolute inset-0 space-y-5 bg-white p-6" aria-hidden>
       <div className={cn(bar, 'h-3 w-24')} />
@@ -121,6 +121,87 @@ export default function PaymentPopup({
 
   const showForm = Boolean(!isMock && payment.iframeSrc && (phase === 'form' || phase === 'checking'));
 
+  if (showForm) {
+    const summary = chargeLabel ? `${amountLabel} · ${t('pay.chargedAs', { amount: chargeLabel })}` : amountLabel;
+    return createPortal(
+      <div className="fixed inset-0 z-[300] flex items-stretch justify-center sm:items-center sm:p-6">
+        <div
+          className="absolute inset-0 bg-prime-band/70 backdrop-blur-[6px] animate-[primeFadeIn_0.25s_var(--prime-ease)_both]"
+          onClick={closable ? onClose : undefined}
+          aria-hidden="true"
+        />
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pay-title"
+          tabIndex={-1}
+          className="relative flex h-dvh-100 w-full flex-col overflow-hidden bg-white text-[#1f1b16] shadow-premium-lg outline-none focus-visible:outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:h-[min(46rem,calc(100dvh/var(--ui-zoom,1)-3rem))] sm:max-w-[30rem] sm:rounded-[1.5rem] sm:ring-1 sm:ring-black/5"
+        >
+          <header className="flex shrink-0 items-center gap-3 border-b border-black/[0.07] bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#8c704d]/10 text-[#8c704d]">
+              <Lock size={15} strokeWidth={2.2} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 id="pay-title" className="truncate text-[14px] font-semibold leading-tight">
+                {t('pay.secure')}
+              </h2>
+              <p className="mt-0.5 truncate text-[12px] tabular-nums text-[#6b6156]">{summary}</p>
+            </div>
+            {closable ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#1f1b16] transition hover:bg-black/[0.05] active:scale-95"
+                aria-label={t('common.close')}
+              >
+                <X size={18} strokeWidth={1.8} />
+              </button>
+            ) : null}
+          </header>
+
+          <div className="relative min-h-0 flex-1 bg-white">
+            {!loaded ? <FormSkeleton /> : null}
+            {!loaded && slow ? (
+              <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-white via-white to-white/0 px-6 pb-8 pt-12 text-center">
+                <p className="text-[13px] text-[#6b6156]">{t('pay.slow')}</p>
+                <button type="button" className="prime-btn min-h-[44px] rounded-full px-6" onClick={onRetry}>
+                  <RotateCcw size={14} aria-hidden />
+                  {t('pay.reload')}
+                </button>
+              </div>
+            ) : null}
+            <iframe
+              key={frameKey}
+              title={t('bm.cardPayment')}
+              src={payment.iframeSrc}
+              onLoad={() => setLoaded(true)}
+              className={cn('absolute inset-0 block h-full w-full border-0 bg-white transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
+              allow="payment *; clipboard-write"
+              referrerPolicy="origin"
+            />
+            {phase === 'checking' ? (
+              <div className="absolute inset-0 z-20 grid place-items-center bg-white/90 backdrop-blur-sm animate-[primeFadeIn_0.3s_var(--prime-ease)_both]">
+                <div className="flex flex-col items-center gap-3 px-6 text-center" role="status">
+                  <Loader2 size={28} className="animate-spin text-[#8c704d]" aria-hidden />
+                  <p className="font-display text-lg font-semibold">{t('pay.checking')}</p>
+                  <p className="max-w-xs text-[13px] text-[#6b6156]">{t('pay.checkingBody')}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {error ? (
+            <p className="shrink-0 border-t border-black/[0.07] px-4 py-2.5 text-center text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[300] flex items-end justify-center sm:items-center sm:p-6">
       <div
@@ -135,14 +216,9 @@ export default function PaymentPopup({
         aria-modal="true"
         aria-labelledby="pay-title"
         tabIndex={-1}
-        className={cn(
-          'relative flex w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-prime-line/70 bg-prime-surface shadow-premium-lg outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:rounded-[1.75rem]',
-          showForm
-            ? 'h-[calc(100dvh-0.75rem)] sm:h-[min(52rem,calc(100dvh-3rem))] sm:max-w-[34rem]'
-            : 'max-h-dvh-90 sm:max-w-[31rem]'
-        )}
+        className="relative flex max-h-dvh-90 w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-prime-line/70 bg-prime-surface shadow-premium-lg outline-none focus-visible:outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:max-w-[31rem] sm:rounded-[1.75rem]"
       >
-        <header className={cn('flex shrink-0 items-start justify-between gap-4 px-6', showForm ? 'pb-3 pt-5' : 'pb-4 pt-6')}>
+        <header className="flex shrink-0 items-start justify-between gap-4 px-6 pb-4 pt-6">
           <div className="min-w-0">
             <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.26em] text-prime-gold-deep">
               <Lock size={12} strokeWidth={2.2} aria-hidden />
@@ -164,7 +240,7 @@ export default function PaymentPopup({
           ) : null}
         </header>
 
-        <div className={cn('mx-6 flex shrink-0 items-end justify-between gap-4 rounded-2xl bg-prime-mist/70', showForm ? 'px-4 py-3' : 'px-5 py-4')}>
+        <div className="mx-6 flex shrink-0 items-end justify-between gap-4 rounded-2xl bg-prime-mist/70 px-5 py-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-muted">{t('pay.total')}</p>
             {chargeLabel ? (
@@ -176,45 +252,7 @@ export default function PaymentPopup({
           </p>
         </div>
 
-        <div
-          className={cn(
-            'relative min-h-0 flex-1',
-            showForm ? 'flex flex-col px-3 pb-3 pt-3 sm:px-4 sm:pb-4' : 'overflow-y-auto overscroll-contain px-4 py-4 sm:px-5'
-          )}
-        >
-          {showForm ? (
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-prime-line/70 bg-white">
-              {!loaded ? <FormSkeleton /> : null}
-              {!loaded && slow ? (
-                <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-white via-white to-white/0 px-6 pb-6 pt-10 text-center">
-                  <p className="text-[13px] text-prime-muted">{t('pay.slow')}</p>
-                  <button type="button" className="prime-btn min-h-[44px] rounded-full px-6" onClick={onRetry}>
-                    <RotateCcw size={14} aria-hidden />
-                    {t('pay.reload')}
-                  </button>
-                </div>
-              ) : null}
-              <iframe
-                key={frameKey}
-                title={t('bm.cardPayment')}
-                src={payment.iframeSrc}
-                onLoad={() => setLoaded(true)}
-                className={cn('absolute inset-0 block h-full w-full border-0 transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
-                allow="payment *; clipboard-write"
-                referrerPolicy="origin"
-              />
-              {phase === 'checking' ? (
-                <div className="absolute inset-0 grid place-items-center bg-prime-surface/90 backdrop-blur-sm animate-[primeFadeIn_0.3s_var(--prime-ease)_both]">
-                  <div className="flex flex-col items-center gap-3 px-6 text-center" role="status">
-                    <Loader2 size={28} className="animate-spin text-prime-gold" aria-hidden />
-                    <p className="font-display text-lg font-semibold text-prime-ink">{t('pay.checking')}</p>
-                    <p className="max-w-xs text-[13px] text-prime-muted">{t('pay.checkingBody')}</p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           {isMock && phase !== 'paid' ? (
             <div className="flex flex-col items-center gap-5 px-4 py-10 text-center">
               <p className="max-w-xs text-sm text-prime-muted">{t('bm.mockGateway')}</p>
@@ -257,17 +295,12 @@ export default function PaymentPopup({
           ) : null}
         </div>
 
-        <footer
-          className={cn(
-            'flex shrink-0 flex-col gap-3 border-t border-prime-line/70 bg-prime-sand/60 px-6 sm:flex-row sm:items-center sm:justify-between',
-            showForm ? 'py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]' : 'py-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
-          )}
-        >
+        <footer className="flex shrink-0 flex-col gap-3 border-t border-prime-line/70 bg-prime-sand/60 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between">
           <p className="inline-flex items-start gap-2 text-[11.5px] leading-snug text-prime-muted">
             <ShieldCheck size={15} className="mt-px shrink-0 text-prime-gold-deep" aria-hidden />
             {t('pay.privacy')}
           </p>
-          <ul className={cn('shrink-0 items-center gap-1.5', showForm ? 'hidden sm:flex' : 'flex')} aria-label={t('pay.cardsAccepted')}>
+          <ul className="flex shrink-0 items-center gap-1.5" aria-label={t('pay.cardsAccepted')}>
             {CARD_MARKS.map((mark) => (
               <li
                 key={mark}
