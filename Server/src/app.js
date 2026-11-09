@@ -36,7 +36,15 @@ function createApp() {
     })
   );
 
-  app.use(express.json({ limit: '2mb' }));
+  app.use(
+    express.json({
+      limit: '2mb',
+      // Stripe signs the exact bytes it sent, so keep them for its webhook.
+      verify: (req, _res, buf) => {
+        if (req.originalUrl && req.originalUrl.startsWith('/api/webhooks/stripe')) req.rawBody = buf;
+      },
+    })
+  );
   app.use(express.urlencoded({ extended: true }));
 
   app.use('/api/', (req, res, next) => {

@@ -36,6 +36,43 @@ function isStripeConfigured() {
   return Boolean(process.env.STRIPE_SECRET_KEY);
 }
 
+/** Running on the real server (Render sets RENDER; NODE_ENV may also say so). */
+function isHosted() {
+  return process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+}
+
+/**
+ * Test payments confirm a stay with no money taken, so they never run on the real server
+ * (unless ALLOW_MOCK_PAYMENTS=true is set there on purpose).
+ */
+function mockPaymentsAllowed() {
+  return activeProvider() === 'mock' && (!isHosted() || process.env.ALLOW_MOCK_PAYMENTS === 'true');
+}
+
+/**
+ * Is this Paymob transaction a completed, successful payment from our own integration?
+ * Works on the processed callback (nested) and the response callback (flat query).
+ * Signature and amount are checked separately.
+ */
+function paymobPaymentSettled(t = {}) {
+  const yes = (v) => v === true || String(v).toLowerCase() === 'true';
+  if (!yes(t.success)) return { ok: false, reason: 'Paymob did not report success' };
+  if (yes(t.pending)) return { ok: false, reason: 'the payment is still pending' };
+  if (yes(t.error_occured)) return { ok: false, reason: 'Paymob reported an error' };
+  if (yes(t.is_voided)) return { ok: false, reason: 'the payment was voided' };
+  if (yes(t.is_refunded)) return { ok: false, reason: 'the payment was refunded' };
+  if (yes(t.is_auth) && !yes(t.is_capture)) return { ok: false, reason: 'the card was only authorised, not charged' };
+  const allowed = String(process.env.PAYMOB_INTEGRATION_ID || '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const integration = String(t.integration_id ?? '').trim();
+  if (allowed.length && !allowed.includes(integration)) {
+    return { ok: false, reason: `the payment came from Paymob integration ${integration || 'unknown'}, not the one this site uses (${allowed.join(', ')})` };
+  }
+  return { ok: true };
+}
+
 function activeProvider() {
   const forced = String(process.env.PAYMENT_PROVIDER || '').toLowerCase();
   if (forced === 'paymob' || forced === 'stripe' || forced === 'fawry' || forced === 'mock') return forced;
@@ -395,6 +432,12 @@ async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchant
     err.status = 501;
     throw err;
   }
+  if (!mockPaymentsAllowed()) {
+    console.error('[payment] no payment gateway is set up on this server; refusing to open a test payment');
+    const err = new Error('Card payment is not set up yet. Please try again later.');
+    err.status = 503;
+    throw err;
+  }
   return initializeMockEmbedded({ amount, merchantOrderId, currency: cur, tenantId });
 }
 
@@ -462,6 +505,9 @@ function verifyPaymobHmac(obj, receivedHmac) {
 
 module.exports = {
   activeProvider,
+  isHosted,
+  mockPaymentsAllowed,
+  paymobPaymentSettled,
   isPaymobConfigured,
   isPaymobCheckoutConfigured,
   isStripeConfigured,

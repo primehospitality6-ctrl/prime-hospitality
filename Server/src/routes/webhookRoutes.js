@@ -64,16 +64,19 @@ router.post('/paymob', async (req, res, next) => {
         console.warn('[webhook/paymob] rejected: HMAC does not match PAYMOB_HMAC_SECRET');
         return res.status(401).json({ error: 'Invalid Paymob HMAC' });
       }
-    } else if (process.env.NODE_ENV === 'production') {
+    } else if (payment.isHosted()) {
       // Without the secret anyone could post a fake "paid" callback and confirm a stay in Kwentra.
       console.error('[webhook/paymob] rejected: PAYMOB_HMAC_SECRET is not set');
       return res.status(503).json({ error: 'PAYMOB_HMAC_SECRET is not configured' });
     }
 
-    const success = obj.success === true || obj.success === 'true';
     const merchantOrderId = obj.order?.merchant_order_id || obj.merchant_order_id;
-    if (!success || !merchantOrderId) {
-      return res.json({ received: true, handled: false });
+    const settled = payment.paymobPaymentSettled(obj);
+    if (!settled.ok || !merchantOrderId) {
+      if (merchantOrderId && (obj.success === true || obj.success === 'true')) {
+        console.warn(`[webhook/paymob] ${merchantOrderId} not confirmed: ${settled.reason}`);
+      }
+      return res.json({ received: true, handled: false, reason: settled.reason || 'no order reference' });
     }
 
     const all = await listBookings();
@@ -104,7 +107,11 @@ router.get('/paymob/response', async (req, res) => {
   const q = req.query || {};
   const merchantOrderId = String(q.merchant_order_id || '');
   const signed = Boolean(process.env.PAYMOB_HMAC_SECRET) && payment.verifyPaymobHmac(q, q.hmac);
-  const success = signed && String(q.success) === 'true' && String(q.pending) !== 'true';
+  const settled = signed ? payment.paymobPaymentSettled(q) : { ok: false };
+  const success = signed && settled.ok;
+  if (signed && String(q.success) === 'true' && !settled.ok) {
+    console.warn(`[webhook/paymob/response] ${merchantOrderId} not confirmed: ${settled.reason}`);
+  }
   const pending = signed && String(q.pending) === 'true';
 
   if (success && merchantOrderId) {
@@ -147,8 +154,29 @@ router.get('/paymob/response', async (req, res) => {
 </head><body><p>${text}…</p><script>try{window.parent.postMessage(${payload},'*')}catch(e){}</script></body></html>`);
 });
 
+/** Stripe-Signature: t=<time>,v1=<hex>. Signed payload is "<time>.<raw body>", HMAC-SHA256 with the endpoint secret. */
+function verifyStripeSignature(req) {
+  const secret = String(process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+  const header = String(req.headers['stripe-signature'] || '');
+  if (!secret || !header || !req.rawBody) return false;
+  const parts = Object.fromEntries(header.split(',').map((p) => p.split('=').map((x) => x.trim())).filter((p) => p.length === 2));
+  const time = Number(parts.t);
+  if (!time || Math.abs(Date.now() / 1000 - time) > 300) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`${parts.t}.${req.rawBody.toString('utf8')}`).digest('hex');
+  const given = header
+    .split(',')
+    .filter((p) => p.trim().startsWith('v1='))
+    .map((p) => p.trim().slice(3));
+  return given.some((sig) => sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)));
+}
+
 router.post('/stripe', async (req, res, next) => {
   try {
+    // Only a signed event from Stripe, and only while Stripe is the site's gateway, may confirm a booking.
+    if (payment.activeProvider() !== 'stripe' || !verifyStripeSignature(req)) {
+      console.warn('[webhook/stripe] rejected: Stripe is not the active gateway or the signature is missing/invalid');
+      return res.status(401).json({ error: 'Invalid Stripe signature' });
+    }
     const event = req.body;
     if (event?.type === 'payment_intent.succeeded') {
       const merchantOrderId = event.data?.object?.metadata?.merchant_order_id;

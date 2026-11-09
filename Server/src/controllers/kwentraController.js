@@ -463,7 +463,7 @@ async function bookDirect(req, res, next) {
 async function confirmMockPayment(req, res, next) {
   try {
     // Without a real gateway this confirms a stay with no money taken, so it only exists in test mode.
-    if (payment.activeProvider() !== 'mock') {
+    if (!payment.mockPaymentsAllowed()) {
       return res.status(403).json({ error: 'Test payments are turned off' });
     }
     const { merchantOrderId, bookingId } = req.body || {};
