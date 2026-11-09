@@ -48,6 +48,5 @@ router.post('/payments/mock-confirm', kwentraController.confirmMockPayment);
 
 router.get('/payments/status', paymentController.getProviderStatus);
 router.get('/payments/order/:merchantOrderId', paymentController.paymentStatus);
-router.post('/payments/session', paymentController.createSession);
 
 module.exports = router;

@@ -88,7 +88,7 @@ function requestJson(method, urlString, body, headers = {}) {
  * EGP Paymob will charge for this stay. The factor is read from Kwentra at this moment.
  * A missing factor fails the payment instead of using another source.
  */
-async function amountForPaymob(amount, bookingCurrency) {
+async function amountForPaymob(amount, bookingCurrency, tenantId) {
   const from = String(bookingCurrency || SITE_CURRENCY).toUpperCase();
   const to = paymobChargeCurrency();
   const value = Number(amount);
@@ -105,7 +105,8 @@ async function amountForPaymob(amount, bookingCurrency) {
     };
   }
 
-  const quote = await kwentra.currencyRate({ from, to, fresh: true });
+  // The property's own Kwentra tenant: its rate is the one Kwentra uses for this reservation's folio.
+  const quote = await kwentra.currencyRate({ from, to, tenantId, fresh: true });
   const chargeAmount = Math.round(value * quote.rate * 100) / 100;
   return {
     chargeAmount,
@@ -155,8 +156,8 @@ function publicApiUrl() {
  * Paymob's current checkout. Creates a payment intention and returns the
  * Unified Checkout page, which our popup shows in its frame. No iframe ID needed.
  */
-async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing }) {
-  const priced = await amountForPaymob(amount, currency);
+async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId }) {
+  const priced = await amountForPaymob(amount, currency, tenantId);
   const amountCents = Math.round(Number(priced.chargeAmount) * 100);
   const integrationIds = env('PAYMOB_INTEGRATION_ID')
     .split(',')
@@ -208,9 +209,9 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
   };
 }
 
-async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing }) {
+async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing, tenantId }) {
   if (isPaymobCheckoutConfigured()) {
-    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing });
+    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId });
   }
   const missing = ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].filter(
     (name) => !String(process.env[name] || '').trim()
@@ -223,7 +224,7 @@ async function initializePaymobEmbedded({ amount, currency, merchantOrderId, bil
     err.status = 503;
     throw err;
   }
-  const priced = await amountForPaymob(amount, currency);
+  const priced = await amountForPaymob(amount, currency, tenantId);
   const amountCents = Math.round(Number(priced.chargeAmount) * 100);
   const token = await paymobAuthToken();
 
@@ -344,10 +345,10 @@ async function initializeStripeEmbedded({ amount, merchantOrderId, billing, curr
 }
 
 /** Dev / offline: mock embedded session so UI can be tested without gateways */
-async function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE_CURRENCY }) {
+async function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE_CURRENCY, tenantId }) {
   let priced = null;
   try {
-    priced = await amountForPaymob(amount, currency);
+    priced = await amountForPaymob(amount, currency, tenantId);
   } catch (err) {
     console.warn('[payment] Kwentra exchange rate unavailable:', err.message);
   }
@@ -375,11 +376,11 @@ async function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE
  * Start an on-site payment session.
  * Returns embed payload for PaymentModal — never a navigation redirect.
  */
-async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing }) {
+async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing, tenantId }) {
   const provider = activeProvider();
   const cur = String(currency || SITE_CURRENCY).toUpperCase();
   if (provider === 'paymob') {
-    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing });
+    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing, tenantId });
   }
   if (provider === 'stripe') {
     return initializeStripeEmbedded({
@@ -394,7 +395,27 @@ async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchant
     err.status = 501;
     throw err;
   }
-  return initializeMockEmbedded({ amount, merchantOrderId, currency: cur });
+  return initializeMockEmbedded({ amount, merchantOrderId, currency: cur, tenantId });
+}
+
+/**
+ * Does a gateway's "paid" report cover what this booking was charged? Compared in the smallest unit.
+ * Bookings made before the charge was stored have nothing to compare, so they pass.
+ */
+function paidAmountCovers(booking, { amountCents, currency } = {}) {
+  const expected = Number(booking?.chargeAmount);
+  if (!(expected > 0)) return { ok: true };
+  const expectedCents = Math.round(expected * 100);
+  const paidCents = Math.round(Number(amountCents));
+  const expectedCurrency = String(booking.chargeCurrency || '').toUpperCase();
+  const paidCurrency = String(currency || '').toUpperCase();
+  const currencyOk = !expectedCurrency || !paidCurrency || expectedCurrency === paidCurrency;
+  const ok = Number.isFinite(paidCents) && paidCents >= expectedCents && currencyOk;
+  return {
+    ok,
+    expected: `${(expectedCents / 100).toFixed(2)} ${expectedCurrency}`.trim(),
+    paid: Number.isFinite(paidCents) ? `${(paidCents / 100).toFixed(2)} ${paidCurrency}`.trim() : 'unknown',
+  };
 }
 
 function verifyPaymobHmac(obj, receivedHmac) {
@@ -449,6 +470,7 @@ module.exports = {
   initializePaymobEmbedded,
   initializeStripeEmbedded,
   initializeMockEmbedded,
+  paidAmountCovers,
   paymobChargeCurrency,
   SITE_CURRENCY,
 };

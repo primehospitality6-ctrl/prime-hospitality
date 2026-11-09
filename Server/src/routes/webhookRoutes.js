@@ -8,9 +8,18 @@ const { listBookings, updateBooking, findBooking } = require('../lib/cmsStore');
 
 const router = Router();
 
-async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId, cardLast4, cardType }) {
+async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId, cardLast4, cardType, paidCents, paidCurrency }) {
   if (!booking) return null;
   if (booking.paymentStatus === 'paid') return { pushed: false, reason: 'already_paid' };
+  if (paidCents !== undefined) {
+    const check = payment.paidAmountCovers(booking, { amountCents: paidCents, currency: paidCurrency });
+    if (!check.ok) {
+      const issue = `${provider} reported a payment of ${check.paid} (ref ${transactionId || 'n/a'}) but this booking was charged ${check.expected}. It was NOT confirmed or sent to Kwentra — check the payment in the ${provider} dashboard.`;
+      console.error(`[payment] amount mismatch on booking ${booking.voucherNumber || booking.id}: ${issue}`);
+      await updateBooking(booking.id, { kwentraIssue: issue });
+      return { pushed: false, reason: 'amount_mismatch', issue };
+    }
+  }
   await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
   const confirmed = (await findBooking(booking.id).catch(() => null)) || {
     ...booking,
@@ -75,6 +84,8 @@ router.post('/paymob', async (req, res, next) => {
       merchantOrderId,
       cardLast4: String(obj.source_data?.pan || '').slice(-4),
       cardType: obj.source_data?.sub_type,
+      paidCents: obj.amount_cents,
+      paidCurrency: obj.currency,
     });
 
     res.json({ received: true, handled: true, merchantOrderId, kwentraPayment });
@@ -106,6 +117,8 @@ router.get('/paymob/response', async (req, res) => {
         merchantOrderId,
         cardLast4: String(q['source_data.pan'] || '').slice(-4),
         cardType: q['source_data.sub_type'],
+        paidCents: q.amount_cents,
+        paidCurrency: q.currency,
       });
     } catch (err) {
       console.warn('[webhook/paymob/response] could not confirm booking:', err.message);

@@ -424,6 +424,7 @@ async function bookDirect(req, res, next) {
         currency: booking.rateCurrency,
         merchantOrderId: externalRef,
         billing: { name: booking.primaryGuestName, email: booking.email, phone: booking.phone },
+        tenantId: await sync.tenantForUnit(listing),
       });
     } catch (err) {
       console.warn('[payment] session failed:', err.message);
@@ -461,6 +462,10 @@ async function bookDirect(req, res, next) {
 /** Confirm mock payment without leaving the site (dev / PAYMENT_PROVIDER=mock) */
 async function confirmMockPayment(req, res, next) {
   try {
+    // Without a real gateway this confirms a stay with no money taken, so it only exists in test mode.
+    if (payment.activeProvider() !== 'mock') {
+      return res.status(403).json({ error: 'Test payments are turned off' });
+    }
     const { merchantOrderId, bookingId } = req.body || {};
     if (!merchantOrderId && !bookingId) {
       return res.status(400).json({ error: 'merchantOrderId or bookingId required' });

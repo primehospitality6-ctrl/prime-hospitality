@@ -2,27 +2,6 @@ const payment = require('../services/paymentService');
 const kwentra = require('../services/kwentraService');
 const { listBookings } = require('../lib/cmsStore');
 
-async function createSession(req, res, next) {
-  try {
-    const { amount, currency, merchantOrderId, name, email, phone } = req.body || {};
-    if (!amount || !merchantOrderId) {
-      return res.status(400).json({ error: 'amount and merchantOrderId are required' });
-    }
-    const session = await payment.createPaymentSession({
-      amount,
-      currency: currency || payment.SITE_CURRENCY || 'USD',
-      merchantOrderId,
-      billing: { name, email, phone },
-    });
-    res.status(201).json({
-      payment: session,
-      experience: { zeroRedirect: true, nextStep: 'embed_payment_modal' },
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
 async function getProviderStatus(_req, res) {
   res.json({
     provider: payment.activeProvider(),
@@ -54,7 +33,6 @@ async function paymentStatus(req, res, next) {
 }
 
 module.exports = {
-  createSession,
   getProviderStatus,
   paymentStatus,
 };
