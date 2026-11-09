@@ -7,13 +7,22 @@ import { cn } from '../../utils/cn';
 const CARD_MARKS = ['Visa', 'Mastercard', 'Meeza'];
 
 /**
- * Paymob's checkout is a whole page that cannot tell us its height (it is on Paymob's domain).
- * We give it at least this much room; when the screen is shorter, the page is scaled down to fit,
- * so the card fields and the Pay button are visible without scrolling. Below MIN_SCALE text would
- * get too small, so on very short screens Paymob's page scrolls a little inside the popup.
+ * How Paymob's Unified Checkout lays itself out (from its stylesheet, eg.checkout.paymob.com):
+ * below 665px wide the page is grey (#a1a1a1) and the checkout is a sheet pinned to the bottom,
+ * 90% of the page tall, with 1rem rounded top corners. So 10% grey always shows above it.
+ *
+ * We keep Paymob in that layout (page width at most PAYMOB_SHEET_MAX_WIDTH) and crop the grey
+ * band and corners off the top, so the white sheet fills the popup edge to edge.
+ * PAYMOB_CONTENT_HEIGHT is what the sheet needs to show the card form and Pay button without
+ * scrolling; on shorter screens the page is scaled down to fit (never below MIN_SCALE).
  */
-const PAYMOB_PAGE_HEIGHT = 820;
-const MIN_SCALE = 0.72;
+const PAYMOB_SHEET_MAX_WIDTH = 660;
+const PAYMOB_SHEET_SHARE = 0.9;
+// The sheet's top corners are rounded (16px); cropping 10px leaves at most ~1px of grey at the very edge
+// while keeping most of Paymob's top padding.
+const PAYMOB_CORNER_CROP = 10;
+const PAYMOB_CONTENT_HEIGHT = 700;
+const MIN_SCALE = 0.75;
 
 /** Placeholder card form shown while Paymob's iframe loads. */
 function FormSkeleton() {
@@ -150,12 +159,23 @@ export default function PaymentPopup({
 
   if (showForm) {
     // Shrink Paymob's page just enough that its full height fits the box; it always fills the box exactly.
+    // Size and place Paymob's page so its white sheet exactly fills the box (grey band cropped off).
     const fit = (() => {
       const { width, height } = box;
       if (!width || !height) return { width: '100%', height: '100%' };
-      const scale = Math.max(MIN_SCALE, Math.min(1, height / PAYMOB_PAGE_HEIGHT));
-      if (scale === 1) return { width: '100%', height: '100%' };
-      return { width: `${width / scale}px`, height: `${height / scale}px`, transform: `scale(${scale})`, transformOrigin: '0 0' };
+      const scale = Math.max(MIN_SCALE, Math.min(1, height / PAYMOB_CONTENT_HEIGHT));
+      const pageWidth = Math.min(width / scale, PAYMOB_SHEET_MAX_WIDTH);
+      // The sheet is 90% of the page and sits at the bottom; its first few px are the rounded corners.
+      const pageHeight = (height / scale + PAYMOB_CORNER_CROP) / PAYMOB_SHEET_SHARE;
+      const cropTop = pageHeight * (1 - PAYMOB_SHEET_SHARE) + PAYMOB_CORNER_CROP;
+      return {
+        width: `${pageWidth}px`,
+        height: `${pageHeight}px`,
+        left: `${(width - pageWidth * scale) / 2}px`,
+        top: `${-cropTop * scale}px`,
+        transform: scale === 1 ? undefined : `scale(${scale})`,
+        transformOrigin: '0 0',
+      };
     })();
     const summary = chargeLabel ? `${amountLabel} · ${t('pay.chargedAs', { amount: chargeLabel })}` : amountLabel;
     return createPortal(

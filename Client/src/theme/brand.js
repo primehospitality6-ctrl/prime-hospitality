@@ -88,6 +88,8 @@ export const SITE_CURRENCY = 'USD';
 export function formatMoney(amount, currency = SITE_CURRENCY) {
   const n = Number(amount) || 0;
   const code = String(currency || SITE_CURRENCY).toUpperCase();
-  const text = n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  // Whole amounts stay short (1,200 USD); amounts with cents always show two decimals (326.70 USD).
+  const cents = Math.round(n * 100) % 100 !== 0;
+  const text = n.toLocaleString('en-US', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 });
   return `${text} ${currencyLabel(code)}`;
 }
