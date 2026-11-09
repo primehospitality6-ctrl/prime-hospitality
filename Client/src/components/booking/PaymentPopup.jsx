@@ -6,6 +6,15 @@ import { cn } from '../../utils/cn';
 
 const CARD_MARKS = ['Visa', 'Mastercard', 'Meeza'];
 
+/**
+ * Paymob's checkout is a whole page that cannot tell us its height (it is on Paymob's domain).
+ * We give it at least this much room; when the screen is shorter, the page is scaled down to fit,
+ * so the card fields and the Pay button are visible without scrolling. Below MIN_SCALE text would
+ * get too small, so on very short screens Paymob's page scrolls a little inside the popup.
+ */
+const PAYMOB_PAGE_HEIGHT = 820;
+const MIN_SCALE = 0.72;
+
 /** Placeholder card form shown while Paymob's iframe loads. */
 function FormSkeleton() {
   const bar = 'rounded-lg bg-black/[0.06] animate-pulse';
@@ -69,6 +78,8 @@ export default function PaymentPopup({
   const closable = phase !== 'paid';
 
   const [slow, setSlow] = useState(false);
+  const frameBoxRef = useRef(null);
+  const [box, setBox] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     setLoaded(false);
@@ -104,6 +115,22 @@ export default function PaymentPopup({
     return () => window.clearTimeout(id);
   }, [open, loaded, frameKey, payment?.iframeSrc]);
 
+  // Track the space Paymob's page gets, so it can be scaled to fit it exactly.
+  const formVisible = Boolean(open && payment?.iframeSrc && !isMock && (phase === 'form' || phase === 'checking'));
+  useEffect(() => {
+    const el = frameBoxRef.current;
+    if (!formVisible || !el) return undefined;
+    const measure = () => setBox({ width: el.clientWidth, height: el.clientHeight });
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [formVisible]);
+
   useEffect(() => {
     if (!open) return undefined;
     dialogRef.current?.focus({ preventScroll: true });
@@ -122,9 +149,17 @@ export default function PaymentPopup({
   const showForm = Boolean(!isMock && payment.iframeSrc && (phase === 'form' || phase === 'checking'));
 
   if (showForm) {
+    // Shrink Paymob's page just enough that its full height fits the box; it always fills the box exactly.
+    const fit = (() => {
+      const { width, height } = box;
+      if (!width || !height) return { width: '100%', height: '100%' };
+      const scale = Math.max(MIN_SCALE, Math.min(1, height / PAYMOB_PAGE_HEIGHT));
+      if (scale === 1) return { width: '100%', height: '100%' };
+      return { width: `${width / scale}px`, height: `${height / scale}px`, transform: `scale(${scale})`, transformOrigin: '0 0' };
+    })();
     const summary = chargeLabel ? `${amountLabel} · ${t('pay.chargedAs', { amount: chargeLabel })}` : amountLabel;
     return createPortal(
-      <div className="fixed inset-0 z-[300] flex items-stretch justify-center sm:items-center sm:p-6">
+      <div className="fixed inset-0 z-[300] flex items-stretch justify-center sm:items-center sm:p-4">
         <div
           className="absolute inset-0 bg-prime-band/70 backdrop-blur-[6px] animate-[primeFadeIn_0.25s_var(--prime-ease)_both]"
           onClick={closable ? onClose : undefined}
@@ -136,17 +171,17 @@ export default function PaymentPopup({
           aria-modal="true"
           aria-labelledby="pay-title"
           tabIndex={-1}
-          className="relative flex h-dvh-100 w-full flex-col overflow-hidden bg-white text-[#1f1b16] shadow-premium-lg outline-none focus-visible:outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:h-[min(46rem,calc(100dvh/var(--ui-zoom,1)-3rem))] sm:max-w-[30rem] sm:rounded-[1.5rem] sm:ring-1 sm:ring-black/5"
+          className="relative flex h-dvh-100 w-full flex-col overflow-hidden bg-white text-[#1f1b16] shadow-premium-lg outline-none focus-visible:outline-none animate-[primeModalIn_0.45s_var(--prime-ease)_both] sm:h-[min(60rem,calc(100dvh/var(--ui-zoom,1)-2rem))] sm:max-w-[30rem] sm:rounded-[1.5rem] sm:ring-1 sm:ring-black/5"
         >
-          <header className="flex shrink-0 items-center gap-3 border-b border-black/[0.07] bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#8c704d]/10 text-[#8c704d]">
-              <Lock size={15} strokeWidth={2.2} aria-hidden />
+          <header className="flex shrink-0 items-center gap-2.5 border-b border-black/[0.07] bg-white px-3.5 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8c704d]/10 text-[#8c704d]">
+              <Lock size={14} strokeWidth={2.2} aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 id="pay-title" className="truncate text-[14px] font-semibold leading-tight">
+              <h2 id="pay-title" className="truncate text-[13px] font-semibold leading-tight">
                 {t('pay.secure')}
               </h2>
-              <p className="mt-0.5 truncate text-[12px] tabular-nums text-[#6b6156]">{summary}</p>
+              <p className="truncate text-[11.5px] leading-snug tabular-nums text-[#6b6156]">{summary}</p>
             </div>
             {closable ? (
               <button
@@ -160,7 +195,7 @@ export default function PaymentPopup({
             ) : null}
           </header>
 
-          <div className="relative min-h-0 flex-1 bg-white">
+          <div ref={frameBoxRef} className="relative min-h-0 flex-1 overflow-hidden bg-white">
             {!loaded ? <FormSkeleton /> : null}
             {!loaded && slow ? (
               <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-white via-white to-white/0 px-6 pb-8 pt-12 text-center">
@@ -176,7 +211,8 @@ export default function PaymentPopup({
               title={t('bm.cardPayment')}
               src={payment.iframeSrc}
               onLoad={() => setLoaded(true)}
-              className={cn('absolute inset-0 block h-full w-full border-0 bg-white transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
+              className={cn('absolute left-0 top-0 block border-0 bg-white transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
+              style={fit}
               allow="payment *; clipboard-write"
               referrerPolicy="origin"
             />
