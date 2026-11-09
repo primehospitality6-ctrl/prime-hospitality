@@ -1396,6 +1396,22 @@ function departmentIdForCurrency(tenantId, currency) {
  * Cash department for the currency the rate is set up in.
  * Kwentra: post the payment in that currency, on the matching cash department.
  */
+/**
+ * A payment in Kwentra's base currency (EGP). Prefer what the guest's card was actually charged in EGP,
+ * which was priced at this property's Kwentra rate; otherwise convert at that rate now.
+ */
+async function paymentInBaseCurrency({ booking, amount, currency = 'USD', tenantId }) {
+  const charged = Number(booking?.chargeAmount);
+  if (charged > 0 && String(booking?.chargeCurrency || '').toUpperCase() === 'EGP') {
+    return Math.round(charged * 100) / 100;
+  }
+  const cur = String(currency || 'USD').toUpperCase();
+  const value = Number(amount);
+  if (cur === 'EGP') return Math.round(value * 100) / 100;
+  const quote = await kwentra.currencyRate({ from: cur, to: 'EGP', tenantId, fresh: true });
+  return Math.round(value * quote.rate * 100) / 100;
+}
+
 function paymentDepartment(tenantId, currency = 'USD') {
   const cur = String(currency || 'USD').toUpperCase() === 'EGP' ? 'EGP' : 'USD';
   const id = departmentIdForCurrency(tenantId, cur);
@@ -1517,12 +1533,16 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
       const accountId = Number(booking?.kwentraAccountId) || kwentra.reservationAccountId(current);
       if (!accountId) throw new Error('the reservation response did not include a billing account');
       result.accountId = String(accountId);
+      // Kwentra reads a posting's amount in the property's base currency (EGP), even on the USD
+      // department, and divides by its own rate to show the USD figure. Send the EGP value.
+      const baseAmount = await paymentInBaseCurrency({ booking, amount, currency, tenantId });
+      result.postedAmount = baseAmount;
       await kwentra.postPayment({
         tenantId,
         accountId,
         windowNumber: Number(process.env.KWENTRA_PAYMENT_WINDOW || 1),
         department,
-        amount,
+        amount: baseAmount,
         comments: summary,
       });
     });
@@ -2812,6 +2832,7 @@ async function syncStatus() {
 }
 
 module.exports = {
+  paymentInBaseCurrency,
   tenantForUnit,
   tenantForBooking,
   tenantTargets,
