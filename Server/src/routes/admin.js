@@ -259,7 +259,7 @@ router.get(
   requireAdmin,
   wrap(async (_req, res) => {
     const { toPmsRows, PMS_FIELDS } = require('../lib/pms');
-    const items = await listBookings();
+    const items = await require('../services/paymentService').expireUnpaidBookings(await listBookings());
     res.json({
       fields: PMS_FIELDS,
       items: items.map((b) => ({ ...b, pms: toPmsRows(b) })),

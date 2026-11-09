@@ -76,6 +76,13 @@ router.post('/paymob', async (req, res, next) => {
       if (merchantOrderId && (obj.success === true || obj.success === 'true')) {
         console.warn(`[webhook/paymob] ${merchantOrderId} not confirmed: ${settled.reason}`);
       }
+      const failed = obj.success === false || obj.success === 'false';
+      const pendingNow = obj.pending === true || obj.pending === 'true';
+      if (merchantOrderId && failed && !pendingNow) {
+        const all = await listBookings();
+        const booking = all.find((b) => b.externalRef === merchantOrderId);
+        await payment.closeUnpaidBooking(booking, 'failed', `Paymob declined (${obj.data?.message || 'no reason given'})`);
+      }
       return res.json({ received: true, handled: false, reason: settled.reason || 'no order reference' });
     }
 
@@ -113,6 +120,15 @@ router.get('/paymob/response', async (req, res) => {
     console.warn(`[webhook/paymob/response] ${merchantOrderId} not confirmed: ${settled.reason}`);
   }
   const pending = signed && String(q.pending) === 'true';
+  if (signed && merchantOrderId && String(q.success) === 'false' && !pending) {
+    try {
+      const all = await listBookings();
+      const booking = all.find((b) => b.externalRef === merchantOrderId);
+      await payment.closeUnpaidBooking(booking, 'failed', `Paymob declined (${q['data.message'] || 'no reason given'})`);
+    } catch (err) {
+      console.warn('[webhook/paymob/response] could not mark the booking failed:', err.message);
+    }
+  }
 
   if (success && merchantOrderId) {
     try {

@@ -141,10 +141,6 @@ export const api = {
     return this.getListings({ limit });
   },
 
-  createBooking(payload) {
-    return request('/api/bookings', { method: 'POST', body: payload });
-  },
-
   sendContact(payload) {
     return request('/api/inquiries/contact', { method: 'POST', body: payload });
   },

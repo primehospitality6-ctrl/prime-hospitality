@@ -89,6 +89,27 @@ export default function BookingModal({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [problem, setProblem] = useState(false);
+
+  // An unpaid booking ends the moment the guest leaves the payment (closes this window or the page):
+  // it is never confirmed or sent to Kwentra. A paid booking is never touched by this.
+  const unpaidOrderRef = useRef('');
+  useEffect(() => {
+    const paid = result?.booking?.paymentStatus === 'paid';
+    unpaidOrderRef.current = result?.payment?.merchantOrderId && !paid ? result.payment.merchantOrderId : '';
+  }, [result]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const leave = () => {
+      const ref = unpaidOrderRef.current;
+      unpaidOrderRef.current = '';
+      if (ref) kwentraApi.cancelPayment(ref);
+    };
+    window.addEventListener('pagehide', leave);
+    return () => {
+      window.removeEventListener('pagehide', leave);
+      leave();
+    };
+  }, [open]);
   const [liveOccupancies, setLiveOccupancies] = useState([]);
   const scenarios = useMemo(
     () => (liveOccupancies.length ? liveOccupancies : normalizeOccupancies(listing?.occupancies)),

@@ -73,6 +73,43 @@ function paymobPaymentSettled(t = {}) {
   return { ok: true };
 }
 
+/** A Paymob payment page stays open for an hour; after that the booking can no longer be paid. */
+const UNPAID_EXPIRY_MS = 65 * 60 * 1000;
+
+/**
+ * End a booking that was never paid: payment failed / declined, guest left, or the hour ran out.
+ * Such a booking is never confirmed, emailed or sent to Kwentra. A paid booking is never touched.
+ */
+async function closeUnpaidBooking(booking, outcome, reason = '') {
+  if (!booking || booking.paymentStatus === 'paid') return booking;
+  const status = { failed: 'payment_failed', cancelled: 'cancelled', expired: 'expired' }[outcome] || 'cancelled';
+  if (booking.status === status && booking.paymentStatus === outcome) return booking;
+  const { updateBooking } = require('../lib/cmsStore');
+  const patch = { status, paymentStatus: outcome };
+  console.log(`[payment] booking ${booking.voucherNumber || booking.id} ${status}${reason ? `: ${reason}` : ''} — not sent to Kwentra`);
+  return (await updateBooking(booking.id, patch)) || { ...booking, ...patch };
+}
+
+/** Unpaid bookings older than the payment page's life are expired. */
+async function expireUnpaidBookings(bookings) {
+  const now = Date.now();
+  const stale = (bookings || []).filter(
+    (b) =>
+      b.paymentStatus === 'pending' &&
+      b.status === 'pending_payment' &&
+      b.createdAt &&
+      now - new Date(b.createdAt).getTime() > UNPAID_EXPIRY_MS
+  );
+  for (const b of stale) {
+    try {
+      Object.assign(b, await closeUnpaidBooking(b, 'expired', 'not paid within an hour'));
+    } catch (err) {
+      console.warn('[payment] could not expire booking', b.id, err.message);
+    }
+  }
+  return bookings;
+}
+
 function activeProvider() {
   const forced = String(process.env.PAYMENT_PROVIDER || '').toLowerCase();
   if (forced === 'paymob' || forced === 'stripe' || forced === 'fawry' || forced === 'mock') return forced;
@@ -505,6 +542,8 @@ function verifyPaymobHmac(obj, receivedHmac) {
 
 module.exports = {
   activeProvider,
+  closeUnpaidBooking,
+  expireUnpaidBookings,
   isHosted,
   mockPaymentsAllowed,
   paymobPaymentSettled,

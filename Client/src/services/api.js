@@ -8,7 +8,7 @@ const BASE = apiBase(import.meta.env.VITE_API_URL);
 const GEO_KEY = 'prime.geo';
 let bookingConfigPromise = null;
 
-async function request(path, { method = 'GET', params, body } = {}) {
+async function request(path, { method = 'GET', params, body, keepalive = false } = {}) {
   const url = new URL(path, BASE || window.location.origin);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
@@ -22,6 +22,7 @@ async function request(path, { method = 'GET', params, body } = {}) {
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    keepalive,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -73,6 +74,12 @@ export const kwentraApi = {
 
   paymentStatus(merchantOrderId) {
     return request(`/api/kwentra/payments/order/${encodeURIComponent(merchantOrderId)}`);
+  },
+
+  /** The guest left without paying: end that unpaid booking. keepalive lets it finish while the page closes. */
+  cancelPayment(merchantOrderId) {
+    if (!merchantOrderId) return Promise.resolve();
+    return request('/api/kwentra/payments/cancel', { method: 'POST', body: { merchantOrderId }, keepalive: true }).catch(() => {});
   },
 
   confirmMockPayment(payload) {

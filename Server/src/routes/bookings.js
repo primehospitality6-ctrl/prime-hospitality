@@ -1,6 +1,5 @@
 const { Router } = require('express');
-const { randomUUID } = require('crypto');
-const { findUnit, createBooking, listBookings, findBooking } = require('../lib/cmsStore');
+const { listBookings, findBooking } = require('../lib/cmsStore');
 const { requireAdmin } = require('../middleware/adminAuth');
 
 const router = Router();
@@ -14,40 +13,8 @@ router.get(
   })
 );
 
-router.post(
-  '/',
-  wrap(async (req, res) => {
-    const { slug, name, email, phone, guests, checkIn, checkOut, notes } = req.body || {};
-    if (!slug || !name || !email) {
-      return res.status(400).json({ error: 'slug, name, and email are required' });
-    }
-
-    const listing = await findUnit(slug);
-    if (!listing?.live) {
-      return res.status(404).json({ error: 'Listing not found' });
-    }
-
-    const booking = await createBooking({
-      id: randomUUID(),
-      status: 'requested',
-      createdAt: new Date().toISOString(),
-      slug,
-      listingId: listing.id,
-      listingTitle: listing.title,
-      name,
-      email,
-      phone: phone || null,
-      guests: guests ? Number(guests) : null,
-      checkIn: checkIn || null,
-      checkOut: checkOut || null,
-      notes: notes || null,
-      pricePerNight: listing.pricePerNight,
-      currency: listing.currency,
-    });
-
-    res.status(201).json({ booking });
-  })
-);
+// There is no POST here: a booking with no payment is not allowed. Every booking goes through
+// /api/book-direct and only counts once Paymob confirms the payment.
 
 router.get(
   '/:id',

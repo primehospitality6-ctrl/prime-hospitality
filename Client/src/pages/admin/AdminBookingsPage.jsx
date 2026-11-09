@@ -25,6 +25,18 @@ function downloadCsv(fields, items) {
 const STATUS_STYLES = {
   paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  failed: 'bg-red-50 text-red-700 border-red-200',
+  cancelled: 'border-prime-line text-prime-muted line-through',
+  expired: 'border-prime-line text-prime-muted line-through',
+};
+
+/** Unpaid bookings never reach Kwentra; the label says why. */
+const STATUS_LABELS = {
+  paid: 'Paid',
+  pending: 'Awaiting payment',
+  failed: 'Payment failed',
+  cancelled: 'Left without paying',
+  expired: 'Expired unpaid',
 };
 
 /** Website bookings with the 17 PMS data fields, in sheet order */
@@ -157,7 +169,7 @@ export default function AdminBookingsPage() {
                           STATUS_STYLES[b.paymentStatus] || 'border-prime-line text-prime-muted'
                         )}
                       >
-                        {b.paymentStatus || b.status || '—'}
+                        {STATUS_LABELS[b.paymentStatus] || b.paymentStatus || b.status || '—'}
                       </span>
                       {b.kwentraIssue ? (
                         <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-red-700">
