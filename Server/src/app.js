@@ -21,7 +21,8 @@ function createApp() {
 
   const origins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
     .split(',')
-    .map((s) => s.trim())
+    // "https://www.stayatprime.com/" and "https://www.stayatprime.com" are the same site to a browser.
+    .map((s) => s.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
