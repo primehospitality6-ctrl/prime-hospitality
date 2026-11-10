@@ -50,7 +50,7 @@ function mockPaymentsAllowed() {
 }
 
 /**
- * Is this Paymob transaction a completed, successful payment from our own integration?
+ * Is this Paymob transaction a completed, successful payment (from any integration on our account)?
  * Works on the processed callback (nested) and the response callback (flat query).
  * Signature and amount are checked separately.
  */
@@ -62,14 +62,9 @@ function paymobPaymentSettled(t = {}) {
   if (yes(t.is_voided)) return { ok: false, reason: 'the payment was voided' };
   if (yes(t.is_refunded)) return { ok: false, reason: 'the payment was refunded' };
   if (yes(t.is_auth) && !yes(t.is_capture)) return { ok: false, reason: 'the card was only authorised, not charged' };
-  const allowed = String(process.env.PAYMOB_INTEGRATION_ID || '')
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean);
-  const integration = String(t.integration_id ?? '').trim();
-  if (allowed.length && !allowed.includes(integration)) {
-    return { ok: false, reason: `the payment came from Paymob integration ${integration || 'unknown'}, not the one this site uses (${allowed.join(', ')})` };
-  }
+  // No check on which integration took the payment: Paymob itself attaches extra integrations to our
+  // payment sessions (Apple Pay, bank installments), and any of them may complete it. The HMAC proves
+  // the message is from our Paymob account, and live keys only ever create live payment sessions.
   return { ok: true };
 }
 
