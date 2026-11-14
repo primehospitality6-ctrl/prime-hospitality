@@ -8,7 +8,7 @@ const { listBookings, updateBooking, findBooking } = require('../lib/cmsStore');
 
 const router = Router();
 
-async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId, cardLast4, cardType, paidCents, paidCurrency }) {
+async function markPaidAndPush(booking, { provider, transactionId, merchantOrderId, cardLast4, cardType, paidCents, paidCurrency, paidIntegrationId }) {
   if (!booking) return null;
   if (booking.paymentStatus === 'paid') return { pushed: false, reason: 'already_paid' };
   if (paidCents !== undefined) {
@@ -20,12 +20,15 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
       return { pushed: false, reason: 'amount_mismatch', issue };
     }
   }
-  await updateBooking(booking.id, { status: 'confirmed', paymentStatus: 'paid' });
-  const confirmed = (await findBooking(booking.id).catch(() => null)) || {
-    ...booking,
+  const paidPatch = {
     status: 'confirmed',
     paymentStatus: 'paid',
+    paymentTransactionId: transactionId != null ? String(transactionId) : null,
+    paidIntegrationId: paidIntegrationId != null && paidIntegrationId !== '' ? String(paidIntegrationId) : null,
   };
+  await updateBooking(booking.id, paidPatch);
+  Object.assign(booking, paidPatch);
+  const confirmed = (await findBooking(booking.id).catch(() => null)) || { ...booking };
   emailService.sendBookingConfirmation(confirmed).catch((err) => {
     console.warn('[email] confirmation failed:', err.message);
   });
@@ -40,6 +43,7 @@ async function markPaidAndPush(booking, { provider, transactionId, merchantOrder
       transactionId,
       cardLast4,
       cardType,
+      paidIntegrationId,
     });
   } catch (err) {
     // The booking is already marked paid, so a retry from the gateway would skip Kwentra.
@@ -96,6 +100,7 @@ router.post('/paymob', async (req, res, next) => {
       cardType: obj.source_data?.sub_type,
       paidCents: obj.amount_cents,
       paidCurrency: obj.currency,
+      paidIntegrationId: obj.integration_id,
     });
 
     res.json({ received: true, handled: true, merchantOrderId, kwentraPayment });
@@ -142,6 +147,7 @@ router.get('/paymob/response', async (req, res) => {
         cardType: q['source_data.sub_type'],
         paidCents: q.amount_cents,
         paidCurrency: q.currency,
+        paidIntegrationId: q.integration_id,
       });
     } catch (err) {
       console.warn('[webhook/paymob/response] could not confirm booking:', err.message);

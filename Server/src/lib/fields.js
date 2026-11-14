@@ -5,7 +5,7 @@
 const { normalizeOccupancies } = require('./occupancy');
 
 const COMPOUND_FIELDS = {
-  text: ['description', 'address', 'mapsUrl', 'buildingNumber', 'phone', 'driveFolderUrl', 'factSheetUrl', 'kwentraTenantId'],
+  text: ['description', 'address', 'mapsUrl', 'buildingNumber', 'phone', 'driveFolderUrl', 'factSheetUrl', 'kwentraTenantId', 'paymobIntegrationId'],
   num: ['latitude', 'longitude'],
   list: ['facilities'],
   json: ['kwentraSnapshot'],

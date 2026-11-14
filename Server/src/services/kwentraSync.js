@@ -41,6 +41,7 @@ const { coordsFromMapsUrl } = require('../lib/fields');
 const { isLive } = require('../lib/unitCompleteness');
 const { normalizeOccupancies, partyFits: partyAllowed, occupancyMax: maxFromOccupancy } = require('../lib/occupancy');
 const pms = require('../lib/pms');
+const paymobIntegrations = require('../lib/paymobIntegrations');
 
 const envPath = (name) => String(process.env[name] || '').trim();
 const envFlag = (name, fallback = false) => {
@@ -1420,6 +1421,52 @@ function paymentDepartment(tenantId, currency = 'USD') {
 }
 
 /**
+ * Each tenant's "Paymob" payment department (EGP), read from Kwentra on 2026-11-14. Used when Kwentra
+ * cannot be asked at payment time; the live lookup wins, so a department Kwentra renumbers is still found.
+ */
+const PAYMOB_DEPARTMENTS = {
+  87: '82', 340: '44', 382: '40', 386: '21', 427: '14', 455: '38', 456: '43', 465: '34', 486: '35',
+  491: '47', 493: '37', 494: '36', 559: '34', 562: '38', 573: '38', 591: '37', 596: '55', 622: '38',
+  624: '39', 637: '46', 650: '75', 679: '42', 680: '42', 740: '84', 778: '82', 781: '82', 830: '33',
+  878: '33', 889: '13', 913: '31', 977: '30', 1110: '40', 1126: '13', 1131: '86', 1144: '42', 1155: '79',
+  1169: '95', 1170: '33', 1192: '12', 1276: '39', 1286: '30', 1312: '20', 1509: '9', 1532: '12',
+};
+
+/**
+ * Where a Paymob card payment is posted in this tenant: its "Paymob" department, so the folio shows
+ * the money came through Paymob (not cash) and the accountant can reconcile it.
+ * KWENTRA_PAYMOB_DEPARTMENTS (JSON by tenant) overrides; then Kwentra's own department list; then the
+ * list above. Falls back to the cash department only when none of these has one.
+ */
+async function paymobDepartment(tenantId) {
+  const tenant = String(tenantId || kwentra.getTenantId());
+  let forced = '';
+  try {
+    forced = String(JSON.parse(process.env.KWENTRA_PAYMOB_DEPARTMENTS || '{}')?.[tenant] ?? '').trim();
+  } catch {
+    console.warn('[kwentra] KWENTRA_PAYMOB_DEPARTMENTS is not valid JSON — ignoring it');
+  }
+  if (forced) return { id: forced, name: 'Paymob', source: 'server setting' };
+  try {
+    const departments = await kwentra.listDepartments({ tenantId: tenant });
+    const match = departments.find((d) => d.type === 'credit' && d.active && /pay\s*mob/i.test(d.name));
+    if (match) return { id: match.id, name: match.name.trim() || 'Paymob', source: 'kwentra' };
+  } catch (err) {
+    console.warn(`[kwentra] could not read departments of tenant ${tenant}:`, err.message);
+  }
+  if (PAYMOB_DEPARTMENTS[tenant]) return { id: PAYMOB_DEPARTMENTS[tenant], name: 'Paymob', source: 'saved list' };
+  return { id: '', name: '', reason: `tenant ${tenant} has no "Paymob" payment department in Kwentra` };
+}
+
+/** The Paymob integration a unit's payments belong to (its property's), or null. */
+async function paymobIntegrationForUnit(listing) {
+  const compounds = listing?.compoundId ? await listCmsCompounds() : [];
+  const compound = compounds.find((c) => c.id === listing?.compoundId) || null;
+  const tenantId = await tenantForUnit(listing, compounds);
+  return paymobIntegrations.integrationForProperty({ tenantId, compound });
+}
+
+/**
  * A paid website booking → Kwentra. Without holds (Kwentra's advice) the reservation is created only
  * now, confirmed, so unpaid checkouts never take a room. Then the payment is recorded on it.
  * `issue` says what staff must do by hand when something could not be done.
@@ -1480,7 +1527,27 @@ async function pushPaidBooking(booking, payment = {}) {
  * hold date removed); one Kwentra already auto-cancelled is reinstated — the same reservation, never a
  * second booking. Then the payment is posted on the billing account (Billing API) with a billing note.
  */
-async function pushPayment({ booking, reservationId, amount, currency = 'USD', merchantOrderId, provider, transactionId }) {
+/**
+ * Which Paymob integration took the money, and whether it is this property's own. A payment taken on
+ * any other integration is flagged so the accountant can reassign it in Paymob / the books.
+ */
+function paymobIntegrationSummary(booking, paidIntegrationId) {
+  const opened = String(booking?.paymobIntegrationId || '').trim();
+  const expected = String(booking?.paymobExpectedIntegrationId || '').trim();
+  const paid = String(paidIntegrationId || booking?.paidIntegrationId || '').trim() || opened;
+  if (!paid && !expected) return { text: '', issue: '' };
+  const name = paid && paid === opened && booking?.paymobIntegrationName ? ` (${booking.paymobIntegrationName})` : '';
+  const text = paid ? ` Paymob integration ${paid}${name}.` : '';
+  let issue = '';
+  if (!expected) {
+    issue = `Paid on Paymob integration ${paid || 'unknown'}: this property has no Paymob integration ID set (add it on the property in the admin).`;
+  } else if (opened && opened !== expected) {
+    issue = `Paid on the website's Paymob integration ${opened}, not this property's integration ${expected}${booking?.integrationFallback ? ` (${booking.integrationFallback})` : ''} — reassign it in Paymob / the accounts.`;
+  }
+  return { text, issue };
+}
+
+async function pushPayment({ booking, reservationId, amount, currency = 'USD', merchantOrderId, provider, transactionId, paidIntegrationId }) {
   if (!kwentra.isConfigured() || !reservationId) {
     return { pushed: false, reason: !reservationId ? 'missing_reservation_id' : 'not_configured' };
   }
@@ -1525,9 +1592,19 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
   const charged = booking?.chargeAmount && booking?.chargeCurrency
     ? ` Card charged ${Number(booking.chargeAmount)} ${booking.chargeCurrency} at Kwentra rate ${booking.fxRate}.`
     : '';
-  const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}.${charged}`;
+  const viaPaymob = String(provider || '').toLowerCase() === 'paymob';
+  const integration = viaPaymob ? paymobIntegrationSummary(booking, paidIntegrationId) : { text: '', issue: '' };
+  const summary = `Paid online on the website: ${Number(amount)} ${currency} via ${provider || 'online payment'}${ref ? ` (ref ${ref})` : ''}${booking?.voucherNumber ? ` — voucher ${booking.voucherNumber}` : ''}.${integration.text}${charged}`;
 
-  const { id: department, reason: noDepartment } = paymentDepartment(tenantId, currency);
+  // Paymob card money goes on the tenant's "Paymob" department (EGP); other gateways keep the cash one.
+  let chosen = viaPaymob ? await paymobDepartment(tenantId) : { id: '' };
+  if (!chosen.id) {
+    const cash = paymentDepartment(tenantId, currency);
+    if (viaPaymob && cash.id) result.errors.push(`department: ${chosen.reason} — posted on ${cash.name} instead`);
+    chosen = cash;
+  }
+  result.department = chosen.id ? `${chosen.id} ${chosen.name || ''}`.trim() : '';
+  const { id: department, reason: noDepartment } = chosen;
   if (department) {
     await attempt('posted', async () => {
       const accountId = Number(booking?.kwentraAccountId) || kwentra.reservationAccountId(current);
@@ -1559,6 +1636,11 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
   if (onHold && !result.confirmed) {
     result.issue = `Reservation ${reservationId} is still ON HOLD in Kwentra although the guest paid — confirm it before its hold date or Kwentra will cancel it. ${result.issue || ''}`.trim();
   }
+  const departmentNote = result.errors.find((e) => e.startsWith('department:'));
+  if (result.posted && departmentNote) {
+    result.issue = [result.issue, `Payment posted on the cash department: ${departmentNote.replace(/^department:\s*/, '')}. Move it to Paymob in Kwentra.`].filter(Boolean).join(' ');
+  }
+  if (integration.issue) result.issue = [result.issue, integration.issue].filter(Boolean).join(' ');
   return result;
 }
 
@@ -2862,6 +2944,9 @@ module.exports = {
   holdUntilPaid,
   pushPayment,
   paymentDepartment,
+  paymobDepartment,
+  paymobIntegrationForUnit,
+  paymobIntegrationSummary,
   pushPaidBooking,
   recordPaymentResult,
   buildReservationPayload,

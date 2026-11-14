@@ -10,6 +10,7 @@
 const https = require('https');
 const crypto = require('crypto');
 const kwentra = require('./kwentraService');
+const integrations = require('../lib/paymobIntegrations');
 
 const PAYMOB_BASE = process.env.PAYMOB_BASE_URL || 'https://accept.paymob.com/api';
 /** Rates on the website are USD. Paymob's charge is always EGP. */
@@ -225,42 +226,71 @@ function publicApiUrl() {
  * Paymob's current checkout. Creates a payment intention and returns the
  * Unified Checkout page, which our popup shows in its frame. No iframe ID needed.
  */
-async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId }) {
+async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId, integration }) {
   const priced = await amountForPaymob(amount, currency, tenantId);
   const amountCents = Math.round(Number(priced.chargeAmount) * 100);
-  const integrationIds = env('PAYMOB_INTEGRATION_ID')
-    .split(',')
-    .map((v) => Number(v.trim()))
-    .filter(Boolean);
+  const websiteIds = integrations.defaultIntegrationIds();
   const api = publicApiUrl();
   const base = PAYMOB_BASE.replace(/\/api\/?$/, '');
 
-  const res = await requestJson(
-    'POST',
-    `${base}/v1/intention/`,
-    {
-      amount: amountCents,
-      currency: priced.chargeCurrency,
-      payment_methods: integrationIds,
-      items: [{ name: 'Stay booking', amount: amountCents, description: merchantOrderId, quantity: 1 }],
-      billing_data: paymobBilling(billing),
-      special_reference: merchantOrderId,
-      expiration: 3600,
-      ...(api
-        ? {
-            notification_url: `${api}/api/webhooks/paymob`,
-            redirection_url: `${api}/api/webhooks/paymob/response`,
-          }
-        : {}),
-    },
-    { Authorization: `Token ${env('PAYMOB_SECRET_KEY')}` }
-  );
+  const openIntention = (cardIntegrationId) =>
+    requestJson(
+      'POST',
+      `${base}/v1/intention/`,
+      {
+        amount: amountCents,
+        currency: priced.chargeCurrency,
+        // The property's card integration first; any extra website methods (e.g. a wallet) after it.
+        payment_methods: [...new Set([cardIntegrationId, ...websiteIds.slice(1)])].filter(Boolean).map(Number),
+        items: [{ name: 'Stay booking', amount: amountCents, description: merchantOrderId, quantity: 1 }],
+        billing_data: paymobBilling(billing),
+        special_reference: merchantOrderId,
+        expiration: 3600,
+        ...(api
+          ? {
+              notification_url: `${api}/api/webhooks/paymob`,
+              redirection_url: `${api}/api/webhooks/paymob/response`,
+            }
+          : {}),
+      },
+      { Authorization: `Token ${env('PAYMOB_SECRET_KEY')}` }
+    );
+
+  // The property's own integration, so the money is recorded against the right property in Paymob.
+  // If Paymob says that integration is not on our account, the guest still pays — on the website's
+  // integration — and the booking says so, for the accountant to reassign.
+  const wanted = integration?.id ? String(integration.id) : '';
+  let used = wanted && !integrations.isKnownUnavailable(wanted) ? wanted : '';
+  let fallbackReason = wanted && !used ? `Paymob integration ${wanted} is not on the website's Paymob account` : '';
+  let res = used ? await openIntention(used) : null;
+  if (res && (res.status >= 400 || !res.data?.client_secret) && integrations.isMissingIntegrationError(res.status, res.data)) {
+    const why = res.data?.detail || res.data?.message || `HTTP ${res.status}`;
+    console.error(`[paymob] integration ${used} (${integration?.name || 'property'}) refused: ${why} — using the website integration`);
+    integrations.markUnavailable(used, why);
+    fallbackReason = `Paymob refused integration ${used}: ${why}`;
+    used = '';
+    res = null;
+  }
+  if (!res) {
+    used = websiteIds[0] || '';
+    if (!used) throw new Error('Paymob: no integration ID is set (PAYMOB_INTEGRATION_ID)');
+    res = await openIntention(used);
+  }
   if (res.status >= 400 || !res.data?.client_secret) {
     throw new Error(`Paymob intention failed: ${JSON.stringify(res.data)}`);
   }
+  if (used === wanted) integrations.markAvailable(used);
+  const usedName =
+    (res.data.payment_methods || []).find((m) => String(m.integration_id) === String(used))?.name ||
+    (used === wanted ? integration?.name : '') ||
+    '';
 
   const iframeSrc = `${base}/unifiedcheckout/?publicKey=${encodeURIComponent(env('PAYMOB_PUBLIC_KEY'))}&clientSecret=${encodeURIComponent(res.data.client_secret)}`;
   return {
+    paymobIntegrationId: used,
+    paymobIntegrationName: usedName,
+    expectedIntegrationId: wanted || null,
+    integrationFallback: wanted && used !== wanted ? fallbackReason || `integration ${wanted} was not used` : '',
     provider: 'paymob',
     mode: 'embedded_iframe',
     amountCents,
@@ -278,9 +308,44 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
   };
 }
 
-async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing, tenantId }) {
+/**
+ * Is this integration usable on the website's Paymob account? Opens an unpaid 1 EGP payment session
+ * (expires in 5 minutes, nothing is charged) and reads Paymob's answer.
+ */
+async function checkPaymobIntegration(integrationId) {
+  if (!isPaymobCheckoutConfigured()) return { ok: false, reason: 'Paymob checkout keys are not set' };
+  const base = PAYMOB_BASE.replace(/\/api\/?$/, '');
+  try {
+    const res = await requestJson(
+      'POST',
+      `${base}/v1/intention/`,
+      {
+        amount: 100,
+        currency: 'EGP',
+        payment_methods: [Number(integrationId)],
+        items: [{ name: 'Integration check', amount: 100, quantity: 1 }],
+        billing_data: paymobBilling({ name: 'Integration Check', email: 'check@stayatprime.com' }),
+        special_reference: `integration-check-${integrationId}-${Date.now()}`,
+        expiration: 300,
+      },
+      { Authorization: `Token ${env('PAYMOB_SECRET_KEY')}` }
+    );
+    if (res.status < 400 && res.data?.client_secret) {
+      const method = (res.data.payment_methods || []).find((m) => String(m.integration_id) === String(integrationId)) || {};
+      integrations.markAvailable(integrationId);
+      return { ok: true, name: method.name || '', live: method.live ?? null, currency: method.currency || '' };
+    }
+    const reason = res.data?.detail || res.data?.message || `HTTP ${res.status}`;
+    if (integrations.isMissingIntegrationError(res.status, res.data)) integrations.markUnavailable(integrationId, reason);
+    return { ok: false, reason };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
+async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing, tenantId, integration }) {
   if (isPaymobCheckoutConfigured()) {
-    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId });
+    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId, integration });
   }
   const missing = ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].filter(
     (name) => !String(process.env[name] || '').trim()
@@ -445,11 +510,11 @@ async function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE
  * Start an on-site payment session.
  * Returns embed payload for PaymentModal — never a navigation redirect.
  */
-async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing, tenantId }) {
+async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing, tenantId, integration }) {
   const provider = activeProvider();
   const cur = String(currency || SITE_CURRENCY).toUpperCase();
   if (provider === 'paymob') {
-    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing, tenantId });
+    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing, tenantId, integration });
   }
   if (provider === 'stripe') {
     return initializeStripeEmbedded({
@@ -537,6 +602,7 @@ function verifyPaymobHmac(obj, receivedHmac) {
 
 module.exports = {
   activeProvider,
+  checkPaymobIntegration,
   closeUnpaidBooking,
   expireUnpaidBookings,
   isHosted,

@@ -48,6 +48,7 @@ function compoundFromRow(row) {
     kwentraProjectId: row.kwentra_project_id || '',
     kwentraDestinationId: row.kwentra_destination_id || '',
     kwentraTenantId: row.kwentra_tenant_id || '',
+    paymobIntegrationId: row.paymob_integration_id || '',
     description: row.description || '',
     address: row.address || '',
     mapsUrl: row.maps_url || '',
@@ -78,6 +79,7 @@ function compoundToRow(item) {
     kwentra_project_id: item.kwentraProjectId || '',
     kwentra_destination_id: item.kwentraDestinationId || '',
     kwentra_tenant_id: item.kwentraTenantId || '',
+    paymob_integration_id: item.paymobIntegrationId || '',
     description: item.description || '',
     address: item.address || '',
     maps_url: item.mapsUrl || '',
@@ -284,6 +286,12 @@ function bookingFromRow(row) {
     fxRate: row.fx_rate != null ? num(row.fx_rate) : null,
     locale: row.locale === 'ar' ? 'ar' : 'en',
     confirmationEmailSentAt: row.confirmation_email_sent_at || null,
+    paymobIntegrationId: row.paymob_integration_id || null,
+    paymobIntegrationName: row.paymob_integration_name || null,
+    paymobExpectedIntegrationId: row.paymob_expected_integration_id || null,
+    integrationFallback: row.integration_fallback || null,
+    paidIntegrationId: row.paid_integration_id || null,
+    paymentTransactionId: row.payment_transaction_id || null,
   };
 }
 
@@ -336,6 +344,12 @@ function bookingToRow(b) {
     fx_rate: b.fxRate ?? null,
     locale: b.locale === 'ar' ? 'ar' : 'en',
     confirmation_email_sent_at: b.confirmationEmailSentAt || null,
+    paymob_integration_id: b.paymobIntegrationId || null,
+    paymob_integration_name: b.paymobIntegrationName || null,
+    paymob_expected_integration_id: b.paymobExpectedIntegrationId || null,
+    integration_fallback: b.integrationFallback || null,
+    paid_integration_id: b.paidIntegrationId || null,
+    payment_transaction_id: b.paymentTransactionId || null,
   };
 }
 

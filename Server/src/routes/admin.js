@@ -267,6 +267,44 @@ router.get(
   })
 );
 
+/**
+ * Where each property's card payments go: its Kwentra tenant, its Paymob integration and the Kwentra
+ * "Paymob" department the payment is posted to. ?verify=1 asks Paymob about each integration
+ * (opens an unpaid 1 EGP session that expires in 5 minutes; nothing is charged).
+ */
+router.get(
+  '/paymob/integrations',
+  requireAdmin,
+  wrap(async (req, res) => {
+    const sync = require('../services/kwentraSync');
+    const integrations = require('../lib/paymobIntegrations');
+    const payment = require('../services/paymentService');
+    const verify = req.query.verify === '1' || req.query.verify === 'true';
+    const compounds = await listCompounds();
+    const items = [];
+    for (const c of compounds) {
+      const tenantId = String(c.kwentraTenantId || '').trim();
+      const integration = integrations.integrationForProperty({ tenantId, compound: c });
+      const department = tenantId ? await sync.paymobDepartment(tenantId) : { id: '', reason: 'no Kwentra tenant' };
+      const row = {
+        property: c.name,
+        propertyId: c.id,
+        published: c.published !== false,
+        tenantId,
+        integrationId: integration?.id || '',
+        integrationName: integration?.name || '',
+        integrationSource: integration?.source || 'none — the website integration is used',
+        knownUnavailable: integration?.id ? integrations.isKnownUnavailable(integration.id) : false,
+        kwentraDepartment: department.id ? `${department.id} ${department.name || ''}`.trim() : '',
+        kwentraDepartmentProblem: department.id ? '' : department.reason || '',
+      };
+      if (verify && integration?.id) row.paymob = await payment.checkPaymobIntegration(integration.id);
+      items.push(row);
+    }
+    res.json({ websiteIntegration: integrations.defaultIntegrationIds()[0] || '', items });
+  })
+);
+
 /* ——— Properties / compounds (Cloudinary cover images) ——— */
 router.get(
   '/compounds',

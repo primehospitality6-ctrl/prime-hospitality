@@ -194,6 +194,26 @@ export default function AdminBookingsPage() {
                             </span>
                           </p>
                         ) : null}
+                        {b.paymobIntegrationId || b.paidIntegrationId || b.paymentTransactionId ? (
+                          <p className="mb-4 text-[13px] text-prime-muted">
+                            <span className="font-semibold text-prime-ink">Paymob</span>
+                            {' · integration '}
+                            <span className="font-mono tabular-nums">{b.paidIntegrationId || b.paymobIntegrationId || '—'}</span>
+                            {b.paymobIntegrationName && (b.paidIntegrationId || b.paymobIntegrationId) === b.paymobIntegrationId
+                              ? ` (${b.paymobIntegrationName})`
+                              : ''}
+                            {b.paymobExpectedIntegrationId && b.paymobExpectedIntegrationId !== (b.paidIntegrationId || b.paymobIntegrationId)
+                              ? ` · property's integration ${b.paymobExpectedIntegrationId}`
+                              : ''}
+                            {b.paymentTransactionId ? (
+                              <>
+                                {' · transaction '}
+                                <span className="font-mono tabular-nums">{b.paymentTransactionId}</span>
+                              </>
+                            ) : null}
+                            {b.chargeAmount ? ` · charged ${formatMoney(b.chargeAmount, b.chargeCurrency)}` : ''}
+                          </p>
+                        ) : null}
                         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-prime-muted">
                           PMS data fields
                         </p>

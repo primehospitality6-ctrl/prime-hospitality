@@ -579,6 +579,8 @@ async function updateBooking(id, patch) {
   if (patch.kwentraProfileId !== undefined) row.kwentra_profile_id = patch.kwentraProfileId;
   if (patch.kwentraAccountId !== undefined) row.kwentra_account_id = patch.kwentraAccountId;
   if (patch.confirmationEmailSentAt !== undefined) row.confirmation_email_sent_at = patch.confirmationEmailSentAt;
+  if (patch.paidIntegrationId !== undefined) row.paid_integration_id = patch.paidIntegrationId || null;
+  if (patch.paymentTransactionId !== undefined) row.payment_transaction_id = patch.paymentTransactionId || null;
   if (!UUID_RE.test(String(id))) return null;
   return bookingFromRow(await updateRow('bookings', id, row));
 }

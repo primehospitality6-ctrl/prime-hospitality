@@ -15,7 +15,7 @@ const DETAIL_FIELDS = [
   ['factSheetUrl', 'Fact sheet link (staff only)', 'https://…'],
 ];
 
-const BASIC_KEYS = ['name', 'destinationId', 'brand', 'city', 'image', 'showOnHome', 'published', 'kwentraProjectId', 'kwentraTenantId'];
+const BASIC_KEYS = ['name', 'destinationId', 'brand', 'city', 'image', 'showOnHome', 'published', 'kwentraProjectId', 'kwentraTenantId', 'paymobIntegrationId'];
 
 const EMPTY = {
   name: '',
@@ -27,6 +27,7 @@ const EMPTY = {
   published: true,
   kwentraProjectId: '',
   kwentraTenantId: '',
+  paymobIntegrationId: '',
   description: '',
   facilities: '',
   ...Object.fromEntries(DETAIL_FIELDS.map(([key]) => [key, ''])),
@@ -161,6 +162,9 @@ function PropertyEditor({ open, property, destinations, unitCount, defaults, onC
           </Field>
           <Field label="Kwentra tenant ID" hint="The Kwentra hotel this property lives in. Its unit types, availability and bookings use this tenant.">
             <input className="prime-input font-mono" value={form.kwentraTenantId || ''} placeholder="from Kwentra" onChange={(e) => set({ kwentraTenantId: e.target.value.trim() })} />
+          </Field>
+          <Field label="Paymob integration ID" hint="The Paymob integration this property's card payments go to. Leave empty to use the accountant's list for its Kwentra tenant.">
+            <input className="prime-input font-mono" value={form.paymobIntegrationId || ''} placeholder="from the accountant's list" inputMode="numeric" onChange={(e) => set({ paymobIntegrationId: e.target.value.replace(/D/g, '') })} />
           </Field>
           <Field label="Kwentra project ID" hint="Only needed if Kwentra exposes properties as records.">
             <input className="prime-input" value={form.kwentraProjectId || ''} placeholder="optional" onChange={(e) => set({ kwentraProjectId: e.target.value })} />
@@ -392,6 +396,7 @@ export default function AdminCompoundsPage() {
                         </button>
                         {c.showOnHome !== false ? <Badge tone="gold">Homepage</Badge> : null}
                         {c.kwentraTenantId ? <Badge tone="blue">Kwentra tenant {c.kwentraTenantId}</Badge> : null}
+                        {c.paymobIntegrationId ? <Badge tone="blue">Paymob {c.paymobIntegrationId}</Badge> : null}
                         {!c.image ? <Badge tone="red">No photo</Badge> : null}
                       </div>
                     </td>

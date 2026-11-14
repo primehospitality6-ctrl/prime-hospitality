@@ -107,6 +107,8 @@ alter table units add column if not exists occupancies jsonb not null default '[
 
 -- Kwentra tenant (hotel) each property lives in — every PMS call for its units uses this tenant_id
 alter table compounds add column if not exists kwentra_tenant_id text not null default '';
+-- The property's own Paymob integration (overrides the accountant's list in paymobIntegrations.js)
+alter table compounds add column if not exists paymob_integration_id text not null default '';
 
 create index if not exists compounds_destination_idx on compounds (destination_id);
 create index if not exists units_destination_idx on units (destination_id);
@@ -195,6 +197,13 @@ alter table bookings add column if not exists charge_currency text;
 alter table bookings add column if not exists fx_rate numeric;
 alter table bookings add column if not exists locale text;
 alter table bookings add column if not exists confirmation_email_sent_at timestamptz;
+-- Paymob integration per property: the one the payment opened on, the property's own, and the one that took it
+alter table bookings add column if not exists paymob_integration_id text;
+alter table bookings add column if not exists paymob_integration_name text;
+alter table bookings add column if not exists paymob_expected_integration_id text;
+alter table bookings add column if not exists integration_fallback text;
+alter table bookings add column if not exists paid_integration_id text;
+alter table bookings add column if not exists payment_transaction_id text;
 
 create index if not exists bookings_external_ref_idx on bookings (external_ref);
 

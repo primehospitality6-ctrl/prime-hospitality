@@ -418,13 +418,20 @@ async function bookDirect(req, res, next) {
     }
 
     let paymentSession;
+    let integration = null;
     try {
+      // The property's own Paymob integration; a lookup problem must never stop the guest paying.
+      integration = await sync.paymobIntegrationForUnit(listing).catch((err) => {
+        console.warn('[payment] could not look up the property Paymob integration:', err.message);
+        return null;
+      });
       paymentSession = await payment.createPaymentSession({
         amount: booking.rateAmount,
         currency: booking.rateCurrency,
         merchantOrderId: externalRef,
         billing: { name: booking.primaryGuestName, email: booking.email, phone: booking.phone },
         tenantId: await sync.tenantForUnit(listing),
+        integration,
       });
     } catch (err) {
       console.warn('[payment] session failed:', err.message);
@@ -437,13 +444,18 @@ async function bookDirect(req, res, next) {
     booking.chargeAmount = paymentSession.chargeAmount ?? null;
     booking.chargeCurrency = paymentSession.chargeCurrency || null;
     booking.fxRate = paymentSession.fxRate ?? null;
+    booking.paymobIntegrationId = paymentSession.paymobIntegrationId || null;
+    booking.paymobIntegrationName = paymentSession.paymobIntegrationName || null;
+    booking.paymobExpectedIntegrationId = integration?.id || null;
+    booking.integrationFallback = paymentSession.integrationFallback || null;
 
     const saved = await createBooking(booking);
 
     res.status(201).json({
       booking: publicBooking({ ...booking, ...saved }),
       pms: pms.toPmsRows(booking),
-      payment: paymentSession,
+      // Which integration took it is for the accounts, not the guest.
+      payment: (({ integrationFallback, expectedIntegrationId, paymobIntegrationName, ...rest }) => rest)(paymentSession),
       kwentra: {
         guest: null,
         reservation: null,
