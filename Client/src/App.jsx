@@ -15,7 +15,6 @@ import PromoPopup from './components/PromoPopup';
 import AdminGuard from './components/admin/AdminGuard';
 import AdminLayout from './components/admin/AdminLayout';
 import { BuilderProvider } from './components/pageBuilder/BuilderFrame';
-import ComingSoonGate from './components/ComingSoonGate';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
@@ -77,7 +76,6 @@ export default function App() {
             <WishlistProvider>
             <BuilderProvider>
               <ScrollToTop />
-              <ComingSoonGate>
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/" element={<HomePage />} />
@@ -134,7 +132,6 @@ export default function App() {
               <SeoManager />
               {previewFrame ? null : <PromoPopup />}
               <WhatsAppFAB />
-              </ComingSoonGate>
             </BuilderProvider>
             </WishlistProvider>
           </ThemeProvider>
