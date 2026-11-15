@@ -1176,7 +1176,10 @@ async function getReservation(id, { tenantId, includes = ['state.name'] } = {}) 
 /** Kwentra cancels an unpaid ON_HOLD reservation at its hold date; the state turns "Canceled" */
 const isCancelledReservation = (reservation) => /cancel/i.test(String(reservation?.state?.name || reservation?.state || ''));
 
-/** Billing account of a reservation — the field Kwentra uses is configurable (KWENTRA_RESERVATION_ACCOUNT_FIELD) */
+/**
+ * Billing account of a reservation: Kwentra's `account` — the id it returns when the reservation is created,
+ * where the payment must be posted (same tenant). KWENTRA_RESERVATION_ACCOUNT_FIELD can name another field.
+ */
 function reservationAccountId(reservation) {
   if (!reservation || typeof reservation !== 'object') return null;
   const nested = reservation.reservation;
@@ -1184,7 +1187,7 @@ function reservationAccountId(reservation) {
     const fromNested = reservationAccountId({ ...nested, reservation: null });
     if (fromNested) return fromNested;
   }
-  const fields = [process.env.KWENTRA_RESERVATION_ACCOUNT_FIELD, 'billing_account', 'account_id', 'reservation_account', 'account'].filter(Boolean);
+  const fields = [process.env.KWENTRA_RESERVATION_ACCOUNT_FIELD, 'account', 'billing_account', 'account_id', 'reservation_account'].filter(Boolean);
   for (const field of fields) {
     const v = reservation[field];
     const id = v && typeof v === 'object' ? v.id ?? v.pk : v;

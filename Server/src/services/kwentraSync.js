@@ -1586,7 +1586,7 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
 
   let current = null;
   try {
-    current = await kwentra.getReservation(reservationId, { tenantId, includes: ['state.name', 'account'] });
+    current = await kwentra.getReservation(reservationId, { tenantId, includes: ['state.name', 'account', 'balance'] });
   } catch (err) {
     current = await kwentra.getReservation(reservationId, { tenantId }).catch((fallbackErr) => {
       result.errors.push(`lookup: ${fallbackErr.message}`);
@@ -1667,6 +1667,21 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
         result.verified = Boolean(found);
         if (found) result.postingId = found.id != null ? String(found.id) : '';
         else result.errors.push(`verify: no ${baseAmount} EGP payment on department ${department} found on account ${accountId} after posting`);
+      }
+      // Second check: the reservation's balance (the sum of its postings) must have dropped by the payment.
+      const balanceBefore = Number(current?.balance);
+      const fresh = await kwentra.getReservation(reservationId, { tenantId, includes: ['balance', 'account'] }).catch(() => null);
+      const balanceAfter = Number(fresh?.balance);
+      if (Number.isFinite(balanceAfter)) result.balanceAfter = balanceAfter;
+      if (!result.alreadyPosted && Number.isFinite(balanceBefore) && Number.isFinite(balanceAfter)) {
+        const dropped = Math.abs(balanceBefore - balanceAfter - baseAmount) < 0.01;
+        result.balanceDropped = dropped;
+        if (!after) result.verified = dropped;
+      }
+      const freshAccount = kwentra.reservationAccountId(fresh);
+      if (freshAccount && freshAccount !== accountId) {
+        result.verified = false;
+        result.errors.push(`verify: reservation ${reservationId} now has account ${freshAccount}, the payment went to ${accountId}`);
       }
     });
   } else {
