@@ -29,6 +29,40 @@ function isPaymobIframeConfigured() {
   return ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].every(envSet);
 }
 
+/**
+ * One Paymob integration (PAYMOB_INTEGRATION_ID) takes every payment; each payment is tagged with its
+ * property and posted on that property's Kwentra tenant. PAYMOB_PROPERTY_INTEGRATIONS_ENABLED=true
+ * switches back to a separate Paymob integration per property (src/lib/paymobIntegrations.js).
+ */
+function usePropertyIntegrations() {
+  return String(process.env.PAYMOB_PROPERTY_INTEGRATIONS_ENABLED || '').trim().toLowerCase() === 'true';
+}
+
+/** What a Paymob transaction says about the stay, so the dashboard shows which property it belongs to. */
+function paymobTag(tag = {}, merchantOrderId) {
+  const cut = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const property = cut(tag.property, 60) || 'Stay';
+  const unit = cut(tag.unit, 40);
+  return {
+    itemName: cut([property, unit].filter(Boolean).join(' — '), 50) || 'Stay booking',
+    description: cut(
+      [tag.voucher, tag.tenantId ? `Kwentra tenant ${tag.tenantId}` : '', tag.arrival && tag.departure ? `${tag.arrival} to ${tag.departure}` : '', merchantOrderId]
+        .filter(Boolean)
+        .join(' | '),
+      255
+    ),
+    extras: {
+      property,
+      unit,
+      voucher: cut(tag.voucher, 40),
+      kwentra_tenant_id: cut(tag.tenantId, 20),
+      arrival: cut(tag.arrival, 10),
+      departure: cut(tag.departure, 10),
+      order_ref: merchantOrderId,
+    },
+  };
+}
+
 function isPaymobConfigured() {
   return isPaymobCheckoutConfigured() || isPaymobIframeConfigured();
 }
@@ -226,10 +260,11 @@ function publicApiUrl() {
  * Paymob's current checkout. Creates a payment intention and returns the
  * Unified Checkout page, which our popup shows in its frame. No iframe ID needed.
  */
-async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId, integration }) {
+async function initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId, integration, tag }) {
   const priced = await amountForPaymob(amount, currency, tenantId);
   const amountCents = Math.round(Number(priced.chargeAmount) * 100);
   const websiteIds = integrations.defaultIntegrationIds();
+  const label = paymobTag(tag, merchantOrderId);
   const api = publicApiUrl();
   const base = PAYMOB_BASE.replace(/\/api\/?$/, '');
 
@@ -242,9 +277,10 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
         currency: priced.chargeCurrency,
         // The property's card integration first; any extra website methods (e.g. a wallet) after it.
         payment_methods: [...new Set([cardIntegrationId, ...websiteIds.slice(1)])].filter(Boolean).map(Number),
-        items: [{ name: 'Stay booking', amount: amountCents, description: merchantOrderId, quantity: 1 }],
+        items: [{ name: label.itemName, amount: amountCents, description: label.description, quantity: 1 }],
         billing_data: paymobBilling(billing),
         special_reference: merchantOrderId,
+        extras: label.extras,
         expiration: 3600,
         ...(api
           ? {
@@ -343,9 +379,9 @@ async function checkPaymobIntegration(integrationId) {
   }
 }
 
-async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing, tenantId, integration }) {
+async function initializePaymobEmbedded({ amount, currency, merchantOrderId, billing, tenantId, integration, tag }) {
   if (isPaymobCheckoutConfigured()) {
-    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId, integration });
+    return initializePaymobCheckout({ amount, currency, merchantOrderId, billing, tenantId, integration, tag });
   }
   const missing = ['PAYMOB_API_KEY', 'PAYMOB_INTEGRATION_ID', 'PAYMOB_IFRAME_ID'].filter(
     (name) => !String(process.env[name] || '').trim()
@@ -510,11 +546,11 @@ async function initializeMockEmbedded({ amount, merchantOrderId, currency = SITE
  * Start an on-site payment session.
  * Returns embed payload for PaymentModal — never a navigation redirect.
  */
-async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing, tenantId, integration }) {
+async function createPaymentSession({ amount, currency = SITE_CURRENCY, merchantOrderId, billing, tenantId, integration, tag }) {
   const provider = activeProvider();
   const cur = String(currency || SITE_CURRENCY).toUpperCase();
   if (provider === 'paymob') {
-    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing, tenantId, integration });
+    return initializePaymobEmbedded({ amount, currency: cur, merchantOrderId, billing, tenantId, integration, tag });
   }
   if (provider === 'stripe') {
     return initializeStripeEmbedded({
@@ -602,6 +638,8 @@ function verifyPaymobHmac(obj, receivedHmac) {
 
 module.exports = {
   activeProvider,
+  usePropertyIntegrations,
+  paymobTag,
   checkPaymobIntegration,
   closeUnpaidBooking,
   expireUnpaidBookings,

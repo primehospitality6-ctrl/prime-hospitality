@@ -268,6 +268,49 @@ router.get(
 );
 
 /**
+ * Reconciliation: one row per paid website booking — the Paymob transaction, and where its money was
+ * put in Kwentra (property, tenant, reservation, account). Matches the Paymob payout line by line.
+ * ?from=YYYY-MM-DD&to=YYYY-MM-DD (booking date, both optional).
+ */
+router.get(
+  '/payments/export',
+  requireAdmin,
+  wrap(async (req, res) => {
+    const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from || '')) ? String(req.query.from) : '';
+    const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to || '')) ? String(req.query.to) : '';
+    const [bookings, compounds] = await Promise.all([listBookings(), listCompounds()]);
+    const tenantOf = new Map(compounds.map((c) => [c.id, String(c.kwentraTenantId || '').trim()]));
+    const rows = bookings
+      .filter((b) => b.paymentStatus === 'paid')
+      .filter((b) => {
+        const day = String(b.createdAt || '').slice(0, 10);
+        return (!from || day >= from) && (!to || day <= to);
+      })
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    const header = [
+      'Booked at', 'Voucher', 'Paymob transaction ID', 'Paymob order ref', 'Paymob integration', 'Charged (EGP)',
+      'Rate amount', 'Rate currency', 'Exchange rate', 'Property', 'Unit', 'Kwentra tenant', 'Kwentra reservation',
+      'Kwentra account', 'Guest', 'Arrival', 'Departure', 'Needs attention',
+    ];
+    const csvCell = (v) => {
+      const s = v == null ? '' : String(v);
+      // Leading = + - @ would run as a formula in Excel.
+      const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+      return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    };
+    const lines = [header, ...rows.map((b) => [
+      b.createdAt, b.voucherNumber, b.paymentTransactionId, b.externalRef, b.paidIntegrationId || b.paymobIntegrationId,
+      b.chargeCurrency === 'EGP' ? b.chargeAmount : '', b.rateAmount, b.rateCurrency, b.fxRate, b.property, b.roomType,
+      tenantOf.get(b.propertyId) || '', b.kwentraReservationId, b.kwentraAccountId, b.primaryGuestName, b.arrivalDate,
+      b.departureDate, b.kwentraIssue,
+    ])].map((cols) => cols.map(csvCell).join(','));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="website-payments${from ? `-${from}` : ''}${to ? `-to-${to}` : ''}.csv"`);
+    res.send(`﻿${lines.join('\r\n')}\r\n`);
+  })
+);
+
+/**
  * Where each property's card payments go: its Kwentra tenant, its Paymob integration and the Kwentra
  * "Paymob" department the payment is posted to. ?verify=1 asks Paymob about each integration
  * (opens an unpaid 1 EGP session that expires in 5 minutes; nothing is charged).

@@ -165,6 +165,21 @@ export const api = {
     });
   },
 
+  /** Paid bookings with their Paymob transaction and Kwentra reservation/account, as a CSV file. */
+  async adminDownloadPayments() {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    const res = await fetch(`${BASE}/api/admin/payments/export`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error(`Could not download the payments (${res.status})`);
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `website-payments-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
   adminDashboard() {
     return adminRequest('/api/admin/dashboard');
   },

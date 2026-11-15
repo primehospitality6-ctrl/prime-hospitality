@@ -1458,6 +1458,29 @@ async function paymobDepartment(tenantId) {
   return { id: '', name: '', reason: `tenant ${tenant} has no "Paymob" payment department in Kwentra` };
 }
 
+/**
+ * Where a unit's booking and payment go in Kwentra. With several tenants in use, a unit must belong to
+ * a property that has its own tenant: falling back to the default tenant would put the reservation and
+ * the money in another hotel. With a single-tenant setup the default tenant is the right one.
+ */
+async function kwentraPlaceForUnit(listing) {
+  const compounds = await listCmsCompounds();
+  const compound = compounds.find((c) => c.id === listing?.compoundId) || null;
+  const own = String(compound?.kwentraTenantId || '').trim();
+  if (own) return { ok: true, tenantId: own, property: compound.name };
+  const multiTenant = compounds.some((c) => String(c.kwentraTenantId || '').trim());
+  if (multiTenant) {
+    return {
+      ok: false,
+      reason: compound
+        ? `property "${compound.name}" has no Kwentra tenant ID`
+        : `unit is not in a property (compound ${listing?.compoundId || 'none'})`,
+    };
+  }
+  const fallback = kwentra.getTenantId();
+  return fallback ? { ok: true, tenantId: fallback, property: compound?.name || '' } : { ok: false, reason: 'no Kwentra tenant is set' };
+}
+
 /** The Paymob integration a unit's payments belong to (its property's), or null. */
 async function paymobIntegrationForUnit(listing) {
   const compounds = listing?.compoundId ? await listCmsCompounds() : [];
@@ -1539,9 +1562,8 @@ function paymobIntegrationSummary(booking, paidIntegrationId) {
   const name = paid && paid === opened && booking?.paymobIntegrationName ? ` (${booking.paymobIntegrationName})` : '';
   const text = paid ? ` Paymob integration ${paid}${name}.` : '';
   let issue = '';
-  if (!expected) {
-    issue = `Paid on Paymob integration ${paid || 'unknown'}: this property has no Paymob integration ID set (add it on the property in the admin).`;
-  } else if (opened && opened !== expected) {
+  // With one integration for the whole site there is no "expected" one, and nothing to reassign.
+  if (expected && opened && opened !== expected) {
     issue = `Paid on the website's Paymob integration ${opened}, not this property's integration ${expected}${booking?.integrationFallback ? ` (${booking.integrationFallback})` : ''} — reassign it in Paymob / the accounts.`;
   }
   return { text, issue };
@@ -1607,21 +1629,45 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
   const { id: department, reason: noDepartment } = chosen;
   if (department) {
     await attempt('posted', async () => {
-      const accountId = Number(booking?.kwentraAccountId) || kwentra.reservationAccountId(current);
+      // The Account Kwentra gave this reservation, read just now from the same tenant (Kwentra: post on
+      // the reservation's account, same tenant_id). The id saved at creation is only a fallback.
+      const liveAccount = kwentra.reservationAccountId(current);
+      const savedAccount = Number(booking?.kwentraAccountId) || null;
+      const accountId = liveAccount || savedAccount;
       if (!accountId) throw new Error('the reservation response did not include a billing account');
+      if (liveAccount && savedAccount && liveAccount !== savedAccount) {
+        console.warn(`[kwentra] reservation ${reservationId}: account is ${liveAccount} in Kwentra, not the saved ${savedAccount} — using Kwentra's`);
+      }
       result.accountId = String(accountId);
       // Kwentra reads a posting's amount in the property's base currency (EGP), even on the USD
       // department, and divides by its own rate to show the USD figure. Send the EGP value.
       const baseAmount = await paymentInBaseCurrency({ booking, amount, currency, tenantId });
       result.postedAmount = baseAmount;
-      await kwentra.postPayment({
-        tenantId,
-        accountId,
-        windowNumber: Number(process.env.KWENTRA_PAYMENT_WINDOW || 1),
-        department,
-        amount: baseAmount,
-        comments: summary,
+      const windowNumber = Number(process.env.KWENTRA_PAYMENT_WINDOW || 1);
+      const marker = booking?.voucherNumber || ref;
+      const isOurs = (p) => {
+        const sameDepartment = String(p?.department?.id ?? p?.department ?? '') === String(department);
+        const sameAmount = Math.abs(Math.abs(Number(p?.amount)) - baseAmount) < 0.01;
+        return sameDepartment && sameAmount && (!marker || !p?.comments || String(p.comments).includes(marker));
+      };
+      // A retry must never post the same payment twice.
+      const before = await kwentra.listPostings({ tenantId, accountId }).catch(() => null);
+      if (before && marker && before.some((p) => isOurs(p) && String(p.comments || '').includes(marker))) {
+        result.alreadyPosted = true;
+      } else {
+        await kwentra.postPayment({ tenantId, accountId, windowNumber, department, amount: baseAmount, comments: summary });
+      }
+      // Read the account back: the payment must be there, on this department, for this amount.
+      const after = await kwentra.listPostings({ tenantId, accountId }).catch((err) => {
+        result.errors.push(`verify: could not read the account back (${err.message})`);
+        return null;
       });
+      if (after) {
+        const found = after.find(isOurs);
+        result.verified = Boolean(found);
+        if (found) result.postingId = found.id != null ? String(found.id) : '';
+        else result.errors.push(`verify: no ${baseAmount} EGP payment on department ${department} found on account ${accountId} after posting`);
+      }
     });
   } else {
     result.errors.push(`posted: ${noDepartment} — recorded as a note only`);
@@ -1639,6 +1685,9 @@ async function pushPayment({ booking, reservationId, amount, currency = 'USD', m
   const departmentNote = result.errors.find((e) => e.startsWith('department:'));
   if (result.posted && departmentNote) {
     result.issue = [result.issue, `Payment posted on the cash department: ${departmentNote.replace(/^department:\s*/, '')}. Move it to Paymob in Kwentra.`].filter(Boolean).join(' ');
+  }
+  if (result.posted && result.verified === false) {
+    result.issue = [result.issue, `The payment was sent to Kwentra account ${result.accountId} but could not be found on it afterwards — check the folio of reservation ${reservationId}.`].filter(Boolean).join(' ');
   }
   if (integration.issue) result.issue = [result.issue, integration.issue].filter(Boolean).join(' ');
   return result;
@@ -2945,6 +2994,7 @@ module.exports = {
   pushPayment,
   paymentDepartment,
   paymobDepartment,
+  kwentraPlaceForUnit,
   paymobIntegrationForUnit,
   paymobIntegrationSummary,
   pushPaidBooking,

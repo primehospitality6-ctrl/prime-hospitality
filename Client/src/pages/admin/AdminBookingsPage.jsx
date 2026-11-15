@@ -94,6 +94,15 @@ export default function AdminBookingsPage() {
               <Download size={13} aria-hidden />
               Export CSV
             </button>
+            <button
+              type="button"
+              title="Paid bookings with their Paymob transaction and the Kwentra property, reservation and account the money went to"
+              onClick={() => api.adminDownloadPayments().catch((err) => setError(err.message))}
+              className="inline-flex items-center gap-2 border border-prime-line px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition hover:border-prime-gold"
+            >
+              <Download size={13} aria-hidden />
+              Payments for accounts
+            </button>
           </div>
         }
       />

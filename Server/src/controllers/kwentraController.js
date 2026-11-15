@@ -417,21 +417,40 @@ async function bookDirect(req, res, next) {
       });
     }
 
+    // The money must land on this property's Kwentra tenant. A unit whose property is not tied to a
+    // tenant would otherwise fall to the default tenant, i.e. the wrong hotel — so it is not sold.
+    const place = await sync.kwentraPlaceForUnit(listing);
+    if (!place.ok) {
+      console.error(`[payment] ${listing.slug}: ${place.reason} — booking refused so the money cannot go to the wrong property`);
+      return res.status(422).json({ code: 'kwentra_rejected', error: 'This stay cannot be booked online right now' });
+    }
+
     let paymentSession;
     let integration = null;
     try {
-      // The property's own Paymob integration; a lookup problem must never stop the guest paying.
-      integration = await sync.paymobIntegrationForUnit(listing).catch((err) => {
-        console.warn('[payment] could not look up the property Paymob integration:', err.message);
-        return null;
-      });
+      // One Paymob integration for the whole site, unless per-property integrations are switched on.
+      if (payment.usePropertyIntegrations()) {
+        integration = await sync.paymobIntegrationForUnit(listing).catch((err) => {
+          console.warn('[payment] could not look up the property Paymob integration:', err.message);
+          return null;
+        });
+      }
       paymentSession = await payment.createPaymentSession({
         amount: booking.rateAmount,
         currency: booking.rateCurrency,
         merchantOrderId: externalRef,
         billing: { name: booking.primaryGuestName, email: booking.email, phone: booking.phone },
-        tenantId: await sync.tenantForUnit(listing),
+        tenantId: place.tenantId,
         integration,
+        // Shown on the transaction in the Paymob dashboard, so every payment names its property.
+        tag: {
+          property: booking.property,
+          unit: booking.roomType,
+          voucher: voucherNumber,
+          tenantId: place.tenantId,
+          arrival: booking.arrivalDate,
+          departure: booking.departureDate,
+        },
       });
     } catch (err) {
       console.warn('[payment] session failed:', err.message);
