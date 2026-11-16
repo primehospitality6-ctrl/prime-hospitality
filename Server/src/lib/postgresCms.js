@@ -585,6 +585,25 @@ async function updateBooking(id, patch) {
   return bookingFromRow(await updateRow('bookings', id, row));
 }
 
+/* ——— Paymob integration checks ——— */
+async function listIntegrationChecks() {
+  return (await rows('select * from paymob_integration_checks')).map((r) => ({
+    integrationId: r.integration_id,
+    ok: r.ok === true,
+    name: r.name || '',
+    reason: r.reason || '',
+    checkedAt: r.checked_at ? new Date(r.checked_at).toISOString() : null,
+  }));
+}
+
+async function saveIntegrationCheck({ integrationId, ok, name, reason, checkedAt }) {
+  await query(
+    `insert into paymob_integration_checks (integration_id, ok, name, reason, checked_at) values ($1, $2, $3, $4, $5)
+     on conflict (integration_id) do update set ok = excluded.ok, name = excluded.name, reason = excluded.reason, checked_at = excluded.checked_at`,
+    [String(integrationId), Boolean(ok), name || null, reason || null, checkedAt || new Date().toISOString()]
+  );
+}
+
 async function listBookings() {
   return (await rows('select * from bookings order by created_at desc')).map(bookingFromRow);
 }
@@ -718,6 +737,8 @@ module.exports = {
   updateBooking,
   listBookings,
   findBooking,
+  listIntegrationChecks,
+  saveIntegrationCheck,
   applySchema,
   seedIfEmpty,
   DEFAULT_SLIDESHOW,

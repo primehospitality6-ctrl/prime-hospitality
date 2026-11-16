@@ -103,7 +103,10 @@ module.exports = {
   newId: (...args) => backend().newId(...args),
   getDashboard,
   getPublicUnits,
-  getPublicCompounds: (...args) => backend().getPublicCompounds(...args),
+  getPublicCompounds: async (...args) => {
+    const { isHiddenCompound } = require('../services/paymobGate');
+    return (await backend().getPublicCompounds(...args)).filter((c) => !isHiddenCompound(c.id));
+  },
   getPublicDestinations: (...args) => backend().getPublicDestinations(...args),
   getSlideshow: (...args) => backend().getSlideshow(...args),
   getSettings: (...args) => backend().getSettings(...args),
@@ -141,4 +144,6 @@ module.exports = {
   updateBooking: (...args) => backend().updateBooking(...args),
   listBookings: (...args) => backend().listBookings(...args),
   findBooking: (...args) => backend().findBooking(...args),
+  listIntegrationChecks: (...args) => backend().listIntegrationChecks(...args),
+  saveIntegrationCheck: (...args) => backend().saveIntegrationCheck(...args),
 };

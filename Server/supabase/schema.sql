@@ -207,6 +207,16 @@ alter table bookings add column if not exists payment_transaction_id text;
 
 create index if not exists bookings_external_ref_idx on bookings (external_ref);
 
+-- Last check of each Paymob integration: a property whose integration does not work is hidden from the site
+create table if not exists paymob_integration_checks (
+  integration_id text primary key,
+  ok boolean not null,
+  name text,
+  reason text,
+  checked_at timestamptz not null default now()
+);
+alter table paymob_integration_checks enable row level security;
+
 -- Serial behind website voucher numbers (PHW-YYYY-000001)
 create sequence if not exists booking_voucher_seq;
 

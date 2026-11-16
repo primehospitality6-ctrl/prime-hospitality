@@ -434,6 +434,13 @@ async function bookDirect(req, res, next) {
           console.warn('[payment] could not look up the property Paymob integration:', err.message);
           return null;
         });
+        // The money must go to this property's own integration; without a working one it is not sold.
+        const gate = require('../services/paymobGate');
+        const blocked = !integration ? 'no Paymob integration ID for this property' : gate.statusOf(integration.id).ok ? '' : gate.statusOf(integration.id).reason;
+        if (blocked && payment.activeProvider() === 'paymob') {
+          console.warn(`[payment] ${listing.slug}: not sold — ${blocked}`);
+          return res.status(422).json({ code: 'kwentra_rejected', error: 'This stay cannot be booked online right now' });
+        }
       }
       paymentSession = await payment.createPaymentSession({
         amount: booking.rateAmount,

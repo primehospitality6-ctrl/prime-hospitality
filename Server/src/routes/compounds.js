@@ -36,7 +36,7 @@ router.get(
       if (item) return res.json({ source: merged.source, item });
     }
     const item = await findCompound(req.params.id);
-    if (!item || item.published === false) {
+    if (!item || item.published === false || require('../services/paymobGate').isHiddenCompound(item.id)) {
       return res.status(404).json({ error: 'Compound not found' });
     }
     res.json({ source: 'cms', item });

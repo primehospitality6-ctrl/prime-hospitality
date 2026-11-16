@@ -6,7 +6,11 @@ const { bootApp } = require('./app');
 const port = Number(process.env.PORT || 5080);
 
 bootApp()
-  .then((app) => {
+  .then(async (app) => {
+    // Know which properties can take payments before the first guest request.
+    const gate = require('./services/paymobGate');
+    await gate.refresh();
+    gate.start();
     const server = http.createServer(app);
     server.listen(port, () => {
       console.log(`[prime] API listening on :${port}`);

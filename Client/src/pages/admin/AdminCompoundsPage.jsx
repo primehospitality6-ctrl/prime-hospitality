@@ -397,6 +397,11 @@ export default function AdminCompoundsPage() {
                         {c.showOnHome !== false ? <Badge tone="gold">Homepage</Badge> : null}
                         {c.kwentraTenantId ? <Badge tone="blue">Kwentra tenant {c.kwentraTenantId}</Badge> : null}
                         {c.paymobIntegrationId ? <Badge tone="blue">Paymob {c.paymobIntegrationId}</Badge> : null}
+                        {c.paymentBlocked ? (
+                          <span title={c.paymentBlocked}>
+                            <Badge tone="red">Hidden: no working Paymob integration</Badge>
+                          </span>
+                        ) : null}
                         {!c.image ? <Badge tone="red">No photo</Badge> : null}
                       </div>
                     </td>

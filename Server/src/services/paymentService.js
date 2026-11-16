@@ -35,7 +35,8 @@ function isPaymobIframeConfigured() {
  * switches back to a separate Paymob integration per property (src/lib/paymobIntegrations.js).
  */
 function usePropertyIntegrations() {
-  return String(process.env.PAYMOB_PROPERTY_INTEGRATIONS_ENABLED || '').trim().toLowerCase() === 'true';
+  // On unless switched off: every property takes its payments on its own Paymob integration.
+  return String(process.env.PAYMOB_PROPERTY_INTEGRATIONS_ENABLED || 'true').trim().toLowerCase() !== 'false';
 }
 
 /** What a Paymob transaction says about the stay, so the dashboard shows which property it belongs to. */
@@ -275,8 +276,9 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
       {
         amount: amountCents,
         currency: priced.chargeCurrency,
-        // The property's card integration first; any extra website methods (e.g. a wallet) after it.
-        payment_methods: [...new Set([cardIntegrationId, ...websiteIds.slice(1)])].filter(Boolean).map(Number),
+        // Per property: that property's integration only, so no other integration can take its money.
+        // One-integration mode: the website's card integration first, any extra website methods after it.
+        payment_methods: (strict ? [cardIntegrationId] : [...new Set([cardIntegrationId, ...websiteIds.slice(1)])]).filter(Boolean).map(Number),
         items: [{ name: label.itemName, amount: amountCents, description: label.description, quantity: 1 }],
         billing_data: paymobBilling(billing),
         special_reference: merchantOrderId,
@@ -296,6 +298,31 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
   // If Paymob says that integration is not on our account, the guest still pays — on the website's
   // integration — and the booking says so, for the accountant to reassign.
   const wanted = integration?.id ? String(integration.id) : '';
+  const strict = usePropertyIntegrations();
+  if (strict) {
+    // Per property: the payment opens on the property's own integration or not at all.
+    const gate = require('./paymobGate');
+    const refuse = (why) => {
+      const err = new Error(`This property cannot take payments right now (${why})`);
+      err.status = 409;
+      err.code = 'integration_unavailable';
+      return err;
+    };
+    if (!wanted) throw refuse('no Paymob integration ID for this property');
+    const res = await openIntention(wanted);
+    if (res.status >= 400 || !res.data?.client_secret) {
+      const why = res.data?.detail || res.data?.message || `HTTP ${res.status}`;
+      if (integrations.isMissingIntegrationError(res.status, res.data)) {
+        console.error(`[paymob] integration ${wanted} (${integration?.name || 'property'}) refused: ${why} — property hidden until it works`);
+        await gate.record(wanted, { ok: false, reason: why });
+        throw refuse(`Paymob refused integration ${wanted}: ${why}`);
+      }
+      throw new Error(`Paymob intention failed: ${JSON.stringify(res.data)}`);
+    }
+    const name = (res.data.payment_methods || []).find((m) => String(m.integration_id) === wanted)?.name || integration?.name || '';
+    if (!gate.statusOf(wanted).ok) await gate.record(wanted, { ok: true, name });
+    return checkoutResult(res, { used: wanted, usedName: name, wanted, fallback: '' });
+  }
   let used = wanted && !integrations.isKnownUnavailable(wanted) ? wanted : '';
   let fallbackReason = wanted && !used ? `Paymob integration ${wanted} is not on the website's Paymob account` : '';
   let res = used ? await openIntention(used) : null;
@@ -321,12 +348,20 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
     (used === wanted ? integration?.name : '') ||
     '';
 
+  return checkoutResult(res, {
+    used,
+    usedName,
+    wanted,
+    fallback: wanted && used !== wanted ? fallbackReason || `integration ${wanted} was not used` : '',
+  });
+
+  function checkoutResult(res, { used, usedName, wanted, fallback }) {
   const iframeSrc = `${base}/unifiedcheckout/?publicKey=${encodeURIComponent(env('PAYMOB_PUBLIC_KEY'))}&clientSecret=${encodeURIComponent(res.data.client_secret)}`;
   return {
     paymobIntegrationId: used,
     paymobIntegrationName: usedName,
     expectedIntegrationId: wanted || null,
-    integrationFallback: wanted && used !== wanted ? fallbackReason || `integration ${wanted} was not used` : '',
+    integrationFallback: fallback,
     provider: 'paymob',
     mode: 'embedded_iframe',
     amountCents,
@@ -342,6 +377,7 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
     iframeSrc,
     redirectForbidden: true,
   };
+  }
 }
 
 /**

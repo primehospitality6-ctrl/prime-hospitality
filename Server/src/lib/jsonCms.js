@@ -660,6 +660,19 @@ async function updateBooking(id, patch) {
   return item;
 }
 
+/* ——— Paymob integration checks ——— */
+async function listIntegrationChecks() {
+  return Object.values(readStore().integrationChecks || {});
+}
+
+async function saveIntegrationCheck(record) {
+  updateStore((s) => {
+    s.integrationChecks = s.integrationChecks || {};
+    s.integrationChecks[String(record.integrationId)] = { ...record, integrationId: String(record.integrationId), checkedAt: record.checkedAt || new Date().toISOString() };
+    return s;
+  });
+}
+
 async function listBookings() {
   return readStore().bookings;
 }
@@ -721,4 +734,6 @@ module.exports = {
   updateBooking,
   listBookings,
   findBooking,
+  listIntegrationChecks,
+  saveIntegrationCheck,
 };

@@ -297,7 +297,8 @@ async function pullDestinationsTree({ homeOnly = false } = {}) {
       .filter((p) => (p.destinationId ? p.destinationId === d.id : p.region === d.name))
       .map((p) => ({ ...p, destinationId: d.id, region: d.name }))
       .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    const visible = destProjects.filter((p) => p.published !== false);
+    // A property that cannot take a payment on its own Paymob integration is not shown.
+    const visible = destProjects.filter((p) => p.published !== false && !require('./paymobGate').isHiddenCompound(p.id));
     return {
       id: d.id,
       name: d.name,
@@ -311,11 +312,13 @@ async function pullDestinationsTree({ homeOnly = false } = {}) {
       projectCount: visible.length,
       unitTypeCount: visible.reduce((s, p) => s + (Number(p.unitCount) || 0), 0),
       projects: visible,
+      hadProjects: destProjects.some((p) => p.published !== false),
       source: d.kwentraDestinationId ? 'kwentra+cms' : 'cms',
     };
   });
 
-  let list = tree.filter((d) => d.published !== false);
+  // A destination whose properties are all hidden (no working Paymob integration) is hidden with them.
+  let list = tree.filter((d) => d.published !== false && (d.projects.length > 0 || !d.hadProjects));
   if (homeOnly) list = list.filter((d) => d.showOnHome !== false);
   list.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
@@ -1563,7 +1566,10 @@ function paymobIntegrationSummary(booking, paidIntegrationId) {
   const text = paid ? ` Paymob integration ${paid}${name}.` : '';
   let issue = '';
   // With one integration for the whole site there is no "expected" one, and nothing to reassign.
-  if (expected && opened && opened !== expected) {
+  if (expected && paid && opened === expected && paid !== expected) {
+    // Paymob adds methods of its own (e.g. Apple Pay) to a payment page; the guest paid through one.
+    issue = `Paid through Paymob integration ${paid}, not this property's integration ${expected} (the guest chose another payment method Paymob offered) — reassign it in Paymob / the accounts.`;
+  } else if (expected && opened && opened !== expected) {
     issue = `Paid on the website's Paymob integration ${opened}, not this property's integration ${expected}${booking?.integrationFallback ? ` (${booking.integrationFallback})` : ''} — reassign it in Paymob / the accounts.`;
   }
   return { text, issue };

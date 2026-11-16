@@ -311,40 +311,36 @@ router.get(
 );
 
 /**
- * Where each property's card payments go: its Kwentra tenant, its Paymob integration and the Kwentra
- * "Paymob" department the payment is posted to. ?verify=1 asks Paymob about each integration
- * (opens an unpaid 1 EGP session that expires in 5 minutes; nothing is charged).
+ * Each property: its Kwentra tenant, its Paymob integration, whether that integration works, whether
+ * the property is shown on the website, and the Kwentra "Paymob" department its payments post to.
+ * ?verify=1 checks every integration with Paymob now (unpaid 1 EGP sessions, nothing is charged) and
+ * shows or hides properties by the result.
  */
 router.get(
   '/paymob/integrations',
   requireAdmin,
   wrap(async (req, res) => {
     const sync = require('../services/kwentraSync');
-    const integrations = require('../lib/paymobIntegrations');
-    const payment = require('../services/paymentService');
+    const gate = require('../services/paymobGate');
     const verify = req.query.verify === '1' || req.query.verify === 'true';
-    const compounds = await listCompounds();
+    await gate.refresh();
+    const checked = verify ? await gate.checkIntegrations({ force: true }) : null;
     const items = [];
-    for (const c of compounds) {
-      const tenantId = String(c.kwentraTenantId || '').trim();
-      const integration = integrations.integrationForProperty({ tenantId, compound: c });
-      const department = tenantId ? await sync.paymobDepartment(tenantId) : { id: '', reason: 'no Kwentra tenant' };
-      const row = {
-        property: c.name,
-        propertyId: c.id,
-        published: c.published !== false,
-        tenantId,
-        integrationId: integration?.id || '',
-        integrationName: integration?.name || '',
-        integrationSource: integration?.source || 'none — the website integration is used',
-        knownUnavailable: integration?.id ? integrations.isKnownUnavailable(integration.id) : false,
+    for (const row of gate.report()) {
+      const department = row.tenantId ? await sync.paymobDepartment(row.tenantId) : { id: '', reason: 'no Kwentra tenant' };
+      items.push({
+        ...row,
         kwentraDepartment: department.id ? `${department.id} ${department.name || ''}`.trim() : '',
         kwentraDepartmentProblem: department.id ? '' : department.reason || '',
-      };
-      if (verify && integration?.id) row.paymob = await payment.checkPaymobIntegration(integration.id);
-      items.push(row);
+      });
     }
-    res.json({ websiteIntegration: integrations.defaultIntegrationIds()[0] || '', items });
+    res.json({
+      perPropertyIntegrations: gate.gateActive(),
+      shown: items.filter((i) => i.shown).length,
+      hidden: items.filter((i) => !i.shown).length,
+      checked: checked?.checked ?? null,
+      items,
+    });
   })
 );
 
@@ -353,7 +349,10 @@ router.get(
   '/compounds',
   requireAdmin,
   wrap(async (_req, res) => {
-    res.json({ items: await listCompounds() });
+    const gate = require('../services/paymobGate');
+    const items = await listCompounds();
+    // Why a property is off the website: no working Paymob integration of its own.
+    res.json({ items: items.map((c) => ({ ...c, paymentBlocked: gate.blockReason(c) })) });
   })
 );
 

@@ -37,8 +37,15 @@ function checkUnit(unit) {
 
 /** Published by the admin and passes the completeness check.
  * A room type linked from Kwentra is shown as soon as it is published. Photos and size are added in admin. */
+/* Set by the Paymob gate: a property that cannot take a payment on its own integration is not shown. */
+let hiddenCompound = () => false;
+function setHiddenCompoundCheck(fn) {
+  hiddenCompound = typeof fn === 'function' ? fn : () => false;
+}
+
 function isLive(unit) {
   if (!unit || unit.published === false) return false;
+  if (hiddenCompound(unit.compoundId)) return false;
   if (String(unit.kwentraRoomTypeId || '').trim()) return true;
   return checkUnit(unit).complete;
 }
@@ -53,5 +60,6 @@ module.exports = {
   REQUIRED_UNIT_FIELDS: REQUIRED.map(({ key, label }) => ({ key, label })),
   checkUnit,
   isLive,
+  setHiddenCompoundCheck,
   withCompleteness,
 };
