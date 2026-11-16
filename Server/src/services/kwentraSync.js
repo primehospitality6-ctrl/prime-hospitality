@@ -2375,6 +2375,26 @@ async function syncTenant(target, compounds, report, fail) {
   }
 }
 
+/**
+ * Kwentra instances whose hotel record has no name (or city) yet. Kwentra's own record wins once it is
+ * filled in; KWENTRA_TENANT_NAMES (JSON: {"1509": {"name": "…", "city": "…"}}) adds or overrides.
+ */
+const TENANT_NAMES = {
+  1509: { name: 'Prime Inn Andalus New Cairo', city: 'New Cairo' },
+};
+
+function tenantNameFallback(tenantId) {
+  let extra = {};
+  try {
+    extra = JSON.parse(process.env.KWENTRA_TENANT_NAMES || '{}') || {};
+  } catch {
+    console.warn('[kwentra] KWENTRA_TENANT_NAMES is not valid JSON — ignoring it');
+  }
+  const value = extra[String(tenantId)] ?? TENANT_NAMES[String(tenantId)];
+  if (!value) return {};
+  return typeof value === 'string' ? { name: value } : value;
+}
+
 /** One website property per Kwentra hotel this login can open. */
 async function discoverProperties(report, fail) {
   let tenantIds = [];
@@ -2394,6 +2414,10 @@ async function discoverProperties(report, fail) {
       fail(`property ${tenantId}`, err);
       continue;
     }
+    const fallback = tenantNameFallback(tenantId);
+    if (company && !String(company.name || '').trim() && fallback.name) company = { ...company, name: fallback.name };
+    if (company && !String(company.city || '').trim() && fallback.city) company = { ...company, city: fallback.city };
+    if (!company && fallback.name) company = { name: fallback.name, city: fallback.city || '' };
     const name = String(company?.name || '').trim();
     if (!name) continue;
     const kind = String(company.instance_type || '').toLowerCase();
