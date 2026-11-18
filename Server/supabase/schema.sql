@@ -97,6 +97,10 @@ alter table units add column if not exists unit_numbers jsonb not null default '
 alter table units add column if not exists floor text not null default '';
 alter table units add column if not exists bed_type text not null default '';
 alter table units add column if not exists kwentra_room_id text not null default '';
+-- A unit type's own destination, chosen in the admin; empty = its property's destination
+alter table units add column if not exists destination_override text not null default '';
+-- 'admin' for destinations added in the admin: the Kwentra sync never removes those
+alter table destinations add column if not exists created_by text not null default '';
 
 -- Last values pulled from Kwentra (lets the sync tell PMS changes apart from admin edits)
 alter table compounds add column if not exists kwentra_snapshot jsonb;

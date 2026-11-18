@@ -21,6 +21,7 @@ const EMPTY = {
   title: '',
   slug: '',
   compoundId: '',
+  destinationOverride: '',
   city: '',
   unitType: '2BR',
   propertyType: 'Apartment',
@@ -57,6 +58,7 @@ function formFromUnit(u, defaults = {}) {
     title: u.title || '',
     slug: u.slug || '',
     compoundId: u.compoundId || '',
+    destinationOverride: u.destinationOverride || '',
     city: u.city || '',
     unitType: u.unitType || '',
     propertyType: u.propertyType || 'Apartment',
@@ -121,6 +123,20 @@ export default function UnitEditor({ open, unit, compounds, compoundGroups, defa
   const [error, setError] = useState('');
   const [dragIndex, setDragIndex] = useState(null);
   const [overIndex, setOverIndex] = useState(null);
+  const [destinations, setDestinations] = useState([]);
+
+  // Read fresh every time the editor opens, so a destination just added in the admin is listed.
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    api
+      .adminGetDestinations()
+      .then((data) => alive && setDestinations(data.items || []))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [open]);
 
   const endPhotoDrag = () => {
     setDragIndex(null);
@@ -240,6 +256,25 @@ export default function UnitEditor({ open, unit, compounds, compoundGroups, defa
                     ))}
                   </optgroup>
                 ))}
+              </select>
+            </Field>
+            <Field
+              label="Destination"
+              hint={form.destinationOverride ? 'Shown under this destination on the website' : "Uses its property's destination"}
+            >
+              <select className="prime-input" value={form.destinationOverride} onChange={(e) => set({ destinationOverride: e.target.value })}>
+                <option value="">
+                  Same as property{property?.region ? ` (${property.region})` : ''}
+                </option>
+                {destinations.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                    {d.published === false ? ' (hidden)' : ''}
+                  </option>
+                ))}
+                {form.destinationOverride && !destinations.some((d) => d.id === form.destinationOverride) ? (
+                  <option value={form.destinationOverride}>{unit?.destination || form.destinationOverride}</option>
+                ) : null}
               </select>
             </Field>
             <Field label="Unit type">

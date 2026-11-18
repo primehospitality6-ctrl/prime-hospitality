@@ -272,21 +272,35 @@ async function linkCompound(compound) {
 
 async function linkUnit(unit) {
   const compound = unit.compoundId ? await findCompound(unit.compoundId) : null;
+  // A destination chosen on the unit type wins over its property's (if that destination still exists).
+  const own = unit.destinationOverride ? await findDestination(unit.destinationOverride) : null;
+  if (unit.destinationOverride && !own) unit.destinationOverride = '';
+  if (own) {
+    unit.destinationId = own.id;
+    unit.destination = own.name;
+    unit.region = own.name;
+  }
   if (!compound) return unit;
   unit.compound = compound.name;
   unit.brand = compound.brand || '';
-  unit.destinationId = compound.destinationId || '';
-  unit.destination = compound.region || '';
-  unit.region = compound.region || '';
+  if (!own) {
+    unit.destinationId = compound.destinationId || '';
+    unit.destination = compound.region || '';
+    unit.region = compound.region || '';
+  }
   if (!unit.city) unit.city = compound.city || '';
   return unit;
 }
 
 async function syncUnitsForCompound(compound) {
   await query(
-    `update units set compound = $2, brand = $3, destination_id = $4, destination = $5, region = $5, updated_at = now()
-     where compound_id = $1`,
-    [compound.id, compound.name, compound.brand || '', compound.destinationId || '', compound.region || '']
+    `update units set compound = $2, brand = $3, updated_at = now() where compound_id = $1`,
+    [compound.id, compound.name, compound.brand || '']
+  );
+  // Unit types with a destination of their own keep it.
+  await query(
+    `update units set destination_id = $2, destination = $3, region = $3 where compound_id = $1 and coalesce(destination_override, '') = ''`,
+    [compound.id, compound.destinationId || '', compound.region || '']
   );
 }
 
@@ -310,6 +324,7 @@ async function createDestination(body) {
     showOnHome: body.showOnHome !== false,
     published: body.published !== false,
     kwentraDestinationId: body.kwentraDestinationId || '',
+    createdBy: body.createdBy || '',
   };
   return destinationFromRow(await insertRow('destinations', destinationToRow(item)));
 }
@@ -329,6 +344,7 @@ async function updateDestination(id, body) {
       await query('update compounds set region = $2 where id = $1', [c.id, next.name]);
       await syncUnitsForCompound(c);
     }
+    await query('update units set destination = $2, region = $2 where destination_override = $1', [id, next.name]);
   }
   return destinationFromRow(row);
 }
@@ -339,6 +355,16 @@ async function deleteDestination(id) {
     throw conflict('Move or delete the properties in this destination first');
   }
   await query('delete from destinations where id = $1', [id]);
+  // Unit types that had chosen this destination go back to their property's.
+  const orphans = (await rows('select * from units where destination_override = $1', [id])).map(unitFromRow);
+  for (const unit of orphans) {
+    unit.destinationOverride = '';
+    await linkUnit(unit);
+    await query(
+      "update units set destination_override = '', destination_id = $2, destination = $3, region = $3 where id = $1",
+      [unit.id, unit.destinationId || '', unit.destination || '']
+    );
+  }
   const remaining = await listDestinations();
   return reorderDestinations(remaining.map((d) => d.id));
 }

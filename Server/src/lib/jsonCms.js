@@ -171,15 +171,24 @@ function linkCompound(compound, destinations) {
   compound.brand = compound.brand || brandFromName(compound.name);
 }
 
-/** Copy property + destination onto a unit type. */
-function linkUnit(unit, compounds) {
+/** Copy property + destination onto a unit type. A destination chosen on the unit type wins. */
+function linkUnit(unit, compounds, destinations = []) {
   const compound = compounds.find((c) => c.id === unit.compoundId);
+  const own = unit.destinationOverride ? destinations.find((d) => d.id === unit.destinationOverride) : null;
+  if (unit.destinationOverride && !own) unit.destinationOverride = '';
+  if (own) {
+    unit.destinationId = own.id;
+    unit.destination = own.name;
+    unit.region = own.name;
+  }
   if (!compound) return;
   unit.compound = compound.name;
   unit.brand = compound.brand || '';
-  unit.destinationId = compound.destinationId || '';
-  unit.destination = compound.region || '';
-  unit.region = compound.region || '';
+  if (!own) {
+    unit.destinationId = compound.destinationId || '';
+    unit.destination = compound.region || '';
+    unit.region = compound.region || '';
+  }
   if (!unit.city) unit.city = compound.city || '';
 }
 
@@ -360,6 +369,7 @@ async function createDestination(body) {
       showOnHome: body.showOnHome !== false,
       published: body.published !== false,
       kwentraDestinationId: body.kwentraDestinationId || '',
+      createdBy: body.createdBy || '',
     });
     return s;
   });
@@ -377,7 +387,7 @@ async function updateDestination(id, body) {
     }
     if (body?.name !== undefined) {
       s.compounds.filter((c) => c.destinationId === id).forEach((c) => linkCompound(c, s.destinations));
-      s.units.forEach((u) => linkUnit(u, s.compounds));
+      s.units.forEach((u) => linkUnit(u, s.compounds, s.destinations));
     }
     item = found;
     return s;
@@ -395,6 +405,13 @@ async function deleteDestination(id) {
     s.destinations.forEach((d, i) => {
       d.sortOrder = i;
     });
+    // Unit types that had chosen this destination go back to their property's.
+    (s.units || [])
+      .filter((u) => u.destinationOverride === id)
+      .forEach((u) => {
+        u.destinationOverride = '';
+        linkUnit(u, s.compounds, s.destinations);
+      });
     return s;
   });
   return sortBy(store.destinations, 'sortOrder');
@@ -461,7 +478,7 @@ async function updateCompound(id, body) {
     applyFields(found, body, COMPOUND_FIELDS);
     syncCoords(found, body);
     linkCompound(found, s.destinations);
-    s.units.filter((u) => u.compoundId === id).forEach((u) => linkUnit(u, s.compounds));
+    s.units.filter((u) => u.compoundId === id).forEach((u) => linkUnit(u, s.compounds, s.destinations));
     item = found;
     return s;
   });
@@ -533,7 +550,7 @@ async function createUnit(body) {
       ...defaults(UNIT_FIELDS),
     };
     applyFields(unit, body, UNIT_FIELDS);
-    linkUnit(unit, s.compounds);
+    linkUnit(unit, s.compounds, s.destinations);
     s.units.push(unit);
     refreshCounts(s);
     created = unit;
@@ -576,7 +593,7 @@ async function updateUnit(idOrSlug, body) {
     if (Array.isArray(body.facilities)) found.facilities = body.facilities;
     if (Array.isArray(body.images)) found.images = body.images;
     applyFields(found, body, UNIT_FIELDS);
-    linkUnit(found, s.compounds);
+    linkUnit(found, s.compounds, s.destinations);
     refreshCounts(s);
     item = found;
     return s;

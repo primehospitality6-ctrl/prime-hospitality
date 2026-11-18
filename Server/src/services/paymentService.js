@@ -298,7 +298,8 @@ async function initializePaymobCheckout({ amount, currency, merchantOrderId, bil
   // If Paymob says that integration is not on our account, the guest still pays — on the website's
   // integration — and the booking says so, for the accountant to reassign.
   const wanted = integration?.id ? String(integration.id) : '';
-  const strict = usePropertyIntegrations();
+  // Always-on properties may fall back to the website integration rather than refuse the guest.
+  const strict = usePropertyIntegrations() && !integration?.alwaysOn;
   if (strict) {
     // Per property: the payment opens on the property's own integration or not at all.
     const gate = require('./paymobGate');

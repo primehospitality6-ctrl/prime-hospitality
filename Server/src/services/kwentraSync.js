@@ -42,6 +42,7 @@ const { isLive } = require('../lib/unitCompleteness');
 const { normalizeOccupancies, partyFits: partyAllowed, occupancyMax: maxFromOccupancy } = require('../lib/occupancy');
 const pms = require('../lib/pms');
 const paymobIntegrations = require('../lib/paymobIntegrations');
+const special = require('../lib/specialProperties');
 
 const envPath = (name) => String(process.env[name] || '').trim();
 const envFlag = (name, fallback = false) => {
@@ -2315,7 +2316,8 @@ async function syncTenant(target, compounds, report, fail) {
   for (const t of types) {
     const grouped = roomsByType.get(t.kwentraRoomTypeId);
     const typeRooms = rawRooms.filter((r) => r.roomTypeId === t.kwentraRoomTypeId);
-    const incoming = { ...t };
+    // Always-on properties get short unit titles (Kwentra's long text kept as the description).
+    const incoming = { ...t, ...special.roomTypeOverride(target.tenantId, t) };
     if (grouped && !incoming.unitNumbers?.length) {
       incoming.unitNumbers = grouped.unitNumbers;
       incoming.roomCount = grouped.unitNumbers.length;
@@ -2329,7 +2331,7 @@ async function syncTenant(target, compounds, report, fail) {
       const fields = pick(incoming, UNIT_PMS_FIELDS);
       template = await createUnit({
         ...fields,
-        slug: uniqueSlug(slugs, slugify(`${home?.name || ''} ${t.title}`) || `room-type-${t.kwentraRoomTypeId}`),
+        slug: uniqueSlug(slugs, slugify(`${home?.name || ''} ${incoming.title}`) || `room-type-${t.kwentraRoomTypeId}`),
         compoundId: home?.id || '',
         images: [],
         driveFolderUrl: '',
@@ -2484,6 +2486,7 @@ async function dropDestinationsWithNoUnits() {
   ]);
   for (const destination of destinations) {
     if (used.has(destination.id)) continue;
+    if (destination.createdBy === 'admin') continue; // added in the admin: kept until someone deletes it
     await deleteDestination(destination.id);
   }
 }

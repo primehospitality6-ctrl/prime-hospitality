@@ -14,6 +14,7 @@ function destinationFromRow(row) {
     showOnHome: row.show_on_home !== false,
     published: row.published !== false,
     kwentraDestinationId: row.kwentra_destination_id || '',
+    createdBy: row.created_by || '',
   };
 }
 
@@ -27,6 +28,7 @@ function destinationToRow(item) {
     show_on_home: item.showOnHome !== false,
     published: item.published !== false,
     kwentra_destination_id: item.kwentraDestinationId || '',
+    created_by: item.createdBy || '',
     updated_at: new Date().toISOString(),
   };
 }
@@ -126,6 +128,7 @@ function unitFromRow(row) {
     driveFolderUrl: row.drive_folder_url || '',
     kwentraRoomTypeId: row.kwentra_room_type_id || '',
     kwentraRoomId: row.kwentra_room_id || '',
+    destinationOverride: row.destination_override || '',
     homeOrder: Number(row.home_order) || 999,
     searchOrder: Number(row.search_order) || 0,
     averageRating: Number(row.average_rating) || 0,
@@ -170,6 +173,7 @@ function unitToRow(item) {
     drive_folder_url: item.driveFolderUrl || '',
     kwentra_room_type_id: item.kwentraRoomTypeId || '',
     kwentra_room_id: item.kwentraRoomId || '',
+    destination_override: item.destinationOverride || '',
     home_order: Number.isFinite(Number(item.homeOrder)) ? Number(item.homeOrder) : 999,
     search_order: Number(item.searchOrder) || 0,
     average_rating: Number(item.averageRating) || 0,

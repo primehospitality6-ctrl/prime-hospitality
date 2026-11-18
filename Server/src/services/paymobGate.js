@@ -52,6 +52,8 @@ function statusOf(integrationId) {
 /** Why a property cannot take payments right now, or '' when it can. */
 function blockReason(compound) {
   if (!gateActive()) return '';
+  // Always-on properties stay on the site; their payments fall back to the website integration if needed.
+  if (require('../lib/specialProperties').isAlwaysOn(compound?.kwentraTenantId)) return '';
   const integration = integrations.integrationForProperty({ tenantId: compound?.kwentraTenantId, compound });
   if (!integration) return 'no Paymob integration ID for this property';
   const status = statusOf(integration.id);

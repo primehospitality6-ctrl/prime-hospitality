@@ -220,7 +220,8 @@ router.post(
   wrap(async (req, res) => {
     const body = req.body || {};
     if (!body.name) return res.status(400).json({ error: 'name is required' });
-    const item = await createDestination(body);
+    // Added by hand: the Kwentra sync must never remove it, even before anything is in it.
+    const item = await createDestination({ ...body, createdBy: 'admin' });
     res.status(201).json({ item });
   })
 );
