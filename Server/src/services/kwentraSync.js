@@ -279,7 +279,9 @@ function publicProperty(c) {
     latitude: c.latitude ?? null,
     longitude: c.longitude ?? null,
     facilities: c.facilities || [],
-    image: c.image || '',
+    // Cover: the uploaded photo, else the first photo of the property's Drive folder
+    image: c.image || (c.images || [])[0] || '',
+    images: c.images || [],
     sortOrder: c.sortOrder ?? 999,
     showOnHome: c.showOnHome !== false,
     published: c.published !== false,
@@ -383,7 +385,7 @@ function mappedRateId(planCode) {
  */
 function pickRate(rates = [], planCode) {
   const code = String(planCode || '').toUpperCase();
-  const usable = rates.filter((rate) => rate.quote > 0 && pms.planCodeForKwentraRate(rate.rateCode) === code);
+  const usable = rates.filter((rate) => rate.quote > 0 && (rate.plan || pms.planCodeForKwentraRate(rate.rateCode)) === code);
   const mapped = mappedRateId(code);
   const own = mapped ? usable.find((rate) => rate.rateId === mapped) : null;
   const match = own || usable[0];
@@ -513,7 +515,12 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
   const roomTypeId = String(listing?.kwentraRoomTypeId || '');
   if (!roomTypeId) return [];
   const tenant = tenantId ?? (await tenantForUnit(listing));
-  const channel = await kwentra.websiteChannel(tenant);
+  const [channel, definitions] = await Promise.all([
+    kwentra.websiteChannel(tenant),
+    kwentra.rateDefinitions(tenant).catch(() => []),
+  ]);
+  // The plan of each rate the website sells (a "Website" rate, or the Hotel Website channel's own rates)
+  const planOf = (rate) => definitions.find((d) => d.rateId === String(rate.rateId))?.plan || pms.planCodeForKwentraRate(rate.rateCode);
   const rates = await kwentra.quoteTotalStay({
     tenantId: tenant,
     arrivalDate,
@@ -524,9 +531,10 @@ async function roomTypeRates(listing, { arrivalDate, departureDate, adults = 2, 
     fresh,
   });
   return rates
-    .filter((rate) => rate.roomTypeId === roomTypeId && pms.planCodeForKwentraRate(rate.rateCode))
+    .map((rate) => ({ ...rate, plan: planOf(rate) }))
+    .filter((rate) => rate.roomTypeId === roomTypeId && rate.plan)
     .map((rate) => ({ ...rate, onWeb: true, onChannel: channel.rateIds.includes(rate.rateId) }))
-    .sort((a, b) => (pms.planCodeForKwentraRate(a.rateCode) === 'BB' ? 0 : 1) - (pms.planCodeForKwentraRate(b.rateCode) === 'BB' ? 0 : 1));
+    .sort((a, b) => (a.plan === 'BB' ? 0 : 1) - (b.plan === 'BB' ? 0 : 1));
 }
 
 /* ——— Availability ——— */

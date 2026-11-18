@@ -363,8 +363,9 @@ router.post(
   wrap(async (req, res) => {
     const body = req.body || {};
     if (!body.name) return res.status(400).json({ error: 'name is required' });
+    const photoWarning = await fillDrivePhotos(body);
     const item = await createCompound(body);
-    res.status(201).json({ item });
+    res.status(201).json({ item, photoWarning });
   })
 );
 
@@ -382,9 +383,14 @@ router.patch(
   '/compounds/:id',
   requireAdmin,
   wrap(async (req, res) => {
-    const item = await updateCompound(req.params.id, req.body || {});
+    const body = req.body || {};
+    const current = (await listCompounds()).find((c) => c.id === req.params.id);
+    if (!current) return res.status(404).json({ error: 'Compound not found' });
+    // A Drive folder link saved without photos loads them, like a unit's gallery
+    const photoWarning = await fillDrivePhotos(body, current);
+    const item = await updateCompound(req.params.id, body);
     if (!item) return res.status(404).json({ error: 'Compound not found' });
-    res.json({ item });
+    res.json({ item, photoWarning });
   })
 );
 

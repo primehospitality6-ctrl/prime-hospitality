@@ -11,7 +11,6 @@ const DETAIL_FIELDS = [
   ['buildingNumber', 'Building number', 'e.g. 176'],
   ['phone', 'Reception phone (staff only)', '+20…'],
   ['mapsUrl', 'Google Maps link', 'https://maps.app.goo.gl/…'],
-  ['driveFolderUrl', 'Photos — Google Drive folder (staff only)', 'https://drive.google.com/drive/folders/…'],
   ['factSheetUrl', 'Fact sheet link (staff only)', 'https://…'],
 ];
 
@@ -30,23 +29,31 @@ const EMPTY = {
   paymobIntegrationId: '',
   description: '',
   facilities: '',
+  driveFolderUrl: '',
+  images: [],
   ...Object.fromEntries(DETAIL_FIELDS.map(([key]) => [key, ''])),
 };
 
 function toForm(c) {
   if (!c) return EMPTY;
   const form = { ...EMPTY };
-  for (const key of [...BASIC_KEYS, 'description', ...DETAIL_FIELDS.map(([k]) => k)]) {
+  for (const key of [...BASIC_KEYS, 'description', 'driveFolderUrl', ...DETAIL_FIELDS.map(([k]) => k)]) {
     if (c[key] !== undefined && c[key] !== null) form[key] = c[key];
   }
   form.facilities = (c.facilities || []).join('\n');
+  form.images = Array.isArray(c.images) ? c.images : [];
   return form;
 }
 
 function detailsFilled(c) {
-  return DETAIL_FIELDS.filter(([key]) => c[key]).length + (c.facilities?.length ? 1 : 0) + (c.description ? 1 : 0);
+  return (
+    DETAIL_FIELDS.filter(([key]) => c[key]).length +
+    (c.facilities?.length ? 1 : 0) +
+    (c.description ? 1 : 0) +
+    (c.driveFolderUrl || c.images?.length ? 1 : 0)
+  );
 }
-const DETAIL_TOTAL = DETAIL_FIELDS.length + 2;
+const DETAIL_TOTAL = DETAIL_FIELDS.length + 3;
 
 const STATUS = {
   all: () => true,
@@ -61,12 +68,29 @@ function PropertyEditor({ open, property, destinations, unitCount, defaults, onC
   const brands = useBrands();
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
+  const [driveBusy, setDriveBusy] = useState(false);
 
   useEffect(() => {
     if (open) setForm(property ? toForm(property) : { ...EMPTY, ...defaults });
   }, [open, property, defaults]);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  async function loadDriveFolder() {
+    const url = String(form.driveFolderUrl || '').trim();
+    if (!url) return toast.error('Paste a Google Drive folder link first.');
+    setDriveBusy(true);
+    try {
+      const data = await api.adminDriveFolderImages(url);
+      const images = data.urls || (data.images || []).map((i) => i.url);
+      if (!images.length) toast.error('The Google Drive folder has no photos (or is not shared publicly).');
+      set({ driveFolderUrl: url, images });
+    } catch (err) {
+      toast.error(err.message || 'Could not load the Drive folder');
+    } finally {
+      setDriveBusy(false);
+    }
+  }
 
   async function save() {
     if (!form.name.trim()) return toast.error('Give the property a name.');
@@ -80,8 +104,11 @@ function PropertyEditor({ open, property, destinations, unitCount, defaults, onC
           .map((s) => s.trim())
           .filter(Boolean),
       };
-      if (property) await api.adminUpdateCompound(property.id, body);
-      else await api.adminCreateCompound(body);
+      // A changed folder link with the old photos still in the form: let the server reload them from the new folder
+      const folderChanged = String(form.driveFolderUrl || '').trim() !== String(property?.driveFolderUrl || '').trim();
+      if (folderChanged && JSON.stringify(form.images) === JSON.stringify(property?.images || [])) delete body.images;
+      const res = property ? await api.adminUpdateCompound(property.id, body) : await api.adminCreateCompound(body);
+      if (res?.photoWarning) toast.error(res.photoWarning);
       onSaved(property ? 'Property saved.' : 'Property created.');
     } catch (err) {
       toast.error(err.message);
@@ -178,6 +205,45 @@ function PropertyEditor({ open, property, destinations, unitCount, defaults, onC
             size="1200×900"
             onChange={(image) => set({ image })}
           />
+        </section>
+
+        <section>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em]">Photos — Google Drive folder</h3>
+          <p className="mt-1 text-xs text-prime-muted">
+            Share the folder as “Anyone with the link” and paste it; saving loads its photos, or use Load photos to preview. Without a cover photo, the first one is the property cover. Unit types of this property without a folder of their own can load from it too.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              className="prime-input min-w-[240px] flex-1"
+              value={form.driveFolderUrl || ''}
+              placeholder="https://drive.google.com/drive/folders/…"
+              onChange={(e) => set({ driveFolderUrl: e.target.value })}
+            />
+            <button type="button" className="prime-btn-outline" disabled={driveBusy} onClick={loadDriveFolder}>
+              {driveBusy ? 'Loading…' : 'Load photos'}
+            </button>
+          </div>
+          {form.images?.length ? (
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {form.images.map((src, i) => (
+                <div key={`${src}-${i}`} className="group relative aspect-[4/3] overflow-hidden border bg-prime-mist">
+                  <img src={src} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+                  {i === 0 && !form.image ? <Badge tone="gold" className="absolute start-1 top-1">Cover</Badge> : null}
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/60 px-1 py-0.5 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
+                    <button type="button" disabled={i === 0} className="px-1 disabled:opacity-30" title="Move left" onClick={() => set({ images: reorderList(form.images, i, i - 1) })}>
+                      ←
+                    </button>
+                    <button type="button" className="px-1" title="Remove photo" onClick={() => set({ images: form.images.filter((_, j) => j !== i) })}>
+                      Remove
+                    </button>
+                    <button type="button" disabled={i === form.images.length - 1} className="px-1 disabled:opacity-30" title="Move right" onClick={() => set({ images: reorderList(form.images, i, i + 1) })}>
+                      →
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">

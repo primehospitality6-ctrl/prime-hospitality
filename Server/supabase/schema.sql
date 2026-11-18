@@ -90,6 +90,8 @@ alter table compounds add column if not exists phone text not null default '';
 alter table compounds add column if not exists facilities jsonb not null default '[]'::jsonb;
 alter table compounds add column if not exists drive_folder_url text not null default '';
 alter table compounds add column if not exists fact_sheet_url text not null default '';
+-- Property photos loaded from its Google Drive folder (like a unit's gallery)
+alter table compounds add column if not exists images jsonb not null default '[]'::jsonb;
 
 -- Unit-type attributes: how many physical units, their numbers, floor, bed setup
 alter table units add column if not exists room_count integer;

@@ -922,10 +922,21 @@ async function fetchRateBody(id, tenant) {
   return last;
 }
 
+/** Website plan of a rate that is on the Hotel Website channel but not named "Website": BB when it includes breakfast. */
+function channelRatePlan(code) {
+  return /\b(bb|b\s*&\s*b|breakfast)\b/i.test(String(code || '')) ? 'BB' : 'RO';
+}
+
+const hasPricedRow = (definitions) =>
+  definitions.some((definition) => definition.rows.some((row) => (row.adults || []).some((amount) => Number(amount) > 0)));
+
 /**
  * Rate grids the website sells, in USD. A property's own website rate is accepted under
  * Hotel Website BB, Hotel Website Bed Only, Hotel Website, Website BB, or Website.
- * Other channel rates (Agoda, Booking.com, BAR, and the rest) are not loaded.
+ * When none of those has a price (Prime Residence Zayed Heights, tenant 1110: its "Hotel Website" rate
+ * is empty and the hotel sells "Best Available Rate BB / Bed Only" on its Hotel Website channel), the
+ * rates the property put on its own Hotel Website channel profile are sold instead.
+ * Other channel rates (Agoda, Booking.com, and the rest) are never loaded.
  */
 async function rateDefinitions(tenantId) {
   const tenant = String(tenantId || getTenantId());
@@ -934,39 +945,64 @@ async function rateDefinitions(tenantId) {
       console.warn('[kwentra] rate list failed:', err.message);
       return [];
     });
+    const codeOf = (rate) => rate?.code || rate?.rate_code || rate?.name || rate?.description || '';
     const chosen = [];
     for (const rate of listed) {
       const id = String(rate?.id ?? '');
-      const code = rate.code || rate.rate_code || rate.name || rate.description || '';
+      const code = codeOf(rate);
       const plan = planCodeForKwentraRate(code);
       if (!id || !plan || chosen.some((item) => item.id === id)) continue;
       chosen.push({ id, code, plan });
     }
 
-    const definitions = [];
-    for (const item of chosen) {
-      const loaded = await fetchRateBody(item.id, tenant);
-      if (!loaded?.rate) continue;
-      const rate = loaded.rate;
-      const code = rate.code || rate.rate_code || item.code || '';
-      const plan = planCodeForKwentraRate(code) || item.plan;
-      if (!plan) continue;
-      const currency = String(rate.currency?.code || rate.currency_code || (typeof rate.currency === 'string' ? rate.currency : '') || 'USD').toUpperCase();
-      if (currency && currency !== 'USD') continue;
-      definitions.push({
-        rateId: String(rate.id || item.id),
-        rateCode: code,
-        plan,
-        onWeb: true,
-        onChannel: true,
-        score: plan === 'BB' ? 0 : 1,
-        rows: (loaded.details || [])
-          .map(normalizeRateDetail)
-          .filter((row) => row.start && row.end && (row.allTypes || row.roomTypeIds.length)),
-      });
+    const load = async (items) => {
+      const out = [];
+      for (const item of items) {
+        const loaded = await fetchRateBody(item.id, tenant);
+        if (!loaded?.rate) continue;
+        const rate = loaded.rate;
+        const code = rate.code || rate.rate_code || item.code || '';
+        const plan = item.fromChannel ? item.plan : planCodeForKwentraRate(code) || item.plan;
+        if (!plan) continue;
+        const currency = String(rate.currency?.code || rate.currency_code || (typeof rate.currency === 'string' ? rate.currency : '') || 'USD').toUpperCase();
+        if (currency && currency !== 'USD') continue;
+        out.push({
+          rateId: String(rate.id || item.id),
+          rateCode: code,
+          plan,
+          fromChannel: Boolean(item.fromChannel),
+          onWeb: true,
+          onChannel: true,
+          score: plan === 'BB' ? 0 : 1,
+          rows: (loaded.details || [])
+            .map(normalizeRateDetail)
+            .filter((row) => row.start && row.end && (row.allTypes || row.roomTypeIds.length)),
+        });
+      }
+      return out;
+    };
+
+    let definitions = await load(chosen);
+    const pushedAll = webhookRatePlans.get(tenant) || [];
+    if (!hasPricedRow(definitions) && !hasPricedRow(pushedAll.filter((d) => planCodeForKwentraRate(d.rateCode)))) {
+      const channel = await websiteChannel(tenant);
+      const extra = channel.rateIds
+        .filter((id) => !chosen.some((item) => item.id === id))
+        .map((id) => {
+          const code = codeOf(listed.find((rate) => String(rate?.id ?? '') === id));
+          return { id, code, plan: channelRatePlan(code), fromChannel: true };
+        });
+      const fromChannel = (await load(extra)).map((definition) => ({ ...definition, plan: channelRatePlan(definition.rateCode) }));
+      if (hasPricedRow(fromChannel)) {
+        console.log(`[kwentra] tenant ${tenant}: no priced "Website" rate — selling its Hotel Website channel rates ${fromChannel.map((d) => `${d.rateId}:${d.rateCode}`).join(', ')}`);
+        definitions = [...definitions, ...fromChannel];
+      }
     }
     definitions.sort((a, b) => a.score - b.score || a.rateCode.localeCompare(b.rateCode));
-    const pushed = (webhookRatePlans.get(tenant) || []).filter((definition) => planCodeForKwentraRate(definition.rateCode));
+    const sold = new Set(definitions.map((definition) => definition.rateId));
+    const pushed = pushedAll
+      .filter((definition) => sold.has(definition.rateId) || planCodeForKwentraRate(definition.rateCode))
+      .map((definition) => ({ ...definition, plan: definitions.find((d) => d.rateId === definition.rateId)?.plan || definition.plan }));
     const pushedIds = new Set(pushed.map((definition) => definition.rateId));
     return [...pushed, ...definitions.filter((definition) => !pushedIds.has(definition.rateId))];
   });

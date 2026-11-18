@@ -60,6 +60,7 @@ function compoundFromRow(row) {
     phone: row.phone || '',
     facilities: list(row.facilities),
     driveFolderUrl: row.drive_folder_url || '',
+    images: list(row.images),
     factSheetUrl: row.fact_sheet_url || '',
     kwentraSnapshot: row.kwentra_snapshot || null,
   };
@@ -91,6 +92,7 @@ function compoundToRow(item) {
     phone: item.phone || '',
     facilities: list(item.facilities),
     drive_folder_url: item.driveFolderUrl || '',
+    images: list(item.images),
     fact_sheet_url: item.factSheetUrl || '',
     kwentra_snapshot: item.kwentraSnapshot || null,
     updated_at: new Date().toISOString(),
