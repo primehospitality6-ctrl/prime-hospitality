@@ -942,6 +942,18 @@ async function pullAvailability(listingOrSlug, { from, to, adults = 2, children 
     let rate = null;
     try {
       ({ prices, occupancy, rate } = await pricesFromRateGrid(listing, window.from, window.to, { adults, children, tenantId }));
+      // Properties sold room-only (or whose BB rate has no price) still show a nightly price.
+      const nights = Math.round((Date.parse(`${window.to}T00:00:00Z`) - Date.parse(`${window.from}T00:00:00Z`)) / 86400000);
+      if (Object.keys(prices).length < nights) {
+        const ro = await pricesFromRateGrid(listing, window.from, window.to, { adults, children, tenantId, planCode: 'RO' });
+        for (const [date, amount] of Object.entries(ro.prices || {})) {
+          if (!(prices[date] > 0)) {
+            prices[date] = amount;
+            if (ro.occupancy?.[date]) occupancy[date] = ro.occupancy[date];
+          }
+        }
+        rate = rate || ro.rate;
+      }
     } catch (err) {
       console.warn('[kwentra] rate grid failed, using total-stay:', err.message);
     }
