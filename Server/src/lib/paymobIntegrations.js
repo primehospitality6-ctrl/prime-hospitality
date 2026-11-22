@@ -12,36 +12,36 @@
  * Keyed by Kwentra tenant ID, which never changes when a property is renamed on the website or in Kwentra.
  */
 
-/** Kwentra tenant → Paymob integration (from the accountant, 2026-11-14). */
+/** Kwentra tenant → Paymob integration (from the accountant; 28 replaced with new live IDs 6071221–6071248 on 2026-11-22). */
 const PROPERTY_INTEGRATIONS = {
-  87: { id: '2180431', name: 'new cairo' }, // Prime Residence New Cairo
-  340: { id: '2207902', name: 'east town' }, // Prime Select Eastown Sodic
-  382: { id: '2203475', name: 'amwaj' }, // Prime Holidays Amwaj
-  386: { id: '2203491', name: 'village gate' }, // The Village Gate
-  427: { id: '2203562', name: 'seashell' }, // Prime Holidays Seashell
-  455: { id: '2203495', name: 'batal' }, // Prime Select El Batal
-  456: { id: '2203493', name: 'bavaria' }, // Prime Select Katameya Bavaria Town
-  465: { id: '2203557', name: 'porto new cairo' }, // Porto New Cairo
-  486: { id: '2203496', name: 'arkadia' }, // Prime Select Arkadia
-  491: { id: '2203555', name: 'new alamein' }, // Prime Residence New Alamein
-  493: { id: '2203561', name: '10 ramadan' }, // Prime Inn 10th of Ramadan
-  494: { id: '2203563', name: 'hacienda' }, // Prime Holidays Hacienda Bay
-  559: { id: '2203556', name: 'prime select lotus new cairo' }, // Al Manzel Lotus New Cairo
-  562: { id: '4266786', name: 'crown' }, // Prime Select The Crown
-  573: { id: '2203482', name: 'gamet el dewal' }, // Prime Select Gamet El Dewal
-  591: { id: '2203488', name: 'manzel zayed' }, // Almanzel Sheikh Zayed
-  596: { id: '2203490', name: 'masaken sheraton' }, // Prime Select Masaken Sheraton
-  622: { id: '2767292', name: 'cesar bay' }, // Prime Holidays Cesar Bay
-  624: { id: '2767293', name: 'r. zayed' }, // Prime Residence Sheikh Zayed
-  637: { id: '2767291', name: 'marvel' }, // Marvel City New Cairo
-  650: { id: '3420697', name: 's. point 90' }, // Point 90 New Cairo (the Select one)
-  679: { id: '3419634', name: 'west sodic' }, // Prime Select West Sodic
-  680: { id: '3419835', name: 'giza' }, // Prime Select New Giza
-  740: { id: '4351264', name: 'moon valley' }, // Prime Select Galleria Moon Valley
-  778: { id: '4044784', name: 'r. kattameya' }, // Prime Residence Kattameya
-  781: { id: '4044768', name: 'san stefano' }, // Prime Select San Stefano Alexandria
-  830: { id: '4351205', name: 'one kattameya' }, // Prime Select One Kattameya
-  878: { id: '4569989', name: 'point 90' }, // Prime Residence Point 90
+  87: { id: '6071221', name: 'residence new cairo' }, // Prime Residence New Cairo
+  340: { id: '6071222', name: 'select eastown sodic' }, // Prime Select Eastown Sodic
+  382: { id: '6071223', name: 'holidays amwaj' }, // Prime Holidays Amwaj
+  386: { id: '6071224', name: 'the village gate' }, // The Village Gate
+  427: { id: '6071225', name: 'holidays seashell' }, // Prime Holidays Seashell
+  455: { id: '6071226', name: 'select el batal' }, // Prime Select El Batal
+  456: { id: '6071227', name: 'select katameya bavaria town' }, // Prime Select Katameya Bavaria Town
+  465: { id: '6071228', name: 'select porto new cairo' }, // Porto New Cairo
+  486: { id: '6071229', name: 'select arkadia' }, // Prime Select Arkadia
+  491: { id: '6071230', name: 'residence new alamein' }, // Prime Residence New Alamein
+  493: { id: '6071231', name: 'prime inn asher men ramadan' }, // Prime Inn 10th of Ramadan
+  494: { id: '6071232', name: 'holidays hacienda bay' }, // Prime Holidays Hacienda Bay
+  559: { id: '6071233', name: 'al manzel lotus' }, // Al Manzel Lotus New Cairo
+  562: { id: '6071234', name: 'select the crown' }, // Prime Select The Crown
+  573: { id: '6071235', name: 'select gamet el dewal' }, // Prime Select Gamet El Dewal
+  591: { id: '6071236', name: 'almanzel sheikh zayed' }, // Almanzel Sheikh Zayed
+  596: { id: '6071237', name: 'select masaken sheraton' }, // Prime Select Masaken Sheraton
+  622: { id: '6071238', name: 'holidays cesar bay' }, // Prime Holidays Cesar Bay
+  624: { id: '6071239', name: 'residence sheikh zayed' }, // Prime Residence Sheikh Zayed
+  637: { id: '6071240', name: 'select marvel city' }, // Marvel City New Cairo
+  650: { id: '6071241', name: 'select point' }, // Point 90 New Cairo (the Select one)
+  679: { id: '6071242', name: 'select west sodic' }, // Prime Select West Sodic
+  680: { id: '6071243', name: 'select new giza' }, // Prime Select New Giza
+  740: { id: '6071244', name: 'select galleria moon valley' }, // Prime Select Galleria Moon Valley
+  778: { id: '6071245', name: 'prime residence kattameya' }, // Prime Residence Kattameya
+  781: { id: '6071246', name: 'prime select san stefano' }, // Prime Select San Stefano Alexandria
+  830: { id: '6071247', name: 'prime select one kattameya' }, // Prime Select One Kattameya
+  878: { id: '6071248', name: 'prime residence point' }, // Prime Residence Point 90
   889: { id: '5065251', name: 'lake view' }, // Prime Select Lake View
   913: { id: '5065255', name: 'avenue 90' }, // Prime Select 90 Avenue
   977: { id: '5065253', name: 'mall of arabia' }, // Prime Select Mall Of Arabia
