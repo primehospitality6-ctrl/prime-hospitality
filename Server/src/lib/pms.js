@@ -110,7 +110,11 @@ function findRatePlan(code) {
 function planCodeForKwentraRate(code) {
   const name = String(code || '').trim().toLowerCase().replace(/\s+/g, ' ');
   if (!name) return '';
-  return RATE_PLANS.find((plan) => (plan.kwentraNames || []).includes(name))?.code || '';
+  const listed = RATE_PLANS.find((plan) => (plan.kwentraNames || []).includes(name))?.code;
+  if (listed) return listed;
+  // Any rate named with "website" is a website rate: "BB" / "breakfast" in the name → BB, otherwise room only.
+  if (!/web\s*-?\s*site/.test(name)) return '';
+  return /(^|[^a-z])bb([^a-z]|$)|b\s*&\s*b|breakfast/.test(name) ? 'BB' : 'RO';
 }
 
 function ratePlansForStay(nights) {
