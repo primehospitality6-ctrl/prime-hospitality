@@ -223,6 +223,14 @@ create table if not exists paymob_integration_checks (
 );
 alter table paymob_integration_checks enable row level security;
 
+-- One-time content updates that already ran on this database (src/services/contentPatch.js)
+create table if not exists data_patches (
+  id text primary key,
+  report jsonb not null default '{}'::jsonb,
+  applied_at timestamptz not null default now()
+);
+alter table data_patches enable row level security;
+
 -- Serial behind website voucher numbers (PHW-YYYY-000001)
 create sequence if not exists booking_voucher_seq;
 

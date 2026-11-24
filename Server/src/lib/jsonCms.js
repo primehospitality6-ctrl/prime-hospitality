@@ -690,6 +690,19 @@ async function saveIntegrationCheck(record) {
   });
 }
 
+/* ——— One-time data patches ——— */
+async function isDataPatchApplied(id) {
+  return Boolean((readStore().dataPatches || {})[String(id)]);
+}
+
+async function markDataPatchApplied(id, report = {}) {
+  updateStore((s) => {
+    s.dataPatches = s.dataPatches || {};
+    s.dataPatches[String(id)] = { report, appliedAt: new Date().toISOString() };
+    return s;
+  });
+}
+
 async function listBookings() {
   return readStore().bookings;
 }
@@ -753,4 +766,6 @@ module.exports = {
   findBooking,
   listIntegrationChecks,
   saveIntegrationCheck,
+  isDataPatchApplied,
+  markDataPatchApplied,
 };

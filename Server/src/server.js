@@ -18,6 +18,10 @@ bootApp()
       setImmediate(() => {
         try {
           const sync = require('./services/kwentraSync');
+          // One-time unit/property content from the company's description sheets (skipped once applied).
+          require('./services/contentPatch')
+            .applyContentPatch()
+            .catch((err) => console.warn('[content] patch failed:', err.message));
           sync.startAutoSync();
           sync.warmAvailability().catch((err) => console.warn('[kwentra] boot availability failed:', err.message));
           require('./services/emailService').warm();

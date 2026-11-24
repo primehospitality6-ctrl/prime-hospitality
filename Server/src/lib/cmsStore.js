@@ -146,4 +146,6 @@ module.exports = {
   findBooking: (...args) => backend().findBooking(...args),
   listIntegrationChecks: (...args) => backend().listIntegrationChecks(...args),
   saveIntegrationCheck: (...args) => backend().saveIntegrationCheck(...args),
+  isDataPatchApplied: (...args) => backend().isDataPatchApplied(...args),
+  markDataPatchApplied: (...args) => backend().markDataPatchApplied(...args),
 };

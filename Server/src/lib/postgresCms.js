@@ -630,6 +630,18 @@ async function saveIntegrationCheck({ integrationId, ok, name, reason, checkedAt
   );
 }
 
+/* ——— One-time data patches ——— */
+async function isDataPatchApplied(id) {
+  return Boolean(await one('select id from data_patches where id = $1', [String(id)]));
+}
+
+async function markDataPatchApplied(id, report = {}) {
+  await query(
+    'insert into data_patches (id, report, applied_at) values ($1, $2, now()) on conflict (id) do update set report = excluded.report, applied_at = now()',
+    [String(id), JSON.stringify(report || {})]
+  );
+}
+
 async function listBookings() {
   return (await rows('select * from bookings order by created_at desc')).map(bookingFromRow);
 }
@@ -765,6 +777,8 @@ module.exports = {
   findBooking,
   listIntegrationChecks,
   saveIntegrationCheck,
+  isDataPatchApplied,
+  markDataPatchApplied,
   applySchema,
   seedIfEmpty,
   DEFAULT_SLIDESHOW,
