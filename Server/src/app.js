@@ -78,6 +78,17 @@ function createApp() {
     next();
   });
 
+  // Public, read-only site data may be reused by the browser for a minute and refreshed in the
+  // background after that. A route that sets its own Cache-Control (prices, availability…) wins.
+  const CACHEABLE = /^\/api\/(content|compounds|properties|destinations|units)(\/|\?|$)/;
+  const LIVE = /\/(availability|pricing|occupancy)(\/|\?|$)/;
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && CACHEABLE.test(req.originalUrl) && !LIVE.test(req.originalUrl)) {
+      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=600');
+    }
+    next();
+  });
+
   app.use(
     '/api/',
     rateLimit({

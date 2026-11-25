@@ -50,6 +50,24 @@ function offerFor(unit, offers) {
 }
 
 /** Room numbers, Drive links and sync bookkeeping are for staff only */
+/**
+ * A stay as the cards and lists need it: two photos, a short description, a few amenities. The full
+ * record (gallery, occupancy table, reviews…) comes from GET /api/units/:slug on the stay's own page.
+ * This keeps the catalog small (it was ~150 KB compressed with every gallery in it).
+ */
+function listUnit(unit, offers = []) {
+  const full = publicUnit(unit, offers);
+  const { occupancies: _o, reviews: _r, facilities: _f, ...card } = full;
+  const text = String(full.description || '');
+  return {
+    ...card,
+    images: (full.images || []).slice(0, 2),
+    imageCount: (full.images || []).length,
+    amenities: (full.amenities || []).slice(0, 6),
+    description: text.length > 240 ? `${text.slice(0, text.lastIndexOf(' ', 237) > 120 ? text.lastIndexOf(' ', 237) : 237)}…` : text,
+  };
+}
+
 function publicUnit(unit, offers = []) {
   const { unitNumbers: _n, kwentraSnapshot: _s, driveFolderUrl: _d, completeness: _c, live: _l, ...rest } = unit;
   return { ...rest, currency: 'USD', offer: offerFor(unit, offers) };
@@ -122,8 +140,9 @@ router.get(
     const total = items.length;
     const limit = req.query.limit ? Number(req.query.limit) : items.length;
     const offset = req.query.offset ? Number(req.query.offset) : 0;
-    items = items.slice(offset, offset + limit).map((l) => publicUnit(l, offers));
-    res.set('Cache-Control', 'public, max-age=15');
+    const full = req.query.full === '1' || req.query.full === 'true';
+    items = items.slice(offset, offset + limit).map((l) => (full ? publicUnit(l, offers) : listUnit(l, offers)));
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json({ items, total });
   })
 );
