@@ -159,4 +159,30 @@ async function applyContentPatch({ force = false } = {}) {
   return report;
 }
 
-module.exports = { applyContentPatch, unitPatch, amenitiesOf, describe };
+/** The company's contact numbers (2026-11-25): three WhatsApp lines and three landlines. */
+const CONTACT_PATCH_ID = 'contact-numbers-2026-11-25';
+const WHATSAPPS = ['+201068233367', '+201001602264', '+201113777737'];
+const LANDLINES = [
+  { number: '+20225727262', display: '+20 2 2572 7262' },
+  { number: '+20225727263', display: '+20 2 2572 7263' },
+  { number: '+20225727265', display: '+20 2 2572 7265' },
+];
+
+async function applyContactNumbers({ force = false } = {}) {
+  if (!force && (await alreadyApplied(CONTACT_PATCH_ID))) return { id: CONTACT_PATCH_ID, skipped: true };
+  const site = await store.getSite();
+  const business = {
+    ...(site?.business || {}),
+    phones: LANDLINES.map((p) => ({ ...p, label: { en: '', ar: '' } })),
+    whatsapps: WHATSAPPS.map((number) => ({ number, label: { en: '', ar: '' } })),
+  };
+  delete business.phone;
+  delete business.phoneDisplay;
+  delete business.whatsapp;
+  await store.saveSite({ business });
+  await store.markDataPatchApplied(CONTACT_PATCH_ID, { whatsapps: WHATSAPPS.length, phones: LANDLINES.length });
+  console.log(`[content] ${CONTACT_PATCH_ID}: ${WHATSAPPS.length} WhatsApp lines and ${LANDLINES.length} landlines saved`);
+  return { id: CONTACT_PATCH_ID, applied: true };
+}
+
+module.exports = { applyContentPatch, applyContactNumbers, unitPatch, amenitiesOf, describe };

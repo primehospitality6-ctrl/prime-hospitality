@@ -22,6 +22,9 @@ bootApp()
           require('./services/contentPatch')
             .applyContentPatch()
             .catch((err) => console.warn('[content] patch failed:', err.message));
+          require('./services/contentPatch')
+            .applyContactNumbers()
+            .catch((err) => console.warn('[content] contact numbers failed:', err.message));
           sync.startAutoSync();
           sync.warmAvailability().catch((err) => console.warn('[kwentra] boot availability failed:', err.message));
           require('./services/emailService').warm();

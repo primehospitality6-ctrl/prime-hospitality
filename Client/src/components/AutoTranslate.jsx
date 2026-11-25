@@ -15,7 +15,8 @@ const BASE = apiBase(import.meta.env.VITE_API_URL);
 const ARABIC = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/;
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'TEXTAREA', 'SVG', 'IFRAME', 'TEMPLATE']);
 const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
-const STORE_KEY = 'prime.tr.ar.v1';
+// v2: brand names are kept as برايم … (v1 could hold Google's literal "Prime" translations)
+const STORE_KEY = 'prime.tr.ar.v2';
 const STORE_MAX = 4000;
 
 /** Text worth translating: has real words, no Arabic, and is not a number, price, email, phone or link. */

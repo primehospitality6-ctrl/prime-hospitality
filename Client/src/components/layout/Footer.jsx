@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { ArrowUp, ArrowUpRight, Facebook, Instagram, Linkedin, Music2 } from 'lucide-react';
-import { brand, phoneLines, whatsappHref } from '../../theme/brand';
+import { ArrowUp, ArrowUpRight, Facebook, Instagram, Linkedin, Mail, Music2, Phone } from 'lucide-react';
+import { brand, formatPhone, phoneLines, whatsappHref, whatsappLines } from '../../theme/brand';
+import WhatsAppIcon from '../ui/WhatsAppIcon';
 import { useLocale } from '../../context/LocaleContext';
 import { useBrands, useSite } from '../../context/SiteContext';
 import Wordmark from '../ui/Wordmark';
@@ -89,17 +90,33 @@ export default function Footer() {
             <BrandLogo loading="lazy" className="h-10 w-auto" />
             <address className="mt-9 space-y-2.5 text-[13.5px] font-light not-italic leading-relaxed text-prime-on/60">
               <p>{term(brand.address)}</p>
-              {phoneLines().map((line, i) => (
-                <a key={`${line.number}-${i}`} href={`tel:${line.number}`} className="prime-tap flex gap-2 transition hover:text-prime-on">
-                  <span className="text-prime-gold-deep">m.</span>
-                  <span dir="ltr">{line.display}</span>
+              {whatsappLines().map((line, i) => (
+                <a
+                  key={`wa-${line.number}-${i}`}
+                  href={whatsappHref(t('footer.whatsappMsg'), line.number)}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`WhatsApp ${formatPhone(line.number)}`}
+                  className="prime-tap flex items-center gap-2.5 transition hover:text-prime-on"
+                >
+                  <WhatsAppIcon size={15} className="shrink-0 text-prime-gold-deep" />
+                  <span dir="ltr">{formatPhone(line.number)}</span>
                   {line.label?.[locale] || line.label?.en ? (
                     <span className="text-prime-on/40">· {line.label[locale] || line.label.en}</span>
                   ) : null}
                 </a>
               ))}
-              <a href={`mailto:${brand.email}`} className="prime-tap flex gap-2 transition hover:text-prime-on">
-                <span className="text-prime-gold-deep">e.</span>
+              {phoneLines().map((line, i) => (
+                <a key={`${line.number}-${i}`} href={`tel:${line.number}`} aria-label={`Phone ${line.display || formatPhone(line.number)}`} className="prime-tap flex items-center gap-2.5 transition hover:text-prime-on">
+                  <Phone size={15} strokeWidth={1.75} className="shrink-0 text-prime-gold-deep" aria-hidden />
+                  <span dir="ltr">{line.display || formatPhone(line.number)}</span>
+                  {line.label?.[locale] || line.label?.en ? (
+                    <span className="text-prime-on/40">· {line.label[locale] || line.label.en}</span>
+                  ) : null}
+                </a>
+              ))}
+              <a href={`mailto:${brand.email}`} className="prime-tap flex items-center gap-2.5 transition hover:text-prime-on">
+                <Mail size={15} strokeWidth={1.75} className="shrink-0 text-prime-gold-deep" aria-hidden />
                 {brand.email}
               </a>
             </address>

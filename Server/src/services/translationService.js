@@ -29,7 +29,19 @@ const BRAND_AR = [
   [/\bPrime Hospitality\b/g, 'برايم للضيافة'],
 ];
 
-const idOf = (lang, text) => crypto.createHash('sha1').update(`${lang}\u0000${text}`).digest('hex');
+/**
+ * Sent to Google on their own, brand names come back as literal words ("Prime Inn" → "رئيس الوزراء نزل").
+ * So they are put into Arabic before translating; a bare "Prime" becomes برايم too.
+ */
+const BRAND_BEFORE = [...BRAND_AR, [/\bPRIME\b|\bPrime\b/g, 'برايم']];
+function brandsToArabic(text) {
+  let out = text;
+  for (const [re, ar] of BRAND_BEFORE) out = out.replace(re, ar);
+  return out;
+}
+
+// v2 in the key: entries saved before brand protection are never used again.
+const idOf = (lang, text) => crypto.createHash('sha1').update(`${lang}\u0000v2\u0000${text}`).digest('hex');
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
 /** Does this text need translating into `to`? */
@@ -151,11 +163,25 @@ async function translateTexts(texts, to) {
     }
   }
 
-  const missing = [...todo.entries()].filter(([id]) => !found.has(id));
+  let missing = [...todo.entries()].filter(([id]) => !found.has(id));
+  // Brand names first; what is then already all Arabic (e.g. "Prime Inn") needs no engine at all.
+  const prepared = new Map(missing.map(([id, s]) => [id, to === 'ar' ? brandsToArabic(s) : s]));
+  if (to === 'ar') {
+    const direct = missing.filter(([id]) => (prepared.get(id).match(LATIN) || []).length < 2);
+    if (direct.length) {
+      const rows = direct.map(([id, s]) => ({ id, lang: to, source: s, translated: finish(prepared.get(id), to), provider: 'brand' }));
+      for (const row of rows) {
+        found.set(row.id, row.translated);
+        remember(row.id, row.translated);
+      }
+      saveTranslations(rows).catch((err) => console.warn('[translate] cache write failed:', err.message));
+      missing = missing.filter(([id]) => !found.has(id));
+    }
+  }
   const chars = missing.reduce((n, [, s]) => n + s.length, 0);
   if (missing.length && takeBudget(chars)) {
     try {
-      const { results, provider } = await runBatches(missing.map(([, s]) => s), to);
+      const { results, provider } = await runBatches(missing.map(([id]) => prepared.get(id)), to);
       const rows = missing.map(([id, s], i) => ({ id, lang: to, source: s, translated: results[i] || s, provider }));
       for (const row of rows) {
         found.set(row.id, row.translated);

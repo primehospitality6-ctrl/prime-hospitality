@@ -58,10 +58,10 @@ function applyBusiness(business = {}) {
     tagline: pick(business.tagline, BRAND_DEFAULTS.tagline),
     email: pick(business.email, BRAND_DEFAULTS.email),
     whatsapp: pick(business.whatsapp, BRAND_DEFAULTS.whatsapp),
-    phone: pick(business.phone || business.whatsapp, BRAND_DEFAULTS.whatsapp),
+    phone: pick(business.phone, BRAND_DEFAULTS.phone),
     phoneDisplay: pick(business.phoneDisplay || business.phone, BRAND_DEFAULTS.phoneDisplay),
-    phones: Array.isArray(business.phones) ? business.phones.filter((p) => p?.number) : [],
-    whatsapps: Array.isArray(business.whatsapps) ? business.whatsapps.filter((w) => w?.number) : [],
+    phones: Array.isArray(business.phones) && business.phones.some((p) => p?.number) ? business.phones.filter((p) => p?.number) : BRAND_DEFAULTS.phones,
+    whatsapps: Array.isArray(business.whatsapps) && business.whatsapps.some((w) => w?.number) ? business.whatsapps.filter((w) => w?.number) : BRAND_DEFAULTS.whatsapps,
     address: pick(business.address, BRAND_DEFAULTS.address),
     social: {
       instagram: pick(business.instagram, BRAND_DEFAULTS.social.instagram),

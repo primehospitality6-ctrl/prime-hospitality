@@ -19,8 +19,20 @@ export const brand = {
     gold: '#8C704D',
     muted: '#6D6E71',
   },
-  whatsapp: import.meta.env.VITE_WHATSAPP_NUMBER || '+201000000000',
-  phoneDisplay: import.meta.env.VITE_PHONE_DISPLAY || '0100 000 0000',
+  whatsapp: import.meta.env.VITE_WHATSAPP_NUMBER || '+201068233367',
+  phone: '+20225727262',
+  phoneDisplay: import.meta.env.VITE_PHONE_DISPLAY || '+20 2 2572 7262',
+  /** Used until the Business settings load (and if they are ever empty) */
+  phones: [
+    { number: '+20225727262', display: '+20 2 2572 7262', label: {} },
+    { number: '+20225727263', display: '+20 2 2572 7263', label: {} },
+    { number: '+20225727265', display: '+20 2 2572 7265', label: {} },
+  ],
+  whatsapps: [
+    { number: '+201068233367', label: {} },
+    { number: '+201001602264', label: {} },
+    { number: '+201113777737', label: {} },
+  ],
   email: import.meta.env.VITE_CONTACT_EMAIL || 'hello@primehospitality.com',
   address: 'New Cairo, Egypt',
   social: {
@@ -59,6 +71,15 @@ export function phoneLines() {
 export function whatsappLines() {
   if (brand.whatsapps?.length) return brand.whatsapps;
   return brand.whatsapp ? [{ number: brand.whatsapp, label: {} }] : [];
+}
+
+/** Readable international form: +20 106 823 3367 (mobile), +20 2 2572 7262 (Cairo landline). */
+export function formatPhone(number) {
+  const d = String(number || '').replace(/\D/g, '');
+  if (/^201\d{9}$/.test(d)) return `+20 ${d.slice(2, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
+  if (/^202\d{8}$/.test(d)) return `+20 2 ${d.slice(3, 7)} ${d.slice(7)}`;
+  if (/^20\d+$/.test(d)) return `+20 ${d.slice(2)}`;
+  return number ? String(number) : '';
 }
 
 /** wa.me link for a number (defaults to the main WhatsApp line) */
