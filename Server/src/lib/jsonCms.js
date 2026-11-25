@@ -703,6 +703,24 @@ async function markDataPatchApplied(id, report = {}) {
   });
 }
 
+/* ——— Translations cache ——— */
+async function getTranslations(ids) {
+  const map = readStore().translations || {};
+  return [...new Set((ids || []).map(String))].map((id) => map[id]).filter(Boolean);
+}
+
+async function saveTranslations(items) {
+  updateStore((s) => {
+    s.translations = s.translations || {};
+    for (const t of items || []) {
+      const current = s.translations[String(t.id)];
+      if (current?.manual && !t.manual) continue;
+      s.translations[String(t.id)] = { ...t, id: String(t.id) };
+    }
+    return s;
+  });
+}
+
 async function listBookings() {
   return readStore().bookings;
 }
@@ -768,4 +786,6 @@ module.exports = {
   saveIntegrationCheck,
   isDataPatchApplied,
   markDataPatchApplied,
+  getTranslations,
+  saveTranslations,
 };

@@ -113,6 +113,7 @@ function createApp() {
   app.use('/api/bookings', bookingsRoutes);
   app.use('/api/inquiries', inquiriesRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/i18n', require('./routes/i18n'));
 
   // Headless Kwentra + on-site payments (zero guest redirects)
   const kwentraRoutes = require('./routes/kwentraRoutes');

@@ -231,6 +231,18 @@ create table if not exists data_patches (
 );
 alter table data_patches enable row level security;
 
+-- Automatic translations of site text (one row per text and language); manual = typed by staff, never replaced
+create table if not exists translations (
+  id text primary key,
+  lang text not null,
+  source text not null,
+  translated text not null,
+  provider text not null default '',
+  manual boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table translations enable row level security;
+
 -- Serial behind website voucher numbers (PHW-YYYY-000001)
 create sequence if not exists booking_voucher_seq;
 

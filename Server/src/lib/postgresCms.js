@@ -642,6 +642,31 @@ async function markDataPatchApplied(id, report = {}) {
   );
 }
 
+/* ——— Translations cache ——— */
+async function getTranslations(ids) {
+  const list = [...new Set((ids || []).map(String))];
+  if (!list.length) return [];
+  return (await rows('select id, lang, source, translated, provider, manual from translations where id = any($1)', [list])).map((r) => ({
+    id: r.id,
+    lang: r.lang,
+    source: r.source,
+    translated: r.translated,
+    provider: r.provider || '',
+    manual: r.manual === true,
+  }));
+}
+
+async function saveTranslations(items) {
+  for (const t of items || []) {
+    await query(
+      `insert into translations (id, lang, source, translated, provider, manual) values ($1, $2, $3, $4, $5, $6)
+       on conflict (id) do update set translated = excluded.translated, provider = excluded.provider, manual = excluded.manual
+       where translations.manual = false or excluded.manual = true`,
+      [String(t.id), t.lang, t.source, t.translated, t.provider || '', Boolean(t.manual)]
+    );
+  }
+}
+
 async function listBookings() {
   return (await rows('select * from bookings order by created_at desc')).map(bookingFromRow);
 }
@@ -779,6 +804,8 @@ module.exports = {
   saveIntegrationCheck,
   isDataPatchApplied,
   markDataPatchApplied,
+  getTranslations,
+  saveTranslations,
   applySchema,
   seedIfEmpty,
   DEFAULT_SLIDESHOW,

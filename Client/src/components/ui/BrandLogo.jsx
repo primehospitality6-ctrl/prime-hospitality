@@ -6,8 +6,8 @@ export default function BrandLogo({ className, alt = brand.name, loading }) {
   const common = { alt, width: 640, height: 228, loading };
   return (
     <>
-      <img src={brand.logoDark} {...common} className={cn('dark:hidden', className)} />
-      <img src={brand.logoLight} {...common} aria-hidden={alt ? undefined : true} className={cn('hidden dark:block', className)} />
+      <img src={brand.logoDark} {...common} translate="no" className={cn('dark:hidden', className)} />
+      <img src={brand.logoLight} {...common} translate="no" aria-hidden={alt ? undefined : true} className={cn('hidden dark:block', className)} />
     </>
   );
 }

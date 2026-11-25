@@ -148,4 +148,6 @@ module.exports = {
   saveIntegrationCheck: (...args) => backend().saveIntegrationCheck(...args),
   isDataPatchApplied: (...args) => backend().isDataPatchApplied(...args),
   markDataPatchApplied: (...args) => backend().markDataPatchApplied(...args),
+  getTranslations: (...args) => backend().getTranslations(...args),
+  saveTranslations: (...args) => backend().saveTranslations(...args),
 };

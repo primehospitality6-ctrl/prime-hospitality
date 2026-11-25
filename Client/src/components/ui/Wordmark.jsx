@@ -20,7 +20,7 @@ function syllablesOf(word) {
 export default function Wordmark({ word = 'Hospitality', syllables, className, style }) {
   const lines = syllables || syllablesOf(word);
   return (
-    <span aria-hidden className={cn('prime-wordmark', className)} style={style} dir="ltr">
+    <span aria-hidden translate="no" className={cn('prime-wordmark', className)} style={style} dir="ltr">
       {lines.map((line, i) => (
         <span key={`${line}-${i}`}>{line}</span>
       ))}

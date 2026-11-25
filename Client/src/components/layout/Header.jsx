@@ -270,6 +270,7 @@ export default function Header({ overHero = false, heroTone = 'theme' }) {
             <button
               type="button"
               onClick={toggleLocale}
+              translate="no"
               className="hidden p-2 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-100 md:inline-flex"
               aria-label={t('a11y.switchLanguage')}
             >
@@ -385,7 +386,7 @@ export default function Header({ overHero = false, heroTone = 'theme' }) {
                   </Link>
                 </div>
                 <CurrencySelect />
-                <button type="button" onClick={toggleLocale} className="transition hover:text-prime-on">
+                <button type="button" onClick={toggleLocale} translate="no" className="transition hover:text-prime-on">
                   {locale === 'en' ? 'عربي' : 'English'}
                 </button>
               </div>
